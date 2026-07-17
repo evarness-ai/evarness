@@ -40,6 +40,7 @@ verdict is about the evidence, so checking a run never changes its canonical
 digest. Results attach to RunResult.invariants, are persisted with the
 run, and are re-checkable from stored events.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -56,9 +57,11 @@ def register_invariant_check(name: str):
     """Register a named predicate usable as ``satisfies: <name>`` in matchers.
     The function receives one event dict ``{seq, ts, node_id, type, payload}``
     and returns truthy when the event satisfies the condition."""
+
     def deco(fn: Callable[[dict], bool]):
         CHECKS[name] = fn
         return fn
+
     return deco
 
 
@@ -78,9 +81,9 @@ _SECTIONS = ("invariants",)
 def load_invariant_defs(extra: dict | None = None) -> dict[str, dict]:
     """Merged contract definitions: packaged < user overlay < caller-supplied
     ``extra`` (pattern-local)."""
-    data = load_overlaid_yaml(_PACKAGED, "EVARNESS_INVARIANTS",
-                              Path.home() / ".evarness" / "invariants.yaml",
-                              _SECTIONS)
+    data = load_overlaid_yaml(
+        _PACKAGED, "EVARNESS_INVARIANTS", Path.home() / ".evarness" / "invariants.yaml", _SECTIONS
+    )
     defs = dict(data.get("invariants") or {})
     if extra:
         defs.update(extra)
@@ -146,12 +149,13 @@ def _matches(event: dict, matcher: dict) -> bool:
 
 # ------------------------------------------------------------- primitives
 
+
 def _assert_never(spec: dict, events: list[dict]) -> tuple[bool, str, list[int]]:
     matcher = {k: v for k, v in spec.items() if k != "after"}
     scope = events
     if "after" in spec:
         idx = next((i for i, e in enumerate(events) if _matches(e, spec["after"])), None)
-        scope = events[idx + 1:] if idx is not None else []
+        scope = events[idx + 1 :] if idx is not None else []
     hits = [e["seq"] for e in scope if _matches(e, matcher)]
     if hits:
         return False, f"{len(hits)} forbidden event(s) matched", hits[:5]
@@ -193,14 +197,18 @@ def _assert_precedes(spec: dict, events: list[dict]) -> tuple[bool, str, list[in
     return True, "ordering holds", []
 
 
-_PRIMITIVES = {"never": _assert_never, "eventually": _assert_eventually,
-               "every": _assert_every, "precedes": _assert_precedes}
+_PRIMITIVES = {
+    "never": _assert_never,
+    "eventually": _assert_eventually,
+    "every": _assert_every,
+    "precedes": _assert_precedes,
+}
 
 
 # ------------------------------------------------------------- checking
 
-def check_invariants(ids: list[str], events: list[dict],
-                     extra: dict | None = None) -> dict:
+
+def check_invariants(ids: list[str], events: list[dict], extra: dict | None = None) -> dict:
     """Evaluate the graph's declared invariants against a finished run's events.
 
     Returns ``{passed, failed, results: [{id, ok, detail, evidence_seq}]}``.
@@ -212,24 +220,38 @@ def check_invariants(ids: list[str], events: list[dict],
     for inv_id in ids:
         spec = defs.get(inv_id)
         if spec is None:
-            results.append({"id": inv_id, "ok": False, "evidence_seq": [],
-                            "detail": "unknown invariant — not defined in packaged, "
-                                      "overlay, or pattern-local invariants.yaml"})
+            results.append(
+                {
+                    "id": inv_id,
+                    "ok": False,
+                    "evidence_seq": [],
+                    "detail": "unknown invariant — not defined in packaged, "
+                    "overlay, or pattern-local invariants.yaml",
+                }
+            )
             continue
         body = (spec or {}).get("assert") or {}
         try:
             if len(body) != 1:
                 raise InvariantConfigError(
-                    f"'assert' must contain exactly one of {sorted(_PRIMITIVES)}")
-            (prim, prim_spec), = body.items()
+                    f"'assert' must contain exactly one of {sorted(_PRIMITIVES)}"
+                )
+            ((prim, prim_spec),) = body.items()
             if prim not in _PRIMITIVES:
                 raise InvariantConfigError(f"unknown primitive '{prim}'")
             ok, detail, evidence = _PRIMITIVES[prim](prim_spec or {}, events)
-            results.append({"id": inv_id, "ok": ok, "detail": detail,
-                            "evidence_seq": evidence})
+            results.append({"id": inv_id, "ok": ok, "detail": detail, "evidence_seq": evidence})
         except InvariantConfigError as exc:
-            results.append({"id": inv_id, "ok": False, "evidence_seq": [],
-                            "detail": f"uncheckable contract: {exc}"})
-    return {"passed": sum(1 for r in results if r["ok"]),
-            "failed": sum(1 for r in results if not r["ok"]),
-            "results": results}
+            results.append(
+                {
+                    "id": inv_id,
+                    "ok": False,
+                    "evidence_seq": [],
+                    "detail": f"uncheckable contract: {exc}",
+                }
+            )
+    return {
+        "passed": sum(1 for r in results if r["ok"]),
+        "failed": sum(1 for r in results if not r["ok"]),
+        "results": results,
+    }

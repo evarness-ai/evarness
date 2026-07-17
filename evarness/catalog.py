@@ -11,6 +11,7 @@ This release resolves manifests only — every tool executes in simulation.
 Real executors, python-plugin tools, and MCP-imported tools are later
 capabilities.
 """
+
 from __future__ import annotations
 
 import os
@@ -58,6 +59,13 @@ def tool_spec(tool_id: str) -> ToolSpec | None:
 
 
 def list_tools() -> list[dict]:
-    return [{"id": s.id, "version": s.version, "category": s.category,
-             "side_effects": s.safety.side_effects, "source": s.source}
-            for s in builtin_specs() + user_tool_specs()]
+    return [
+        {
+            "id": s.id,
+            "version": s.version,
+            "category": s.category,
+            "side_effects": s.safety.side_effects,
+            "source": s.source,
+        }
+        for s in builtin_specs() + user_tool_specs()
+    ]

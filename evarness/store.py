@@ -1,6 +1,7 @@
 """SQLite persistence + append-only activity log (traceability requirement:
 no event, action, or activity goes unnoticed — runs, API calls, CLI commands
 all land here and are queryable from the Logs screen)."""
+
 from __future__ import annotations
 
 import json
@@ -10,6 +11,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
+
 
 def _default_db_path() -> str:
     """Default to a per-user data dir (mounted/network cwds can break SQLite locking).
@@ -81,7 +83,7 @@ def init_db(db_path: str | None = None) -> None:
             c.execute("ALTER TABLE runs ADD COLUMN approvals_json TEXT")
             c.execute("ALTER TABLE runs ADD COLUMN pending_json TEXT")
             c.execute("ALTER TABLE runs ADD COLUMN fixture_src_json TEXT")
-        if "invariants_json" not in run_cols:   # invariant verdicts
+        if "invariants_json" not in run_cols:  # invariant verdicts
             c.execute("ALTER TABLE runs ADD COLUMN invariants_json TEXT")
         # migrate DBs created before async experiment jobs existed
         exp_cols = [r["name"] for r in c.execute("PRAGMA table_info(experiments)")]
@@ -93,8 +95,15 @@ def init_db(db_path: str | None = None) -> None:
 
 # ---------------------------------------------------------------- harnesses
 
-def save_harness(harness_id: str, name: str, ir: dict, origin: str = "canvas",
-                 version: int = 1, db_path: str | None = None) -> None:
+
+def save_harness(
+    harness_id: str,
+    name: str,
+    ir: dict,
+    origin: str = "canvas",
+    version: int = 1,
+    db_path: str | None = None,
+) -> None:
     """Upsert. `origin` and `version` are set on insert only — updates keep them."""
     with _conn(db_path) as c:
         c.execute(
@@ -102,7 +111,8 @@ def save_harness(harness_id: str, name: str, ir: dict, origin: str = "canvas",
             "VALUES (?,?,?,?,?,?) "
             "ON CONFLICT(id) DO UPDATE SET name=excluded.name, ir_json=excluded.ir_json, "
             "updated_at=excluded.updated_at",
-            (harness_id, name, json.dumps(ir), time.time(), origin, version))
+            (harness_id, name, json.dumps(ir), time.time(), origin, version),
+        )
 
 
 def next_version(name: str, db_path: str | None = None) -> int:
@@ -120,13 +130,16 @@ def get_harness(harness_id: str, db_path: str | None = None) -> dict | None:
 
 def list_harnesses(db_path: str | None = None) -> list[dict]:
     with _conn(db_path) as c:
-        rows = c.execute("SELECT id, name, updated_at, origin, version, status FROM harnesses "
-                         "ORDER BY updated_at DESC").fetchall()
+        rows = c.execute(
+            "SELECT id, name, updated_at, origin, version, status FROM harnesses "
+            "ORDER BY updated_at DESC"
+        ).fetchall()
     return [dict(r) for r in rows]
 
 
-def update_harness_meta(harness_id: str, name: str | None = None,
-                        status: str | None = None, db_path: str | None = None) -> None:
+def update_harness_meta(
+    harness_id: str, name: str | None = None, status: str | None = None, db_path: str | None = None
+) -> None:
     """Rename and/or set the lifecycle status. A rename also rewrites the name
     INSIDE the stored IR so exports/codegen carry the new name — and because
     version lineage is keyed by name, renaming starts (or joins) that lineage."""
@@ -136,11 +149,15 @@ def update_harness_meta(harness_id: str, name: str | None = None,
             if row:
                 ir = json.loads(row["ir_json"])
                 ir["name"] = name
-                c.execute("UPDATE harnesses SET name=?, ir_json=?, updated_at=? WHERE id=?",
-                          (name, json.dumps(ir), time.time(), harness_id))
+                c.execute(
+                    "UPDATE harnesses SET name=?, ir_json=?, updated_at=? WHERE id=?",
+                    (name, json.dumps(ir), time.time(), harness_id),
+                )
         if status is not None:
-            c.execute("UPDATE harnesses SET status=?, updated_at=? WHERE id=?",
-                      (status, time.time(), harness_id))
+            c.execute(
+                "UPDATE harnesses SET status=?, updated_at=? WHERE id=?",
+                (status, time.time(), harness_id),
+            )
 
 
 def harness_stats(db_path: str | None = None) -> dict[str, dict]:
@@ -148,13 +165,24 @@ def harness_stats(db_path: str | None = None) -> dict[str, dict]:
     one source of truth: run count, outcome split, avg tokens, est. cost,
     last run time."""
     with _conn(db_path) as c:
-        rows = c.execute("SELECT harness_id, status, totals_json, created_at FROM runs "
-                         "WHERE harness_id IS NOT NULL").fetchall()
+        rows = c.execute(
+            "SELECT harness_id, status, totals_json, created_at FROM runs "
+            "WHERE harness_id IS NOT NULL"
+        ).fetchall()
     out: dict[str, dict] = {}
     for r in rows:
-        s = out.setdefault(r["harness_id"], {
-            "runs": 0, "completed": 0, "blocked": 0, "failed": 0,
-            "tokens": 0, "cost_usd": 0.0, "last_run_at": 0.0})
+        s = out.setdefault(
+            r["harness_id"],
+            {
+                "runs": 0,
+                "completed": 0,
+                "blocked": 0,
+                "failed": 0,
+                "tokens": 0,
+                "cost_usd": 0.0,
+                "last_run_at": 0.0,
+            },
+        )
         s["runs"] += 1
         if r["status"] in ("completed", "blocked", "failed"):
             s[r["status"]] += 1
@@ -174,11 +202,20 @@ def delete_harness(harness_id: str, db_path: str | None = None) -> None:
 
 # ---------------------------------------------------------------- runs & events
 
-def save_run(run, harness_id: str, fixture_name: str, seed: int,
-             experiment_id: str | None = None, overrides: dict | None = None,
-             input_text: str | None = None, pattern: str | None = None,
-             approvals: dict | None = None, fixture_src: Any = None,
-             db_path: str | None = None) -> None:
+
+def save_run(
+    run,
+    harness_id: str,
+    fixture_name: str,
+    seed: int,
+    experiment_id: str | None = None,
+    overrides: dict | None = None,
+    input_text: str | None = None,
+    pattern: str | None = None,
+    approvals: dict | None = None,
+    fixture_src: Any = None,
+    db_path: str | None = None,
+) -> None:
     """Upsert a run + its events. INSERT OR REPLACE so resuming a paused run
     overwrites the same run_id in place — one run identity that
     transitions paused -> completed/blocked/paused-again."""
@@ -190,18 +227,37 @@ def save_run(run, harness_id: str, fixture_name: str, seed: int,
             "input, pattern, approvals_json, pending_json, fixture_src_json, "
             "invariants_json) "
             "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (run.id, harness_id, fixture_name, seed, run.status,
-             json.dumps(run.output), json.dumps(run.totals), run.reason, time.time(),
-             experiment_id, json.dumps(overrides) if overrides is not None else None,
-             input_text, pattern,
-             json.dumps(approvals or {}),
-             json.dumps(run.pending) if run.pending is not None else None,
-             json.dumps(fixture_src) if fixture_src is not None else None,
-             json.dumps(run.invariants) if getattr(run, "invariants", None) is not None else None))
+            (
+                run.id,
+                harness_id,
+                fixture_name,
+                seed,
+                run.status,
+                json.dumps(run.output),
+                json.dumps(run.totals),
+                run.reason,
+                time.time(),
+                experiment_id,
+                json.dumps(overrides) if overrides is not None else None,
+                input_text,
+                pattern,
+                json.dumps(approvals or {}),
+                json.dumps(run.pending) if run.pending is not None else None,
+                json.dumps(fixture_src) if fixture_src is not None else None,
+                (
+                    json.dumps(run.invariants)
+                    if getattr(run, "invariants", None) is not None
+                    else None
+                ),
+            ),
+        )
         c.executemany(
             "INSERT INTO run_events VALUES (?,?,?,?,?,?)",
-            [(run.id, e["seq"], e["ts"], e["node_id"], e["type"], json.dumps(e["payload"]))
-             for e in run.events])
+            [
+                (run.id, e["seq"], e["ts"], e["node_id"], e["type"], json.dumps(e["payload"]))
+                for e in run.events
+            ],
+        )
 
 
 def get_run(run_id: str, db_path: str | None = None) -> dict | None:
@@ -237,30 +293,57 @@ def list_run_events(run_id: str, from_seq: int = 0, db_path: str | None = None) 
     with _conn(db_path) as c:
         rows = c.execute(
             "SELECT seq, ts, node_id, type, payload_json FROM run_events "
-            "WHERE run_id=? AND seq>=? ORDER BY seq", (run_id, from_seq)).fetchall()
-    return [{"seq": r["seq"], "ts": r["ts"], "node_id": r["node_id"],
-             "type": r["type"], "payload": json.loads(r["payload_json"] or "{}")}
-            for r in rows]
+            "WHERE run_id=? AND seq>=? ORDER BY seq",
+            (run_id, from_seq),
+        ).fetchall()
+    return [
+        {
+            "seq": r["seq"],
+            "ts": r["ts"],
+            "node_id": r["node_id"],
+            "type": r["type"],
+            "payload": json.loads(r["payload_json"] or "{}"),
+        }
+        for r in rows
+    ]
 
 
 # ---------------------------------------------------------------- experiments
 
-def save_experiment(exp_id: str, harness_id: str, name: str, fixture: str,
-                    grid: dict, status: str = "completed", total_cells: int = 0,
-                    db_path: str | None = None) -> None:
+
+def save_experiment(
+    exp_id: str,
+    harness_id: str,
+    name: str,
+    fixture: str,
+    grid: dict,
+    status: str = "completed",
+    total_cells: int = 0,
+    db_path: str | None = None,
+) -> None:
     with _conn(db_path) as c:
         c.execute(
             "INSERT INTO experiments (id, harness_id, name, fixture, grid_json, "
             "created_at, status, total_cells, error) VALUES (?,?,?,?,?,?,?,?,?)",
-            (exp_id, harness_id, name, fixture, json.dumps(grid), time.time(),
-             status, total_cells, None))
+            (
+                exp_id,
+                harness_id,
+                name,
+                fixture,
+                json.dumps(grid),
+                time.time(),
+                status,
+                total_cells,
+                None,
+            ),
+        )
 
 
-def update_experiment_status(exp_id: str, status: str, error: str | None = None,
-                             db_path: str | None = None) -> None:
+def update_experiment_status(
+    exp_id: str, status: str, error: str | None = None, db_path: str | None = None
+) -> None:
     with _conn(db_path) as c:
-        c.execute("UPDATE experiments SET status=?, error=? WHERE id=?",
-                  (status, error, exp_id))
+        c.execute("UPDATE experiments SET status=?, error=? WHERE id=?", (status, error, exp_id))
 
 
 def get_experiment(exp_id: str, db_path: str | None = None) -> dict | None:
@@ -274,9 +357,11 @@ def get_experiment(exp_id: str, db_path: str | None = None) -> dict | None:
 
 
 def list_experiments(harness_id: str | None = None, db_path: str | None = None) -> list[dict]:
-    q = ("SELECT e.id, e.harness_id, e.name, e.fixture, e.created_at, e.status, "
-         "e.total_cells, COUNT(r.id) AS cells FROM experiments e "
-         "LEFT JOIN runs r ON r.experiment_id = e.id")
+    q = (
+        "SELECT e.id, e.harness_id, e.name, e.fixture, e.created_at, e.status, "
+        "e.total_cells, COUNT(r.id) AS cells FROM experiments e "
+        "LEFT JOIN runs r ON r.experiment_id = e.id"
+    )
     args: tuple = ()
     if harness_id:
         q += " WHERE e.harness_id=?"
@@ -290,8 +375,9 @@ def list_experiments(harness_id: str | None = None, db_path: str | None = None) 
 def list_experiment_runs(exp_id: str, db_path: str | None = None) -> list[dict]:
     """Cells in sweep order (insertion order = deterministic grid expansion order)."""
     with _conn(db_path) as c:
-        rows = c.execute("SELECT * FROM runs WHERE experiment_id=? ORDER BY rowid",
-                         (exp_id,)).fetchall()
+        rows = c.execute(
+            "SELECT * FROM runs WHERE experiment_id=? ORDER BY rowid", (exp_id,)
+        ).fetchall()
     out = []
     for r in rows:
         d = dict(r)
@@ -305,16 +391,21 @@ def list_experiment_runs(exp_id: str, db_path: str | None = None) -> list[dict]:
 
 # ---------------------------------------------------------------- activity log
 
-def log_activity(action: str, subject: str = "", actor: str = "api",
-                 db_path: str | None = None, **detail) -> None:
+
+def log_activity(
+    action: str, subject: str = "", actor: str = "api", db_path: str | None = None, **detail
+) -> None:
     with _conn(db_path) as c:
-        c.execute("INSERT INTO activity_log (ts, actor, action, subject, detail_json) "
-                  "VALUES (?,?,?,?,?)",
-                  (time.time(), actor, action, subject, json.dumps(detail)))
+        c.execute(
+            "INSERT INTO activity_log (ts, actor, action, subject, detail_json) "
+            "VALUES (?,?,?,?,?)",
+            (time.time(), actor, action, subject, json.dumps(detail)),
+        )
 
 
-def list_activity(limit: int = 200, action: str | None = None,
-                  db_path: str | None = None) -> list[dict]:
+def list_activity(
+    limit: int = 200, action: str | None = None, db_path: str | None = None
+) -> list[dict]:
     q = "SELECT * FROM activity_log"
     args: tuple = ()
     if action:

@@ -21,22 +21,21 @@ verifies declared invariants under scripted conditions; it does not establish
 universal safety, live-model determinism, or resistance to malicious tool
 implementations. Proof bundles state their own limits.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import platform
-import sys
 import time
 from importlib import metadata
 
 import yaml
 
 from .engine import execute
-from .schema import GraphModel, migrate
+from .schema import GraphModel
 from .sim import load_fixture
-from .trace import (CANONICALIZATION_VERSION, canonical_trace, chain_digest,
-                    trace_digest)
+from .trace import CANONICALIZATION_VERSION, canonical_trace, chain_digest, trace_digest
 
 PROOF_VERSION = "p2"
 
@@ -46,8 +45,7 @@ NOT_PROVEN = [
     "the included scenarios",
     "live-model determinism: real-provider/real-tool runs are recorded as "
     "deterministic:false and their digests are not expected to reproduce",
-    "tool implementation integrity: safety metadata is declared, not "
-    "sandbox-enforced",
+    "tool implementation integrity: safety metadata is declared, not " "sandbox-enforced",
     "scenario coverage: behavior outside the included fixtures is untested",
     "producer honesty: digests, chains, and signatures prove the bundle is "
     "internally consistent and unaltered since signing — not that the runs "
@@ -74,14 +72,18 @@ def graph_hash(graph: GraphModel) -> str:
     """Hash of the canonical graph document (sorted keys, compact, ascii) —
     names the exact subject under proof, position metadata included: the proof
     is over the artifact as shipped."""
-    doc = json.dumps(graph.model_dump(by_alias=True), sort_keys=True,
-                     separators=(",", ":"), ensure_ascii=True)
+    doc = json.dumps(
+        graph.model_dump(by_alias=True), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
     return _sha256(doc.encode("ascii"))
 
 
 def _canon_hash(obj) -> str:
-    return _sha256(json.dumps(obj, sort_keys=True, separators=(",", ":"),
-                              ensure_ascii=True, default=str).encode("ascii"))
+    return _sha256(
+        json.dumps(
+            obj, sort_keys=True, separators=(",", ":"), ensure_ascii=True, default=str
+        ).encode("ascii")
+    )
 
 
 def _tool_hashes(graph: GraphModel) -> dict:
@@ -89,6 +91,7 @@ def _tool_hashes(graph: GraphModel) -> dict:
     exact tool contracts in force, not just the tool ids. A tool with no
     manifest is recorded as null (visible gap, not a silent omission)."""
     from .catalog import tool_spec
+
     ids: set[str] = set()
     for n in graph.nodes:
         if n.type == "tool" and n.config.get("tool"):
@@ -110,27 +113,35 @@ def _invariant_defs_hash(declared: list[str], extra: dict | None) -> str | None:
     if not declared:
         return None
     from .invariants import load_invariant_defs
+
     defs = load_invariant_defs(extra)
     return _canon_hash({i: defs.get(i) for i in declared})
 
 
 def _environment() -> dict:
-    packages = {}
+    packages: dict[str, str | None] = {}
     for name in _ENV_PACKAGES:
         try:
             packages[name] = metadata.version(name)
         except metadata.PackageNotFoundError:
             packages[name] = None
-    env = {"python": platform.python_version(),
-           "platform": f"{platform.system()}-{platform.machine()}",
-           "packages": packages}
+    env = {
+        "python": platform.python_version(),
+        "platform": f"{platform.system()}-{platform.machine()}",
+        "packages": packages,
+    }
     env["dependencies_sha256"] = _canon_hash(packages)
     return env
 
 
-def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
-          pattern_id: str | None = None, invariant_defs: dict | None = None,
-          approvals: dict | None = None, include_events: bool = True) -> dict:
+def prove(
+    graph: GraphModel,
+    scenarios: list[tuple[str, str]],
+    pattern_id: str | None = None,
+    invariant_defs: dict | None = None,
+    approvals: dict | None = None,
+    include_events: bool = True,
+) -> dict:
     """Build a proof bundle. `scenarios` is a list of (name, fixture_yaml_text);
     the raw text is what gets hashed, so a bundle names the exact fixture bytes."""
     engine_version = _engine_version()
@@ -141,8 +152,9 @@ def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
 
     for name, text in scenarios:
         fixture = load_fixture(yaml.safe_load(text) or {})
-        run = execute(graph, fixture, approvals=dict(approvals or {}),
-                      invariant_defs=invariant_defs)
+        run = execute(
+            graph, fixture, approvals=dict(approvals or {}), invariant_defs=invariant_defs
+        )
         digest = trace_digest(run.events)
         started = next((e for e in run.events if e["type"] == "run_started"), None)
         deterministic = bool(started and started["payload"].get("deterministic"))
@@ -150,23 +162,28 @@ def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
         reproduced = None
         if run.status != "paused":
             if deterministic:
-                second = execute(graph, fixture, approvals=dict(approvals or {}),
-                                 invariant_defs=invariant_defs)
+                second = execute(
+                    graph, fixture, approvals=dict(approvals or {}), invariant_defs=invariant_defs
+                )
                 reproduced = trace_digest(second.events) == digest
                 all_reproduced = all_reproduced and reproduced
             else:
-                notes.append(f"scenario '{name}': not deterministic — digest "
-                             "identifies the trace but is not reproducible")
+                notes.append(
+                    f"scenario '{name}': not deterministic — digest "
+                    "identifies the trace but is not reproducible"
+                )
 
         inv = run.invariants
         if run.status == "paused":
-            notes.append(f"scenario '{name}': paused awaiting a human decision — "
-                         "invariants not evaluated; prove the resumed branches by "
-                         "passing --approve")
+            notes.append(
+                f"scenario '{name}': paused awaiting a human decision — "
+                "invariants not evaluated; prove the resumed branches by "
+                "passing --approve"
+            )
         elif inv:
             all_invariants_pass = all_invariants_pass and inv["failed"] == 0
 
-        scenario = {
+        scenario: dict = {
             "fixture": name,
             "fixture_sha256": _sha256(text.encode("utf-8")),
             "status": run.status,
@@ -186,13 +203,15 @@ def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
     tools = _tool_hashes(graph)
     if any(h is None for h in tools.values()):
         missing = sorted(t for t, h in tools.items() if h is None)
-        notes.append("tool manifests unavailable for: " + ", ".join(missing) +
-                     " — those tool contracts are not pinned by this bundle")
+        notes.append(
+            "tool manifests unavailable for: "
+            + ", ".join(missing)
+            + " — those tool contracts are not pinned by this bundle"
+        )
     return {
         "proof_version": PROOF_VERSION,
         "generated_at": round(time.time(), 2),
-        "engine": {"evarness": engine_version,
-                   "canonicalization": CANONICALIZATION_VERSION},
+        "engine": {"evarness": engine_version, "canonicalization": CANONICALIZATION_VERSION},
         "environment": _environment(),
         "subject": {
             "graph_id": graph.id,
@@ -211,9 +230,12 @@ def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
             "invariants_pass": all_invariants_pass,
             "reproduced": all_reproduced,
             "ok": bool(declared) and all_invariants_pass and all_reproduced,
-            "note": None if declared else
-                    "graph declares no invariants — nothing was asserted, so "
-                    "nothing was proven (params.invariants is empty)",
+            "note": (
+                None
+                if declared
+                else "graph declares no invariants — nothing was asserted, so "
+                "nothing was proven (params.invariants is empty)"
+            ),
         },
         "not_proven": notes,
     }
@@ -221,8 +243,10 @@ def prove(graph: GraphModel, scenarios: list[tuple[str, str]],
 
 # ------------------------------------------------------------ verification
 
-def verify_proof(proof: dict, pubkey_b64: str | None = None,
-                 require_signature: bool = False) -> dict:
+
+def verify_proof(
+    proof: dict, pubkey_b64: str | None = None, require_signature: bool = False
+) -> dict:
     """Re-check a proof bundle without running anything: recompute every
     scenario's digest and hash chain from the included canonical events,
     confirm the verdict is consistent with the scenario rows, and verify the
@@ -236,62 +260,102 @@ def verify_proof(proof: dict, pubkey_b64: str | None = None,
     checks: list[dict] = []
 
     version = proof.get("proof_version")
-    checks.append({"check": "proof version recognized",
-                   "ok": version in ("p1", "p2"),
-                   "detail": f"proof_version={version}"})
+    checks.append(
+        {
+            "check": "proof version recognized",
+            "ok": version in ("p1", "p2"),
+            "detail": f"proof_version={version}",
+        }
+    )
 
     for sc in proof.get("scenarios", []):
         name = sc.get("fixture", "?")
         events = sc.get("events")
         if events is None:
-            checks.append({"check": "digest recomputes", "scenario": name,
-                           "ok": None,
-                           "detail": "bundle built with --no-events — the "
-                                     "stream is not included, digest not "
-                                     "independently checkable"})
+            checks.append(
+                {
+                    "check": "digest recomputes",
+                    "scenario": name,
+                    "ok": None,
+                    "detail": "bundle built with --no-events — the "
+                    "stream is not included, digest not "
+                    "independently checkable",
+                }
+            )
             continue
-        checks.append({"check": "digest recomputes", "scenario": name,
-                       "ok": trace_digest(events) == sc.get("trace_digest"),
-                       "detail": sc.get("trace_digest", "")})
-        if sc.get("event_chain") is not None:      # p1 bundles have no chain
-            checks.append({"check": "event chain recomputes", "scenario": name,
-                           "ok": chain_digest(events) == sc.get("event_chain"),
-                           "detail": sc.get("event_chain", "")})
+        checks.append(
+            {
+                "check": "digest recomputes",
+                "scenario": name,
+                "ok": trace_digest(events) == sc.get("trace_digest"),
+                "detail": sc.get("trace_digest", ""),
+            }
+        )
+        if sc.get("event_chain") is not None:  # p1 bundles have no chain
+            checks.append(
+                {
+                    "check": "event chain recomputes",
+                    "scenario": name,
+                    "ok": chain_digest(events) == sc.get("event_chain"),
+                    "detail": sc.get("event_chain", ""),
+                }
+            )
         if sc.get("events_count") is not None:
-            checks.append({"check": "event count matches", "scenario": name,
-                           "ok": len(events) == sc.get("events_count"),
-                           "detail": f"{len(events)} events"})
+            checks.append(
+                {
+                    "check": "event count matches",
+                    "scenario": name,
+                    "ok": len(events) == sc.get("events_count"),
+                    "detail": f"{len(events)} events",
+                }
+            )
 
     v = proof.get("verdict") or {}
     scenarios = proof.get("scenarios", [])
-    inv_pass = all((sc.get("invariants") or {}).get("failed", 0) == 0
-                   for sc in scenarios if sc.get("invariants") is not None)
+    inv_pass = all(
+        (sc.get("invariants") or {}).get("failed", 0) == 0
+        for sc in scenarios
+        if sc.get("invariants") is not None
+    )
     repro = all(sc.get("reproduced") in (True, None) for sc in scenarios)
     declared = bool((proof.get("subject") or {}).get("invariants_declared"))
     expected_ok = declared and inv_pass and repro
-    checks.append({"check": "verdict consistent with scenario rows",
-                   "ok": (v.get("invariants_pass") == inv_pass
-                          and v.get("reproduced") == repro
-                          and v.get("ok") == expected_ok),
-                   "detail": f"ok={v.get('ok')} invariants_pass="
-                             f"{v.get('invariants_pass')} reproduced={v.get('reproduced')}"})
+    checks.append(
+        {
+            "check": "verdict consistent with scenario rows",
+            "ok": (
+                v.get("invariants_pass") == inv_pass
+                and v.get("reproduced") == repro
+                and v.get("ok") == expected_ok
+            ),
+            "detail": f"ok={v.get('ok')} invariants_pass="
+            f"{v.get('invariants_pass')} reproduced={v.get('reproduced')}",
+        }
+    )
 
     if proof.get("attestation"):
         try:
             from .attest import verify_attestation
+
             sig = verify_attestation(proof, pubkey_b64=pubkey_b64)
-            checks.append({"check": "signature", "ok": sig["ok"],
-                           "detail": sig["detail"]})
-        except ValueError as exc:                  # crypto not installed
-            checks.append({"check": "signature",
-                           "ok": False if require_signature else None,
-                           "detail": str(exc)})
+            checks.append({"check": "signature", "ok": sig["ok"], "detail": sig["detail"]})
+        except ValueError as exc:  # crypto not installed
+            checks.append(
+                {
+                    "check": "signature",
+                    "ok": False if require_signature else None,
+                    "detail": str(exc),
+                }
+            )
     else:
-        checks.append({"check": "signature",
-                       "ok": False if require_signature else None,
-                       "detail": "bundle is unsigned"
-                                 + (" (required)" if require_signature else
-                                    " — integrity checks above still hold")})
+        checks.append(
+            {
+                "check": "signature",
+                "ok": False if require_signature else None,
+                "detail": "bundle is unsigned"
+                + (" (required)" if require_signature else " — integrity checks above still hold"),
+            }
+        )
 
     return {"ok": all(c["ok"] is not False for c in checks), "checks": checks}
 
@@ -301,9 +365,15 @@ def verify_proof(proof: dict, pubkey_b64: str | None = None,
 # live in exporters.py. Both carry the trace digest so a CI failure can always
 # be traced back to the exact canonical evidence.
 
+
 def _xml_esc(x) -> str:
-    return (str(x).replace("&", "&amp;").replace("<", "&lt;")
-            .replace(">", "&gt;").replace('"', "&quot;"))
+    return (
+        str(x)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
 
 
 def render_junit(proof: dict) -> str:
@@ -325,22 +395,31 @@ def render_junit(proof: dict) -> str:
             if not r["ok"]:
                 failures += 1
                 seqs = ", ".join(map(str, r["evidence_seq"])) or "-"
-                body = (f'<failure message="{_xml_esc(r["detail"] or "invariant failed")}">'
-                        f'evidence seq: {_xml_esc(seqs)}\n'
-                        f'trace: {_xml_esc(sc["trace_digest"])}</failure>')
-            cases.append(f'<testcase classname="{cls}" '
-                         f'name="invariant: {_xml_esc(r["id"])}">{body}</testcase>')
+                body = (
+                    f'<failure message="{_xml_esc(r["detail"] or "invariant failed")}">'
+                    f"evidence seq: {_xml_esc(seqs)}\n"
+                    f'trace: {_xml_esc(sc["trace_digest"])}</failure>'
+                )
+            cases.append(
+                f'<testcase classname="{cls}" '
+                f'name="invariant: {_xml_esc(r["id"])}">{body}</testcase>'
+            )
         total += 1
         if sc["reproduced"] is True:
             body = ""
         elif sc["reproduced"] is False:
             failures += 1
-            body = (f'<failure message="digest did not reproduce">'
-                    f'trace: {_xml_esc(sc["trace_digest"])}</failure>')
+            body = (
+                f'<failure message="digest did not reproduce">'
+                f'trace: {_xml_esc(sc["trace_digest"])}</failure>'
+            )
         else:
             skipped += 1
-            why = ("run paused awaiting a human decision" if sc["status"] == "paused"
-                   else "not deterministic — reproduction not expected")
+            why = (
+                "run paused awaiting a human decision"
+                if sc["status"] == "paused"
+                else "not deterministic — reproduction not expected"
+            )
             body = f'<skipped message="{_xml_esc(why)}"/>'
         cases.append(f'<testcase classname="{cls}" name="digest reproduced">{body}</testcase>')
         suites.append((sc["fixture"], cases))
@@ -349,17 +428,26 @@ def render_junit(proof: dict) -> str:
         total += 1
         failures += 1
         note = proof["verdict"]["note"] or "graph declares no invariants"
-        suites.append(("(contracts)", [
-            f'<testcase classname="{_xml_esc(suite_cls)}" name="invariants declared">'
-            f'<failure message="{_xml_esc(note)}"/></testcase>']))
+        suites.append(
+            (
+                "(contracts)",
+                [
+                    f'<testcase classname="{_xml_esc(suite_cls)}" name="invariants declared">'
+                    f'<failure message="{_xml_esc(note)}"/></testcase>'
+                ],
+            )
+        )
 
     suite_xml = "".join(
         f'<testsuite name="{_xml_esc(f"{suite_cls}:{name}")}" '
         f'tests="{len(cases)}">{"".join(cases)}</testsuite>'
-        for name, cases in suites)
-    return (f'<?xml version="1.0" encoding="UTF-8"?>\n'
-            f'<testsuites name="evarness prove" tests="{total}" '
-            f'failures="{failures}" skipped="{skipped}">{suite_xml}</testsuites>\n')
+        for name, cases in suites
+    )
+    return (
+        f'<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<testsuites name="evarness prove" tests="{total}" '
+        f'failures="{failures}" skipped="{skipped}">{suite_xml}</testsuites>\n'
+    )
 
 
 def render_sarif(proof: dict) -> str:
@@ -367,13 +455,29 @@ def render_sarif(proof: dict) -> str:
     (plus the reproducibility check), results are the violations. NOTHING
     ASSERTED surfaces as a warning-level result, not an empty (passing) log."""
     s, v = proof["subject"], proof["verdict"]
-    rules = [{"id": rid, "shortDescription":
-              {"text": f"invariant contract '{rid}' must hold over the event stream"}}
-             for rid in s["invariants_declared"]]
-    rules.append({"id": "digest-reproducibility", "shortDescription":
-                  {"text": "a deterministic scenario must reproduce its canonical trace digest"}})
-    rules.append({"id": "nothing-asserted", "shortDescription":
-                  {"text": "a proof is only as strong as its declared invariants"}})
+    rules = [
+        {
+            "id": rid,
+            "shortDescription": {
+                "text": f"invariant contract '{rid}' must hold over the event stream"
+            },
+        }
+        for rid in s["invariants_declared"]
+    ]
+    rules.append(
+        {
+            "id": "digest-reproducibility",
+            "shortDescription": {
+                "text": "a deterministic scenario must reproduce its canonical trace digest"
+            },
+        }
+    )
+    rules.append(
+        {
+            "id": "nothing-asserted",
+            "shortDescription": {"text": "a proof is only as strong as its declared invariants"},
+        }
+    )
 
     results = []
     for sc in proof["scenarios"]:
@@ -381,48 +485,73 @@ def render_sarif(proof: dict) -> str:
         for r in (sc["invariants"] or {}).get("results", []):
             if r["ok"]:
                 continue
-            results.append({
-                "ruleId": r["id"], "level": "error",
-                "message": {"text": f"scenario '{sc['fixture']}': "
-                                    f"{r['detail'] or 'invariant failed'}"},
-                "locations": loc,
-                "properties": {"evidence_seq": r["evidence_seq"],
-                               "trace_digest": sc["trace_digest"],
-                               "fixture_sha256": sc["fixture_sha256"]},
-            })
+            results.append(
+                {
+                    "ruleId": r["id"],
+                    "level": "error",
+                    "message": {
+                        "text": f"scenario '{sc['fixture']}': "
+                        f"{r['detail'] or 'invariant failed'}"
+                    },
+                    "locations": loc,
+                    "properties": {
+                        "evidence_seq": r["evidence_seq"],
+                        "trace_digest": sc["trace_digest"],
+                        "fixture_sha256": sc["fixture_sha256"],
+                    },
+                }
+            )
         if sc["reproduced"] is False:
-            results.append({
-                "ruleId": "digest-reproducibility", "level": "error",
-                "message": {"text": f"scenario '{sc['fixture']}': trace digest did "
-                                    "not reproduce on the second run"},
-                "locations": loc,
-                "properties": {"trace_digest": sc["trace_digest"]},
-            })
+            results.append(
+                {
+                    "ruleId": "digest-reproducibility",
+                    "level": "error",
+                    "message": {
+                        "text": f"scenario '{sc['fixture']}': trace digest did "
+                        "not reproduce on the second run"
+                    },
+                    "locations": loc,
+                    "properties": {"trace_digest": sc["trace_digest"]},
+                }
+            )
     if not s["invariants_declared"]:
-        results.append({"ruleId": "nothing-asserted", "level": "warning",
-                        "message": {"text": v["note"] or
-                                    "graph declares no invariants — nothing was asserted"}})
+        results.append(
+            {
+                "ruleId": "nothing-asserted",
+                "level": "warning",
+                "message": {
+                    "text": v["note"] or "graph declares no invariants — nothing was asserted"
+                },
+            }
+        )
 
     doc = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "version": "2.1.0",
-        "runs": [{
-            "tool": {"driver": {
-                "name": "evarness",
-                "version": proof["engine"]["evarness"],
-                "informationUri": "https://github.com/sathishksomasundaram/evarness",
-                "rules": rules,
-            }},
-            "results": results,
-            "properties": {"proof_version": proof["proof_version"],
-                           "graph_sha256": s["graph_sha256"],
-                           "verdict": v},
-        }],
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "evarness",
+                        "version": proof["engine"]["evarness"],
+                        "informationUri": "https://github.com/sathishksomasundaram/evarness",
+                        "rules": rules,
+                    }
+                },
+                "results": results,
+                "properties": {
+                    "proof_version": proof["proof_version"],
+                    "graph_sha256": s["graph_sha256"],
+                    "verdict": v,
+                },
+            }
+        ],
     }
     return json.dumps(doc, indent=2)
 
 
 # ------------------------------------------------------------------ HTML report
+
 
 def _html_env(proof: dict, esc) -> str:
     """Environment + attestation lines for the report header (p2 bundles)."""
@@ -430,12 +559,12 @@ def _html_env(proof: dict, esc) -> str:
     env = proof.get("environment")
     if env:
         pkgs = " · ".join(f"{k} {v or '?'}" for k, v in env["packages"].items())
-        parts.append(f"<br>env python {esc(env['python'])} · "
-                     f"{esc(env['platform'])} · {esc(pkgs)}")
+        parts.append(
+            f"<br>env python {esc(env['python'])} · " f"{esc(env['platform'])} · {esc(pkgs)}"
+        )
     att = proof.get("attestation")
     if att:
-        parts.append(f"<br>signed {esc(att['algorithm'])} · "
-                     f"key {esc(att['public_key'][:16])}…")
+        parts.append(f"<br>signed {esc(att['algorithm'])} · " f"key {esc(att['public_key'][:16])}…")
     return "".join(parts)
 
 
@@ -443,12 +572,15 @@ def render_proof_html(proof: dict) -> str:
     """Self-contained single-file report — inline CSS, no external assets."""
     v, s = proof["verdict"], proof["subject"]
     ok = v["ok"]
-    badge = ("PROOF HOLDS" if ok else "PROOF FAILED") if s["invariants_declared"] \
+    badge = (
+        ("PROOF HOLDS" if ok else "PROOF FAILED")
+        if s["invariants_declared"]
         else "NOTHING ASSERTED"
+    )
     color = "#1a7f37" if ok else ("#b35900" if not s["invariants_declared"] else "#c62828")
 
     def esc(x):
-        return (str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+        return str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
     rows = []
     for sc in proof["scenarios"]:
@@ -457,14 +589,21 @@ def render_proof_html(proof: dict) -> str:
             inv_rows = "".join(
                 f"<tr><td>{'✓' if r['ok'] else '✗'}</td><td>{esc(r['id'])}</td>"
                 f"<td>{esc(r['detail'] or '')}"
-                + (f" (seq {', '.join(map(str, r['evidence_seq']))})"
-                   if not r["ok"] and r["evidence_seq"] else "")
+                + (
+                    f" (seq {', '.join(map(str, r['evidence_seq']))})"
+                    if not r["ok"] and r["evidence_seq"]
+                    else ""
+                )
                 + "</td></tr>"
-                for r in sc["invariants"]["results"])
-            inv_rows = (f"<table class='inv'><tr><th></th><th>invariant</th>"
-                        f"<th>detail</th></tr>{inv_rows}</table>")
-        repro = {True: "✓ digest reproduced", False: "✗ DIGEST DID NOT REPRODUCE",
-                 None: "—"}[sc["reproduced"]]
+                for r in sc["invariants"]["results"]
+            )
+            inv_rows = (
+                f"<table class='inv'><tr><th></th><th>invariant</th>"
+                f"<th>detail</th></tr>{inv_rows}</table>"
+            )
+        repro = {True: "✓ digest reproduced", False: "✗ DIGEST DID NOT REPRODUCE", None: "—"}[
+            sc["reproduced"]
+        ]
         chain = sc.get("event_chain")
         rows.append(f"""
       <div class="card">

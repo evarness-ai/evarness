@@ -1,13 +1,18 @@
 """Canonical trace normalization (D51) — the published determinism contract."""
+
 import json
 
 from evarness import patterns, store
 from evarness.engine import execute
 from evarness.schema import GraphModel
 from evarness.sim import load_fixture
-from evarness.trace import (CANONICAL_ENVELOPE_FIELDS,
-                              CANONICALIZATION_VERSION, canonical_event,
-                              canonical_json, canonical_trace, trace_digest)
+from evarness.trace import (
+    CANONICAL_ENVELOPE_FIELDS,
+    CANONICALIZATION_VERSION,
+    canonical_event,
+    canonical_json,
+    trace_digest,
+)
 
 FLAGSHIP = "governed_email_assistant"
 
@@ -21,7 +26,7 @@ def load(pattern_id: str, fixture: str = "happy"):
 def test_canonical_event_drops_exactly_the_wall_clock():
     run = execute(*load(FLAGSHIP))
     raw = run.events[0]
-    assert "ts" in raw                       # engine stamps wall clock
+    assert "ts" in raw  # engine stamps wall clock
     ce = canonical_event(raw)
     assert set(ce) == set(CANONICAL_ENVELOPE_FIELDS)
     assert "ts" not in ce
@@ -57,8 +62,7 @@ def test_canonical_json_is_byte_stable_serialization():
     s = canonical_json(run.events)
     # ascii-only, compact, key-sorted — re-parsing and re-dumping is a no-op
     assert s == s.encode("ascii").decode("ascii")
-    assert json.dumps(json.loads(s), sort_keys=True,
-                      separators=(",", ":"), ensure_ascii=True) == s
+    assert json.dumps(json.loads(s), sort_keys=True, separators=(",", ":"), ensure_ascii=True) == s
 
 
 def test_persisted_events_verify_the_live_digest(tmp_path, monkeypatch):

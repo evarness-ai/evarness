@@ -42,3 +42,16 @@ packages = ["evarness", "evarness.patterns"]
 
 [tool.setuptools.package-data]
 evarness = ["*.yaml", "patterns/**/*.json", "patterns/**/*.yaml", "patterns/**/*.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+no_implicit_optional = true

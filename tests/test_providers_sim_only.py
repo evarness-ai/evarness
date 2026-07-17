@@ -1,5 +1,6 @@
 """This release is simulation-only: sim providers work, real providers refuse
 loudly (never a silent fallback that would make the trace lie about what ran)."""
+
 import pytest
 
 from evarness.providers import ProviderError, list_providers, make_provider
@@ -22,7 +23,7 @@ def test_real_providers_refuse_with_actionable_error(spec):
         make_provider(spec)
     msg = str(exc.value)
     assert "not part of this release" in msg
-    assert "sim:helpful-v1" in msg          # the remediation is named
+    assert "sim:helpful-v1" in msg  # the remediation is named
 
 
 def test_unknown_kind_is_a_distinct_error():
@@ -41,10 +42,44 @@ def test_graph_naming_real_provider_fails_loudly_at_execution():
     from evarness.engine import execute
     from evarness.schema import GraphModel
     from evarness.sim import load_fixture
-    graph = GraphModel.model_validate({
-        "id": "wants-real", "params": {"provider": "anthropic:claude-sonnet-5"},
-        "nodes": [{"id": "i", "type": "input"}, {"id": "l", "type": "llm"},
-                  {"id": "o", "type": "output"}],
-        "edges": [{"from": "i", "to": "l"}, {"from": "l", "to": "o"}]})
+
+    graph = GraphModel.model_validate(
+        {
+            "id": "wants-real",
+            "params": {"provider": "anthropic:claude-sonnet-5"},
+            "nodes": [
+                {"id": "i", "type": "input"},
+                {"id": "l", "type": "llm"},
+                {"id": "o", "type": "output"},
+            ],
+            "edges": [{"from": "i", "to": "l"}, {"from": "l", "to": "o"}],
+        }
+    )
     with pytest.raises(ProviderError, match="not part of this release"):
         execute(graph, load_fixture(None), user_input="hi")
+
+
+def test_tool_mode_real_refuses_as_governance_block():
+    """Real tool execution hasn't graduated: mode:real must be a traced
+    governance block with remediation — never an ImportError."""
+    from evarness.engine import execute
+    from evarness.schema import GraphModel
+    from evarness.sim import load_fixture
+
+    graph = GraphModel.model_validate(
+        {
+            "id": "wants-real-tool",
+            "nodes": [
+                {"id": "i", "type": "input"},
+                {"id": "t", "type": "tool", "config": {"tool": "email.search", "mode": "real"}},
+                {"id": "o", "type": "output"},
+            ],
+            "edges": [{"from": "i", "to": "t"}, {"from": "t", "to": "o"}],
+        }
+    )
+    run = execute(graph, load_fixture(None), user_input="find mail")
+    assert run.status == "blocked"
+    assert "not part of this release" in (run.reason or "")
+    assert "mode: sim" in (run.reason or "")
+    types = [e["type"] for e in run.events]
+    assert "policy_violation" in types

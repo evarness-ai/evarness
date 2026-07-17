@@ -35,6 +35,7 @@ Privacy rule for this module: classification signals carry marker NAMES
 (``api_key``, ``ssn``), never the matched text — a trace must not become the
 leak it exists to prevent.
 """
+
 from __future__ import annotations
 
 import os
@@ -62,9 +63,11 @@ DEFAULT_CLASSIFIER = "keyword"
 
 def register_classifier(name: str):
     """Register a classifier under ``name`` (classifiers are pure functions)."""
+
     def deco(fn: Classifier) -> Classifier:
         _CLASSIFIERS[name.lower()] = fn
         return fn
+
     return deco
 
 
@@ -87,8 +90,11 @@ _config_cache: dict | None = None
 
 
 def _overlay_path() -> Path:
-    return Path(os.environ.get("EVARNESS_CLASSIFICATION",
-                               str(Path.home() / ".evarness" / "classification.yaml")))
+    return Path(
+        os.environ.get(
+            "EVARNESS_CLASSIFICATION", str(Path.home() / ".evarness" / "classification.yaml")
+        )
+    )
 
 
 def classification_config() -> dict:
@@ -136,6 +142,7 @@ def egress_allowed(classification: str, destination: str) -> bool:
 
 # ------------------------------------------------------------------ dispatch
 
+
 def classify(text: str, name: str | None = None) -> tuple[str, list, str | None]:
     """Run the named classifier; unknown names are TRACED, never silent:
     returns (classification, signals, unknown_name) — on an unknown name the
@@ -146,8 +153,9 @@ def classify(text: str, name: str | None = None) -> tuple[str, list, str | None]
     if fn is None:
         unknown, wanted = wanted, DEFAULT_CLASSIFIER
         fn = get_classifier(DEFAULT_CLASSIFIER)
+    assert fn is not None  # the default classifier is always registered
     classification, signals = fn(text or "", classifier_config(wanted))
-    if classification not in _RANK:   # a broken custom classifier fails closed
+    if classification not in _RANK:  # a broken custom classifier fails closed
         classification, signals = "secret", list(signals) + ["invalid_classification"]
     return classification, list(signals), unknown
 

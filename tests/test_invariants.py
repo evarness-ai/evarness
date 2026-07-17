@@ -1,13 +1,13 @@
 """Invariant contracts (D52) — primitives, resolution order, honesty rules,
 engine/CLI integration, and pattern dogfooding."""
+
 import json
 
 import pytest
 
 from evarness import patterns, store
 from evarness.engine import execute
-from evarness.invariants import (check_invariants, load_invariant_defs,
-                                   register_invariant_check)
+from evarness.invariants import check_invariants, load_invariant_defs, register_invariant_check
 from evarness.schema import GraphModel
 from evarness.sim import load_fixture
 
@@ -37,17 +37,28 @@ GRANT = ev(3, "approval_granted")
 REJECT = ev(3, "approval_rejected")
 
 D = {  # local definitions used via `extra`
-    "no-send": {"assert": {"never": {"type": "tool_called",
-                                     "where": {"tool": "email.send"}}}},
-    "no-send-after-reject": {"assert": {"never": {
-        "type": "tool_called", "where": {"tool": "email.send"},
-        "after": {"type": "approval_rejected"}}}},
+    "no-send": {"assert": {"never": {"type": "tool_called", "where": {"tool": "email.send"}}}},
+    "no-send-after-reject": {
+        "assert": {
+            "never": {
+                "type": "tool_called",
+                "where": {"tool": "email.send"},
+                "after": {"type": "approval_rejected"},
+            }
+        }
+    },
     "sends-something": {"assert": {"eventually": {"type": "tool_called"}}},
-    "grant-before-send": {"assert": {"precedes": {
-        "first": {"type": "approval_granted"},
-        "second": {"type": "tool_called", "where": {"tool": "email.send"}}}}},
-    "responses-nonempty": {"assert": {"every": {
-        "match": {"type": "llm_response"}, "satisfies": "nonempty_output"}}},
+    "grant-before-send": {
+        "assert": {
+            "precedes": {
+                "first": {"type": "approval_granted"},
+                "second": {"type": "tool_called", "where": {"tool": "email.send"}},
+            }
+        }
+    },
+    "responses-nonempty": {
+        "assert": {"every": {"match": {"type": "llm_response"}, "satisfies": "nonempty_output"}}
+    },
 }
 
 
@@ -91,11 +102,15 @@ def test_every_with_registered_check():
 
 # ---------------------------------------------------------------- where ops
 
+
 def test_where_operators_in_gt_contains_and_dot_path():
     defs = {
         "no-big": {"assert": {"never": {"type": "t", "where": {"tokens": {"gt": 100}}}}},
-        "no-classified": {"assert": {"never": {
-            "type": "t", "where": {"classification": {"in": ["personal", "secret"]}}}}},
+        "no-classified": {
+            "assert": {
+                "never": {"type": "t", "where": {"classification": {"in": ["personal", "secret"]}}}
+            }
+        },
         "no-oops": {"assert": {"never": {"type": "t", "where": {"msg": {"contains": "oops"}}}}},
         "no-nested": {"assert": {"never": {"type": "t", "where": {"meta.kind": "x"}}}},
     }
@@ -108,6 +123,7 @@ def test_where_operators_in_gt_contains_and_dot_path():
 
 
 # ---------------------------------------------------------------- honesty
+
 
 def test_unknown_invariant_id_is_a_failed_verdict():
     r = one(["definitely-not-defined"], [])
@@ -130,24 +146,28 @@ def test_custom_registered_check_is_usable():
     @register_invariant_check("payload_has_flag")
     def _flag(event):
         return bool(event.get("payload", {}).get("flag"))
-    defs = {"flagged": {"assert": {"every": {"match": {"type": "t"},
-                                             "satisfies": "payload_has_flag"}}}}
+
+    defs = {
+        "flagged": {"assert": {"every": {"match": {"type": "t"}, "satisfies": "payload_has_flag"}}}
+    }
     assert one(["flagged"], [ev(1, "t", flag=True)], extra=defs)["ok"]
     assert not one(["flagged"], [ev(1, "t")], extra=defs)["ok"]
 
 
 # ---------------------------------------------------------------- resolution
 
+
 def test_overlay_and_extra_resolution_order(tmp_path, monkeypatch):
     overlay = tmp_path / "invariants.yaml"
     overlay.write_text(
         "invariants:\n"
         "  my-custom:\n    assert: {eventually: {type: run_finished}}\n"
-        "  run-completes:\n    assert: {eventually: {type: never_happens}}\n")
+        "  run-completes:\n    assert: {eventually: {type: never_happens}}\n"
+    )
     monkeypatch.setenv("EVARNESS_INVARIANTS", str(overlay))
     defs = load_invariant_defs()
-    assert "my-custom" in defs                        # overlay adds
-    assert "no-model-call-after-block" in defs        # packaged still present
+    assert "my-custom" in defs  # overlay adds
+    assert "no-model-call-after-block" in defs  # packaged still present
     # overlay OVERRIDES packaged: run-completes now demands a bogus event
     assert not one(["run-completes"], [ev(1, "run_finished")])["ok"]
     # pattern-local `extra` wins over the overlay
@@ -156,6 +176,7 @@ def test_overlay_and_extra_resolution_order(tmp_path, monkeypatch):
 
 
 # ---------------------------------------------------------------- engine
+
 
 def test_flagship_declares_and_passes_its_invariant():
     graph, fx = load(FLAGSHIP)
@@ -169,15 +190,14 @@ def test_flagship_blocked_run_still_upholds_the_contract():
     graph, fx = load(FLAGSHIP, "failure")
     run = execute(graph, fx)
     assert run.status == "blocked"
-    assert run.invariants["failed"] == 0   # blocked BEFORE the model — honest
+    assert run.invariants["failed"] == 0  # blocked BEFORE the model — honest
 
 
 def test_gated_pattern_all_contracts_hold_with_pattern_local_defs():
     graph, fx = load(GATED, "send")
     extra = patterns.invariant_defs(GATED)
     assert "no-send-after-rejection" in extra
-    run = execute(graph, fx, approvals={"n3": "approve"},
-                  invariant_defs=extra)
+    run = execute(graph, fx, approvals={"n3": "approve"}, invariant_defs=extra)
     assert run.status == "completed"
     assert run.invariants["failed"] == 0 and run.invariants["passed"] == 3
 
@@ -197,8 +217,9 @@ def test_paused_run_defers_checking_resume_checks():
     extra = patterns.invariant_defs(GATED)
     paused = execute(graph, fx, invariant_defs=extra)
     assert paused.status == "paused" and paused.invariants is None
-    resumed = execute(graph, fx, approvals={paused.pending["node_id"]: "approve"},
-                      invariant_defs=extra)
+    resumed = execute(
+        graph, fx, approvals={paused.pending["node_id"]: "approve"}, invariant_defs=extra
+    )
     assert resumed.status == "completed" and resumed.invariants["failed"] == 0
 
 
@@ -210,6 +231,7 @@ def test_graph_without_invariants_reports_none():
 
 
 # ---------------------------------------------------------------- persistence
+
 
 def test_verdicts_persist_with_the_run(tmp_path):
     db = str(tmp_path / "t.db")
@@ -223,17 +245,16 @@ def test_verdicts_persist_with_the_run(tmp_path):
 
 # ---------------------------------------------------------------- publish/bundle
 
+
 def test_publish_validates_and_bundles_carry_contracts(tmp_path, monkeypatch):
     monkeypatch.setenv("EVARNESS_PATTERNS", str(tmp_path / "patterns"))
     graph_doc = patterns.load_pattern(GATED)
     fixtures = {"send": patterns.fixture_text(GATED, "send")}
-    inv_yaml = ("invariants:\n"
-                "  local-rule:\n"
-                "    assert: {eventually: {type: run_finished}}\n")
-    patterns.publish_pattern("my_gated", graph_doc, "lesson", fixtures,
-                             invariants_yaml=inv_yaml)
+    inv_yaml = "invariants:\n" "  local-rule:\n" "    assert: {eventually: {type: run_finished}}\n"
+    patterns.publish_pattern("my_gated", graph_doc, "lesson", fixtures, invariants_yaml=inv_yaml)
     assert patterns.invariant_defs("my_gated") == {
-        "local-rule": {"assert": {"eventually": {"type": "run_finished"}}}}
+        "local-rule": {"assert": {"eventually": {"type": "run_finished"}}}
+    }
     # bundle round-trip keeps the contract file
     data = patterns.export_bundle("my_gated")
     patterns.delete_pattern("my_gated")
@@ -242,19 +263,27 @@ def test_publish_validates_and_bundles_carry_contracts(tmp_path, monkeypatch):
     patterns.delete_pattern("my_gated")
     # invalid contracts are rejected at publish time
     with pytest.raises(ValueError, match="invalid invariant"):
-        patterns.publish_pattern("my_bad", graph_doc, "", fixtures,
-                                 invariants_yaml="invariants:\n  b:\n    assert: {nope: {}}\n")
+        patterns.publish_pattern(
+            "my_bad",
+            graph_doc,
+            "",
+            fixtures,
+            invariants_yaml="invariants:\n  b:\n    assert: {nope: {}}\n",
+        )
 
 
 # ---------------------------------------------------------------- CLI gate
 
+
 def test_cli_exit_gates_on_invariant_failure(tmp_path, capsys):
     from evarness.cli import main
+
     graph_doc = patterns.load_pattern(FLAGSHIP)
     graph_doc["params"]["invariants"] = ["no-model-calls"]
     (tmp_path / "graph.json").write_text(json.dumps(graph_doc))
     (tmp_path / "invariants.yaml").write_text(
-        "invariants:\n  no-model-calls:\n    assert: {never: {type: llm_request}}\n")
+        "invariants:\n  no-model-calls:\n    assert: {never: {type: llm_request}}\n"
+    )
     fx = str(patterns.fixture_path(FLAGSHIP, "happy"))
     # the run completes, but the sibling invariants.yaml contract fails -> exit 1
     assert main(["run", str(tmp_path / "graph.json"), "--fixture", fx]) == 1
@@ -263,6 +292,3 @@ def test_cli_exit_gates_on_invariant_failure(tmp_path, capsys):
 
 
 # ---------------------------------------------------------------- API library
-
-
-

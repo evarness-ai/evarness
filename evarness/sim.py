@@ -2,12 +2,12 @@
 
 Deterministic by contract: (graph, fixture, seed) -> identical event sequence.
 """
+
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import yaml
 
@@ -17,6 +17,7 @@ from .prompts import DEFAULTS
 @dataclass
 class Completion:
     """What any LLM provider returns: text + honest usage/cost accounting."""
+
     text: str
     input_tokens: int = 0
     output_tokens: int = 0
@@ -43,16 +44,17 @@ class Fixture:
         self.memory: list[dict] = d.get("memory", [])
         self.llm_rules: list[dict] = d.get("llm", [])
         self.default_response: dict = d.get(
-            "default_response", {"text": DEFAULTS["sim_fallback_response"]})
+            "default_response", {"text": DEFAULTS["sim_fallback_response"]}
+        )
         self.tools: dict[str, list[dict]] = d.get("tools", {})
         self.faults: dict = d.get("faults", {})
-        self.attacks: list[dict] = d.get("attacks", [])          # [{type, marker, severity}]
-        self.episodic: list[dict] = d.get("episodic", [])        # [{ts, text, salience}]
-        self.facts: list = d.get("facts", [])                    # ["..."] or [{fact, confidence}]
-        self.instructions: list = d.get("instructions", [])      # ["..."] or [{text, approved}]
-        self.judge_rules: list[dict] = d.get("judge", [])        # [{match: {contains}, scores: {dim: x}}]
+        self.attacks: list[dict] = d.get("attacks", [])  # [{type, marker, severity}]
+        self.episodic: list[dict] = d.get("episodic", [])  # [{ts, text, salience}]
+        self.facts: list = d.get("facts", [])  # ["..."] or [{fact, confidence}]
+        self.instructions: list = d.get("instructions", [])  # ["..."] or [{text, approved}]
+        self.judge_rules: list[dict] = d.get("judge", [])  # [{match: {contains}, scores: {dim: x}}]
         self.default_judge_scores: dict = d.get("default_judge_scores", {})
-        self.react_rules: list[dict] = d.get("react", [])        # [{match, action|respond}]
+        self.react_rules: list[dict] = d.get("react", [])  # [{match, action|respond}]
 
     # ---- llm ----
     def llm_response(self, prompt_text: str) -> str:
@@ -114,8 +116,10 @@ class Fixture:
             if needle and needle in low:
                 scores = rule.get("scores", {})
                 break
-        return {dim: round(float(scores.get(dim, self.default_judge_scores.get(dim, 0.75))), 4)
-                for dim in rubric}
+        return {
+            dim: round(float(scores.get(dim, self.default_judge_scores.get(dim, 0.75))), 4)
+            for dim in rubric
+        }
 
 
 class ToolError(RuntimeError):
@@ -135,17 +139,20 @@ class SimLLMProvider:
     live behind this same interface in providers.py — flipping is one graph param."""
 
     deterministic = True
-    locality = "sim"    # egress destination for model calls
+    locality = "sim"  # egress destination for model calls
 
     def __init__(self, name: str, fixture: Fixture):
         self.name = name
         self.fixture = fixture
 
-    def complete(self, prompt: str, temperature: float = 0.2,
-                 max_tokens: int = 512) -> Completion:
+    def complete(self, prompt: str, temperature: float = 0.2, max_tokens: int = 512) -> Completion:
         text = self.fixture.llm_response(prompt)
-        return Completion(text=text, input_tokens=approx_tokens(prompt),
-                          output_tokens=approx_tokens(text), cost_usd=0.0)
+        return Completion(
+            text=text,
+            input_tokens=approx_tokens(prompt),
+            output_tokens=approx_tokens(text),
+            cost_usd=0.0,
+        )
 
 
 class SimVectorStore:
@@ -188,6 +195,7 @@ REDACTION_RULES: dict[str, str] = {
 def redact(text: str, rules: list[str], mask: str = "████") -> tuple[str, int, list[str]]:
     """Deterministic rule-selectable redaction — pure regex, provable, unit-testable."""
     import re
+
     count, hit = 0, []
     for name in rules:
         pattern = REDACTION_RULES.get(name)

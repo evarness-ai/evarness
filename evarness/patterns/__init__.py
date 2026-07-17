@@ -6,6 +6,7 @@ zip of exactly that directory shape (DR6) — publish, export, and import all sp
 the same layout. Every pattern must ship at least one fixture — the honesty rule
 is enforced content policy, not decoration.
 """
+
 from __future__ import annotations
 
 import io
@@ -31,8 +32,7 @@ def user_patterns_dir() -> Path:
 
 
 def builtin_ids() -> set[str]:
-    return {d.name for d in PATTERNS_DIR.iterdir()
-            if d.is_dir() and (d / "graph.json").exists()}
+    return {d.name for d in PATTERNS_DIR.iterdir() if d.is_dir() and (d / "graph.json").exists()}
 
 
 def _pattern_dir(pattern_id: str) -> Path | None:
@@ -45,12 +45,20 @@ def _pattern_dir(pattern_id: str) -> Path | None:
 
 def _summarize(d: Path, source: str) -> dict:
     graph = json.loads((d / "graph.json").read_text())
-    fixtures = sorted(p.stem for p in (d / "fixtures").glob("*.yaml")) if (d / "fixtures").exists() else []
+    fixtures = (
+        sorted(p.stem for p in (d / "fixtures").glob("*.yaml")) if (d / "fixtures").exists() else []
+    )
     lesson = (d / "lesson.md").read_text() if (d / "lesson.md").exists() else ""
     category = (graph.get("metadata") or {}).get("category") or "Uncategorized"
-    return {"id": d.name, "name": graph.get("name", d.name),
-            "description": graph.get("description", ""), "category": category,
-            "fixtures": fixtures, "lesson": lesson, "source": source}
+    return {
+        "id": d.name,
+        "name": graph.get("name", d.name),
+        "description": graph.get("description", ""),
+        "category": category,
+        "fixtures": fixtures,
+        "lesson": lesson,
+        "source": source,
+    }
 
 
 def list_patterns() -> list[dict]:
@@ -106,6 +114,7 @@ def fixture_text(pattern_id: str, fixture_name: str) -> str | None:
 
 # ---------------------------------------------------------------- publish (Pattern Studio)
 
+
 def validate_fixture_yaml(text: str) -> dict:
     """A fixture must parse as a YAML mapping and construct a Fixture."""
     doc = yaml.safe_load(text)
@@ -115,27 +124,33 @@ def validate_fixture_yaml(text: str) -> dict:
     return doc
 
 
-def publish_pattern(pattern_id: str, graph_doc: dict, lesson: str,
-                    fixtures: dict[str, str], category: str = "",
-                    invariants_yaml: str = "") -> dict:
+def publish_pattern(
+    pattern_id: str,
+    graph_doc: dict,
+    lesson: str,
+    fixtures: dict[str, str],
+    category: str = "",
+    invariants_yaml: str = "",
+) -> dict:
     """Promote a graph into a user pattern: validate everything, then write the
     pattern directory. Republishing the same id overwrites (user patterns only)."""
     if not PATTERN_ID_RE.match(pattern_id or ""):
-        raise ValueError("pattern id must be a slug: lowercase letters, digits, "
-                         "underscores (2-64 chars)")
+        raise ValueError(
+            "pattern id must be a slug: lowercase letters, digits, " "underscores (2-64 chars)"
+        )
     if pattern_id in builtin_ids():
         raise ValueError(f"'{pattern_id}' is a built-in pattern — pick another id")
     if not fixtures:
         raise ValueError("a pattern must ship at least one fixture (honesty rule)")
     if category.strip():
-        graph_doc = {**graph_doc,
-                     "metadata": {**(graph_doc.get("metadata") or {}),
-                                  "category": category.strip()}}
+        graph_doc = {
+            **graph_doc,
+            "metadata": {**(graph_doc.get("metadata") or {}), "category": category.strip()},
+        }
     graph = GraphModel.model_validate(migrate(graph_doc))
     errors = [i for i in lint(graph, REGISTRY) if i["level"] == "error"]
     if errors:
-        raise ValueError("graph has lint errors: "
-                         + "; ".join(i["message"] for i in errors))
+        raise ValueError("graph has lint errors: " + "; ".join(i["message"] for i in errors))
     for name, text in fixtures.items():
         if not re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", name):
             raise ValueError(f"fixture name '{name}' must be a slug")
@@ -153,17 +168,24 @@ def publish_pattern(pattern_id: str, graph_doc: dict, lesson: str,
         except Exception as exc:
             raise ValueError(f"invariants.yaml is not valid YAML: {exc}")
         if not isinstance(inv_doc, dict) or not isinstance(inv_doc.get("invariants"), dict):
-            raise ValueError("invariants.yaml must be a mapping with a top-level "
-                             "'invariants:' section")
+            raise ValueError(
+                "invariants.yaml must be a mapping with a top-level " "'invariants:' section"
+            )
         from ..invariants import check_invariants
+
         defs = inv_doc["invariants"]
         # dry-run against an empty stream: only MALFORMED contracts reject
         # (an 'eventually' failing on zero events is expected, not invalid)
-        bad = [r for r in check_invariants(list(defs), [], extra=defs)["results"]
-               if not r["ok"] and r["detail"].startswith("uncheckable contract")]
+        bad = [
+            r
+            for r in check_invariants(list(defs), [], extra=defs)["results"]
+            if not r["ok"] and r["detail"].startswith("uncheckable contract")
+        ]
         if bad:
-            raise ValueError("invalid invariant contract(s): "
-                             + "; ".join(f"{r['id']}: {r['detail']}" for r in bad))
+            raise ValueError(
+                "invalid invariant contract(s): "
+                + "; ".join(f"{r['id']}: {r['detail']}" for r in bad)
+            )
 
     graph.id = pattern_id
     graph.metadata = {**graph.metadata, "origin": "studio"}
@@ -178,7 +200,7 @@ def publish_pattern(pattern_id: str, graph_doc: dict, lesson: str,
     inv_file = d / "invariants.yaml"
     if invariants_yaml.strip():
         inv_file.write_text(invariants_yaml)
-    elif inv_file.exists():       # republish without contracts removes them
+    elif inv_file.exists():  # republish without contracts removes them
         inv_file.unlink()
     return _summarize(d, "user")
 
@@ -196,6 +218,7 @@ def delete_pattern(pattern_id: str) -> None:
 
 
 # ---------------------------------------------------------------- .harness bundles
+
 
 def export_bundle(pattern_id: str) -> bytes:
     """Zip the pattern directory — the bundle IS the directory shape (DR6)."""
@@ -233,11 +256,16 @@ def import_bundle(data: bytes, pattern_id: str | None = None) -> dict:
     if graph_text is None:
         raise ValueError("bundle has no graph.json")
     graph_doc = json.loads(graph_text)
-    fixtures = {p[strip + 1].removesuffix(".yaml"): text
-                for p, text in members.items()
-                if len(p) == strip + 2 and p[strip] == "fixtures"
-                and p[strip + 1].endswith(".yaml")}
+    fixtures = {
+        p[strip + 1].removesuffix(".yaml"): text
+        for p, text in members.items()
+        if len(p) == strip + 2 and p[strip] == "fixtures" and p[strip + 1].endswith(".yaml")
+    }
     pid = pattern_id or root or graph_doc.get("id", "")
-    return publish_pattern(str(pid).replace("-", "_"), graph_doc,
-                           get("lesson.md") or "", fixtures,
-                           invariants_yaml=get("invariants.yaml") or "")
+    return publish_pattern(
+        str(pid).replace("-", "_"),
+        graph_doc,
+        get("lesson.md") or "",
+        fixtures,
+        invariants_yaml=get("invariants.yaml") or "",
+    )

@@ -1,4 +1,5 @@
 """Graph IR — the single source of truth every feature operates on."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -24,6 +25,7 @@ class NodeModel(BaseModel):
 
 class EdgeModel(BaseModel):
     """Edges connect ports. Defaults model the common single-in/single-out case."""
+
     model_config = ConfigDict(populate_by_name=True)
     from_: str = Field(alias="from")
     to: str
@@ -73,6 +75,7 @@ def migrate(doc: dict) -> dict:
 
 
 # ---------------------------------------------------------------- lint
+
 
 def lint(graph: GraphModel, registry: dict) -> list[dict]:
     """Validate a graph against the node registry. Returns [{level, code, message}]."""
@@ -148,8 +151,10 @@ def lint(graph: GraphModel, registry: dict) -> list[dict]:
                     downstream.add(e.to)
                     frontier.append(e.to)
         if not any(types.get(d) == "interceptor" for d in downstream):
-            warn("policy_unguarded_llm",
-                 f"Policy: LLM node {lid} reaches output without a validator interceptor")
+            warn(
+                "policy_unguarded_llm",
+                f"Policy: LLM node {lid} reaches output without a validator interceptor",
+            )
 
     return issues
 

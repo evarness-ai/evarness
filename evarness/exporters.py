@@ -11,7 +11,7 @@ land in existing pipelines instead of an observability island:
     event rides as a span event on its node's span. GenAI semantic-convention
     attribute names (``gen_ai.provider.name``, ``gen_ai.request.model``,
     ``gen_ai.usage.total_tokens``) are used where the mapping is exact;
-    everything Harness-Lab-specific is namespaced ``evarness.*`` — no
+    everything Evarness-specific is namespaced ``evarness.*`` — no
     pretending our vocabulary is theirs.
 
 Exports are DERIVED evidence, not the contract: they include wall-clock
@@ -29,8 +29,8 @@ Extension point: register your own format by name —
     def export_csv(events, meta, cfg):
         ...return the serialized document as a str...
 
-Plugins in ``~/.evarness/plugins/`` (toolsdk) may register exporters the same
-way they register tools. Knobs live in packaged ``exporters.yaml`` with a
+Python-plugin exporters arrive with the Tools SDK in a later release. Knobs
+live in packaged ``exporters.yaml`` with a
 per-format user overlay at ``~/.evarness/exporters.yaml``
 (``$EVARNESS_EXPORTERS``). An unknown format is a loud ``ValueError`` naming
 the formats that do exist — never a silent fallback.
@@ -38,6 +38,7 @@ the formats that do exist — never a silent fallback.
 JUnit and SARIF are deliberately NOT here: they report *verdicts*, not traces,
 so they render proof bundles (prove.py).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -56,8 +57,9 @@ _PACKAGED = Path(__file__).parent / "exporters.yaml"
 
 
 def _overlay_path() -> Path:
-    return Path(os.environ.get("EVARNESS_EXPORTERS",
-                               str(Path.home() / ".evarness" / "exporters.yaml")))
+    return Path(
+        os.environ.get("EVARNESS_EXPORTERS", str(Path.home() / ".evarness" / "exporters.yaml"))
+    )
 
 
 _cfg_cache: dict | None = None
@@ -88,6 +90,7 @@ def _engine_version() -> str:
 
 # ------------------------------------------------------------------- registry
 
+
 @dataclass(frozen=True)
 class Exporter:
     name: str
@@ -99,16 +102,16 @@ class Exporter:
 EXPORTERS: dict[str, Exporter] = {}
 
 
-def register_exporter(name: str, media_type: str = "application/json",
-                      extension: str = ".json"):
+def register_exporter(name: str, media_type: str = "application/json", extension: str = ".json"):
     """Register a trace exporter by name. ``fn(events, meta, cfg) -> str`` where
     ``events`` is the raw engine stream, ``meta`` is run context (run_id, name,
     status, seed, provider, deterministic — whatever the caller knows), and
     ``cfg`` is this format's section from exporters.yaml (+ overlay)."""
+
     def deco(fn):
-        EXPORTERS[name] = Exporter(name=name, fn=fn, media_type=media_type,
-                                   extension=extension)
+        EXPORTERS[name] = Exporter(name=name, fn=fn, media_type=media_type, extension=extension)
         return fn
+
     return deco
 
 
@@ -121,8 +124,10 @@ def export_formats_meta() -> list[dict]:
     """The registered formats with their presentation facts — what a UI needs to
     offer a download control without hardcoding the format list."""
     _load_plugin_exporters()
-    return [{"id": e.name, "media_type": e.media_type, "extension": e.extension}
-            for _, e in sorted(EXPORTERS.items())]
+    return [
+        {"id": e.name, "media_type": e.media_type, "extension": e.extension}
+        for _, e in sorted(EXPORTERS.items())
+    ]
 
 
 def export_trace(fmt: str, events: list[dict], meta: dict | None = None) -> tuple[str, str]:
@@ -131,8 +136,9 @@ def export_trace(fmt: str, events: list[dict], meta: dict | None = None) -> tupl
     _load_plugin_exporters()
     exp = EXPORTERS.get(fmt)
     if exp is None:
-        raise ValueError(f"unknown trace format '{fmt}' — available: "
-                         f"{', '.join(sorted(EXPORTERS))}")
+        raise ValueError(
+            f"unknown trace format '{fmt}' — available: " f"{', '.join(sorted(EXPORTERS))}"
+        )
     cfg = exporter_config().get(fmt) or {}
     return exp.fn(events, dict(meta or {}), cfg), exp.media_type
 
@@ -146,14 +152,18 @@ def _load_plugin_exporters() -> None:
 
 # -------------------------------------------------------------------- builtins
 
+
 @register_exporter("jsonl", media_type="application/x-ndjson", extension=".jsonl")
 def export_jsonl(events: list[dict], meta: dict, cfg: dict) -> str:
     """Native canonical trace, one event per line — exactly the bytes the
     digest is computed over, split at event boundaries."""
-    return "\n".join(
-        json.dumps(canonical_event(e), sort_keys=True, separators=(",", ":"),
-                   ensure_ascii=True)
-        for e in events) + "\n"
+    return (
+        "\n".join(
+            json.dumps(canonical_event(e), sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+            for e in events
+        )
+        + "\n"
+    )
 
 
 def _hex_id(seedtext: str, nbytes: int) -> str:
@@ -169,7 +179,7 @@ def _attr(key: str, value: Any) -> dict:
     if isinstance(value, bool):
         v: dict = {"boolValue": value}
     elif isinstance(value, int):
-        v = {"intValue": str(value)}   # int64 is a string in OTLP/JSON
+        v = {"intValue": str(value)}  # int64 is a string in OTLP/JSON
     elif isinstance(value, float):
         v = {"doubleValue": value}
     else:
@@ -199,8 +209,9 @@ def export_otlp(events: list[dict], meta: dict, cfg: dict) -> str:
     root_id = _hex_id(f"{digest}:root", 8)
 
     started = next((e for e in events if e["type"] == "run_started"), None)
-    finished = next((e for e in events if e["type"] in
-                     ("run_finished", "run_failed", "run_paused")), None)
+    finished = next(
+        (e for e in events if e["type"] in ("run_finished", "run_failed", "run_paused")), None
+    )
     t0 = events[0]["ts"] if events else 0.0
     t1 = events[-1]["ts"] if events else t0
 
@@ -209,32 +220,36 @@ def export_otlp(events: list[dict], meta: dict, cfg: dict) -> str:
     if status == "completed":
         root_status = {"code": "STATUS_CODE_OK"}
     elif status in ("blocked", "failed"):
-        root_status = {"code": "STATUS_CODE_ERROR",
-                       "message": str(meta.get("reason") or status)}
+        root_status = {"code": "STATUS_CODE_ERROR", "message": str(meta.get("reason") or status)}
 
     root_attrs = [_attr("evarness.trace_digest", digest)]
     for key in ("run_id", "status", "seed", "fixture", "pattern"):
         if meta.get(key) is not None:
             root_attrs.append(_attr(f"evarness.{key}", meta[key]))
     if started:
-        root_attrs.append(_attr("evarness.deterministic",
-                                bool(started["payload"].get("deterministic"))))
-        root_attrs.extend(_provider_attrs(started["payload"].get("provider")
-                                          or meta.get("provider")))
+        root_attrs.append(
+            _attr("evarness.deterministic", bool(started["payload"].get("deterministic")))
+        )
+        root_attrs.extend(
+            _provider_attrs(started["payload"].get("provider") or meta.get("provider"))
+        )
     if finished and finished["type"] == "run_finished":
-        root_attrs.append(_attr("gen_ai.usage.total_tokens",
-                                int(finished["payload"].get("total_tokens") or 0)))
+        root_attrs.append(
+            _attr("gen_ai.usage.total_tokens", int(finished["payload"].get("total_tokens") or 0))
+        )
 
     def span_event(e: dict) -> dict:
-        attrs = [_attr("evarness.seq", e["seq"]),
-                 _attr("evarness.payload", json.dumps(
-                     e["payload"], sort_keys=True, separators=(",", ":"),
-                     ensure_ascii=True))]
-        return {"timeUnixNano": _nanos(e["ts"]), "name": e["type"],
-                "attributes": attrs}
+        attrs = [
+            _attr("evarness.seq", e["seq"]),
+            _attr(
+                "evarness.payload",
+                json.dumps(e["payload"], sort_keys=True, separators=(",", ":"), ensure_ascii=True),
+            ),
+        ]
+        return {"timeUnixNano": _nanos(e["ts"]), "name": e["type"], "attributes": attrs}
 
     spans = []
-    open_span: dict | None = None       # engine executes nodes sequentially
+    open_span: dict | None = None  # engine executes nodes sequentially
     root_events: list[dict] = []
     for e in events:
         if e["type"] == "node_started":
@@ -245,10 +260,11 @@ def export_otlp(events: list[dict], meta: dict, cfg: dict) -> str:
                 "name": f"{e['payload'].get('type', 'node')}:{e['node_id']}",
                 "kind": "SPAN_KIND_INTERNAL",
                 "startTimeUnixNano": _nanos(e["ts"]),
-                "endTimeUnixNano": _nanos(e["ts"]),   # patched on node_finished
-                "attributes": [_attr("evarness.node_id", e["node_id"] or ""),
-                               _attr("evarness.node_type",
-                                     e["payload"].get("type", ""))],
+                "endTimeUnixNano": _nanos(e["ts"]),  # patched on node_finished
+                "attributes": [
+                    _attr("evarness.node_id", e["node_id"] or ""),
+                    _attr("evarness.node_type", e["payload"].get("type", "")),
+                ],
                 "events": [],
                 "status": {},
             }
@@ -263,8 +279,10 @@ def export_otlp(events: list[dict], meta: dict, cfg: dict) -> str:
             open_span["events"].append(span_event(e))
             open_span["endTimeUnixNano"] = _nanos(e["ts"])
             if e["type"] == "policy_violation":
-                open_span["status"] = {"code": "STATUS_CODE_ERROR",
-                                       "message": str(e["payload"].get("reason") or "")}
+                open_span["status"] = {
+                    "code": "STATUS_CODE_ERROR",
+                    "message": str(e["payload"].get("reason") or ""),
+                }
         else:
             root_events.append(span_event(e))
 
@@ -284,11 +302,17 @@ def export_otlp(events: list[dict], meta: dict, cfg: dict) -> str:
     for k, v in (cfg.get("resource_attributes") or {}).items():
         resource_attrs.append(_attr(str(k), v))
 
-    doc = {"resourceSpans": [{
-        "resource": {"attributes": resource_attrs},
-        "scopeSpans": [{
-            "scope": {"name": "evarness", "version": _engine_version()},
-            "spans": [root_span] + spans,
-        }],
-    }]}
+    doc = {
+        "resourceSpans": [
+            {
+                "resource": {"attributes": resource_attrs},
+                "scopeSpans": [
+                    {
+                        "scope": {"name": "evarness", "version": _engine_version()},
+                        "spans": [root_span] + spans,
+                    }
+                ],
+            }
+        ]
+    }
     return json.dumps(doc, indent=2)

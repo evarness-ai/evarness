@@ -36,6 +36,7 @@ ordered list. Bring your own::
 
 then add "pii" to a judge_chain node's `judges` list.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,7 +54,7 @@ VERDICTS = ("pass", "warn", "retry", "halt")
 @dataclass
 class JudgeSignal:
     name: str
-    verdict: str                 # pass | warn | retry | halt
+    verdict: str  # pass | warn | retry | halt
     score: float | None = None
     reason: str = ""
 
@@ -70,11 +71,13 @@ DEFAULT_JUDGES = ["safety", "faithfulness"]
 
 def register_judge(name: str, repair: Repair | None = None):
     """Register a judge under ``name``; optionally a repair tried between retries."""
+
     def deco(fn: Judge) -> Judge:
         _JUDGES[name.lower()] = fn
         if repair is not None:
             _REPAIRS[name.lower()] = repair
         return fn
+
     return deco
 
 
@@ -97,8 +100,7 @@ _config_cache: dict | None = None
 
 
 def _overlay_path() -> Path:
-    return Path(os.environ.get("EVARNESS_JUDGES",
-                               str(Path.home() / ".evarness" / "judges.yaml")))
+    return Path(os.environ.get("EVARNESS_JUDGES", str(Path.home() / ".evarness" / "judges.yaml")))
 
 
 def judges_config() -> dict:
@@ -131,7 +133,7 @@ def judge_config(name: str) -> dict:
 # hard-halt patterns: secrets that must never appear in an ANSWER, and clearly
 # dangerous content. Deterministic — a safety verdict is not a judgment call.
 _SAFETY_PATTERNS = [
-    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),                      # AWS key leaked in output
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),  # AWS key leaked in output
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     re.compile(r"\b(?:build|make|construct)\s+a\s+bomb\b", re.I),
 ]
@@ -163,7 +165,7 @@ def _extract_json(text: str):
     dec = json.JSONDecoder()
     for m in re.finditer(r"[\[{]", cleaned):
         try:
-            return dec.raw_decode(cleaned[m.start():])[0]
+            return dec.raw_decode(cleaned[m.start() :])[0]
         except ValueError:
             continue
     return None
@@ -193,8 +195,12 @@ def _scored(name: str, dim: str, text: str, cfg: dict, ctx) -> JudgeSignal:
     s = scores.get(dim, 0.75)
     if s >= float(cfg.get("threshold", 0.6)):
         return JudgeSignal(name, "pass", score=s)
-    return JudgeSignal(name, cfg.get("on_fail", "warn"), score=s,
-                       reason=f"{dim} {s} below {cfg.get('threshold', 0.6)}")
+    return JudgeSignal(
+        name,
+        cfg.get("on_fail", "warn"),
+        score=s,
+        reason=f"{dim} {s} below {cfg.get('threshold', 0.6)}",
+    )
 
 
 @register_judge("faithfulness")

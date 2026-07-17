@@ -21,6 +21,7 @@ Mechanics:
     ``[secrets]``) extra. Signing/verifying without it installed is a clean
     error naming the extra, never a silent skip.
 """
+
 from __future__ import annotations
 
 import base64
@@ -39,40 +40,45 @@ def _crypto():
     try:
         from cryptography.hazmat.primitives.asymmetric import ed25519
         from cryptography.hazmat.primitives import serialization
+
         return ed25519, serialization
     except ImportError:
         raise AttestationError(
             "attestation needs the 'cryptography' package — "
-            'install it with:  pip install "evarness[sign]"')
+            'install it with:  pip install "evarness[sign]"'
+        )
 
 
 def default_key_path() -> Path:
-    return Path(os.environ.get(
-        "EVARNESS_SIGNING_KEY",
-        str(Path.home() / ".evarness" / "keys" / "proof_ed25519.pem")))
+    return Path(
+        os.environ.get(
+            "EVARNESS_SIGNING_KEY", str(Path.home() / ".evarness" / "keys" / "proof_ed25519.pem")
+        )
+    )
 
 
 def canonical_bundle_bytes(proof: dict) -> bytes:
     """The signed payload: the bundle minus its attestation, canonical JSON."""
     doc = {k: v for k, v in proof.items() if k != "attestation"}
-    return json.dumps(doc, sort_keys=True, separators=(",", ":"),
-                      ensure_ascii=True).encode("ascii")
+    return json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("ascii")
 
 
 def _load_or_create_key(key_path: Path):
     ed25519, serialization = _crypto()
     if key_path.is_file():
-        key = serialization.load_pem_private_key(key_path.read_bytes(),
-                                                 password=None)
+        key = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
         if not isinstance(key, ed25519.Ed25519PrivateKey):
             raise AttestationError(f"{key_path} is not an Ed25519 private key")
         return key, False
     key = ed25519.Ed25519PrivateKey.generate()
     key_path.parent.mkdir(parents=True, exist_ok=True)
-    key_path.write_bytes(key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption()))
+    key_path.write_bytes(
+        key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        )
+    )
     os.chmod(key_path, 0o600)
     key_path.with_suffix(".pub").write_text(public_key_b64(key) + "\n")
     return key, True
@@ -81,8 +87,8 @@ def _load_or_create_key(key_path: Path):
 def public_key_b64(private_key) -> str:
     _, serialization = _crypto()
     raw = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.Raw,
-        format=serialization.PublicFormat.Raw)
+        encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
+    )
     return base64.b64encode(raw).decode("ascii")
 
 
@@ -116,10 +122,8 @@ def verify_attestation(proof: dict, pubkey_b64: str | None = None) -> dict:
         return {"ok": False, "detail": "embedded public key does not match the pinned key"}
     ed25519, _ = _crypto()
     try:
-        key = ed25519.Ed25519PublicKey.from_public_bytes(
-            base64.b64decode(att["public_key"]))
-        key.verify(base64.b64decode(att["signature"]),
-                   canonical_bundle_bytes(proof))
+        key = ed25519.Ed25519PublicKey.from_public_bytes(base64.b64decode(att["public_key"]))
+        key.verify(base64.b64decode(att["signature"]), canonical_bundle_bytes(proof))
     except Exception:
         return {"ok": False, "detail": "signature does not match the bundle contents"}
     pinned = " (pinned key)" if pubkey_b64 else " (embedded key — pin one to identify the signer)"

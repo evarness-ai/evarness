@@ -29,6 +29,7 @@ Deliberately NOT an extension point: user-configurable normalization would make
 digests incomparable between installations, and the entire value of a canonical
 form is that everyone computes the same one.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -53,8 +54,9 @@ def canonical_trace(events: list[dict]) -> list[dict]:
 
 def canonical_json(events: list[dict]) -> str:
     """Byte-stable serialization of the canonical trace (rule 3)."""
-    return json.dumps(canonical_trace(events), sort_keys=True,
-                      separators=(",", ":"), ensure_ascii=True)
+    return json.dumps(
+        canonical_trace(events), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+    )
 
 
 def trace_digest(events: list[dict]) -> str:
@@ -82,7 +84,8 @@ def chain_digest(events: list[dict]) -> str:
     """
     h = hashlib.sha256(b"").digest()
     for e in events:
-        line = json.dumps(canonical_event(e), sort_keys=True,
-                          separators=(",", ":"), ensure_ascii=True)
+        line = json.dumps(
+            canonical_event(e), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        )
         h = hashlib.sha256(h + line.encode("ascii")).digest()
     return f"{CANONICALIZATION_VERSION}:chain-sha256:{h.hex()}"

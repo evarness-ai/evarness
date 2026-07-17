@@ -2,9 +2,9 @@
 
 The economy a privacy-first personal agent needs: map every intent to a model
 tier (cheap local router, fast local, local reasoning, big cloud opt-in), start
-at the cheapest tier that can do the job, and DOWNSHIFT under pressure. Harness
-Lab ran one provider for the whole graph — no notion of "this intent is cheap,
-keep it local; that one earns the cloud".
+at the cheapest tier that can do the job, and DOWNSHIFT under pressure. A graph
+with a single provider has no notion of "this intent is cheap, keep it local;
+that one earns the cloud" — tiers give it one.
 
 The payoff of stacking on data classification: a tier carries a declared
 LOCALITY, and the egress law already knows personal/secret content may not reach
@@ -26,6 +26,7 @@ trace reason about). Point a tier at a real provider in the overlay and the run
 is non-deterministic — exactly like flipping any llm node to real, and the
 trace says so.
 """
+
 from __future__ import annotations
 
 import os
@@ -42,8 +43,7 @@ _config_cache: dict | None = None
 
 
 def _overlay_path() -> Path:
-    return Path(os.environ.get("EVARNESS_TIERS",
-                               str(Path.home() / ".evarness" / "tiers.yaml")))
+    return Path(os.environ.get("EVARNESS_TIERS", str(Path.home() / ".evarness" / "tiers.yaml")))
 
 
 def tiers_config() -> dict:
@@ -67,8 +67,12 @@ def tiers_config() -> dict:
             intents.update(user.get("intents") or {})
             default_tier = user.get("default_tier", default_tier)
             fallback_tier = user.get("fallback_tier", fallback_tier)
-        _config_cache = {"tiers": tiers, "intents": intents,
-                         "default_tier": default_tier, "fallback_tier": fallback_tier}
+        _config_cache = {
+            "tiers": tiers,
+            "intents": intents,
+            "default_tier": default_tier,
+            "fallback_tier": fallback_tier,
+        }
     return _config_cache
 
 
@@ -92,8 +96,9 @@ def tier_provider(name: str) -> str:
     return tier_def(name).get("provider", "sim:helpful-v1")
 
 
-def resolve_tier(intent: str | None, intents_override: dict | None,
-                 default_override: str) -> tuple[str, bool]:
+def resolve_tier(
+    intent: str | None, intents_override: dict | None, default_override: str
+) -> tuple[str, bool]:
     """Map an intent to a tier name. Overrides (node config) win over the YAML
     map. Returns (tier_name, unknown) — unknown flags a configured tier that
     isn't defined, so the misconfig is traced, not silent."""

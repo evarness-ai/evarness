@@ -55,12 +55,13 @@ Scope honesty: recompositions of individually-supported words ("World Cup" +
 lowercase prose pass entity_support. It narrows the gap deterministically; an
 llm_judge downstream — or your own registered rule — can narrow it further.
 """
+
 from __future__ import annotations
 
 import os
 import re
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import yaml
 
@@ -75,9 +76,11 @@ DEFAULT_RULES = ["entity_support"]
 
 def register_grounding_rule(name: str):
     """Register a grounding rule under ``name`` (rules are pure functions)."""
+
     def deco(fn: GroundingRule) -> GroundingRule:
         _RULES[name.lower()] = fn
         return fn
+
     return deco
 
 
@@ -96,8 +99,9 @@ _config_cache: dict | None = None
 
 
 def _overlay_path() -> Path:
-    return Path(os.environ.get("EVARNESS_GROUNDING",
-                               str(Path.home() / ".evarness" / "grounding.yaml")))
+    return Path(
+        os.environ.get("EVARNESS_GROUNDING", str(Path.home() / ".evarness" / "grounding.yaml"))
+    )
 
 
 def rules_config() -> dict:
@@ -131,8 +135,10 @@ def rule_config(name: str) -> dict:
 
 # ------------------------------------------------------------------ dispatch
 
-def check_grounding(answer: str, evidence: str, rules: list[str] | None = None,
-                    context: dict | None = None) -> tuple[list[str], list[str]]:
+
+def check_grounding(
+    answer: str, evidence: str, rules: list[str] | None = None, context: dict | None = None
+) -> tuple[list[str], list[str]]:
     """Run the named rules; returns (violations, not_run). ``not_run`` lists rules
     that could not check anything — unknown names and rules that errored (e.g. a
     missing optional dependency) — annotated with why. Never silently dropped:
@@ -198,7 +204,7 @@ def entity_support(answer: str, evidence: str, cfg: dict, context: dict) -> list
         # list/header markers before deciding whether the span starts a sentence.
         # Strip spaces only (NOT the newline): a list line whose predecessor lacks
         # ending punctuation is still a line start (found live, run 3a6382391999)
-        prev = answer[:m.start()].rstrip(" \t").rstrip("*#_>•-").rstrip(" \t")
+        prev = answer[: m.start()].rstrip(" \t").rstrip("*#_>•-").rstrip(" \t")
         at_sentence_start = not prev or prev[-1] in _SENT_END
         # an enumeration marker is structure, not a claim — "1. AI ..." must not
         # flag the "1" (found live, run 5adfc56a3a7f); what follows it is
@@ -249,6 +255,7 @@ def unsupported_entities(answer: str, evidence: str) -> list[str]:
 
 # ------------------------------------------------------- request-coverage rules
 
+
 def requested_count(question: str) -> int | None:
     """The item count the request contracts for ("top 10" -> 10), from the
     count_intent patterns, capped by max_count. None when no count is asked."""
@@ -278,11 +285,12 @@ def topic_coverage(answer: str, evidence: str, cfg: dict, context: dict) -> list
     typo_min = int(cfg.get("typo_min_len", 4))
     typo_two = int(cfg.get("typo_len_for_two", 8))
     max_reported = int(cfg.get("max_reported", 6))
-    covered = set(_tokens(" ".join(context.get("queries") or [])
-                          + " " + context.get("observations", "")))
+    covered = set(
+        _tokens(" ".join(context.get("queries") or []) + " " + context.get("observations", ""))
+    )
     missing, seen = [], set()
     for tok in _tokens(question):
-        if (len(tok) < min_len or tok in stop or tok.isdigit() or tok in seen):
+        if len(tok) < min_len or tok in stop or tok.isdigit() or tok in seen:
             continue
         seen.add(tok)
         if _word_supported(tok, covered, plural):
@@ -290,8 +298,7 @@ def topic_coverage(answer: str, evidence: str, cfg: dict, context: dict) -> list
         if typo and _typo_covered(tok, covered, typo_min, typo_two):
             continue
         missing.append(tok)
-    return [f"request topic '{w}' was never searched or retrieved"
-            for w in missing[:max_reported]]
+    return [f"request topic '{w}' was never searched or retrieved" for w in missing[:max_reported]]
 
 
 def _typo_covered(word: str, ev: set[str], min_len: int, len_for_two: int) -> bool:
@@ -316,7 +323,7 @@ def _edit_le(a: str, b: str, k: int) -> bool:
 
 @register_grounding_rule("count_intent")
 def count_intent(answer: str, evidence: str, cfg: dict, context: dict) -> list[str]:
-    """"top 10" is a contract: enumerate that many items or say honestly how many
+    """ "top 10" is a contract: enumerate that many items or say honestly how many
     were found (found live, run 63b134fb1fb0: "top 10" answered with 7 prose
     fragments). Honesty phrases let a genuine shortfall pass."""
     n = requested_count(context.get("question", ""))
@@ -350,18 +357,21 @@ def semantic_coverage(answer: str, evidence: str, cfg: dict, context: dict) -> l
     model = str(cfg.get("model", "sentence-transformers/all-MiniLM-L6-v2"))
     facets = _facets(question)
     corpus = [q for q in (context.get("queries") or []) if q.strip()]
-    corpus += [ln.strip() for ln in re.split(r"[;\n]",
-                                             context.get("observations", "")) if ln.strip()]
+    corpus += [
+        ln.strip() for ln in re.split(r"[;\n]", context.get("observations", "")) if ln.strip()
+    ]
     if not facets or not corpus:
         return []
     vecs = _embed_texts(facets + corpus, model)
-    fv, cv = vecs[:len(facets)], vecs[len(facets):]
+    fv, cv = vecs[: len(facets)], vecs[len(facets) :]
     out = []
     for facet, v in zip(facets, fv):
         best = max(_cos(v, c) for c in cv)
         if best < threshold:
-            out.append(f"request facet '{facet}' not covered "
-                       f"(best similarity {best:.2f} < {threshold})")
+            out.append(
+                f"request facet '{facet}' not covered "
+                f"(best similarity {best:.2f} < {threshold})"
+            )
             if len(out) >= max_reported:
                 break
     return out
@@ -379,17 +389,18 @@ def _facets(question: str) -> list[str]:
     return facets
 
 
-_EMBED_CACHE: dict[str, object] = {}
+_EMBED_CACHE: dict[str, Any] = {}
 
 
 def _embed_texts(texts: list[str], model: str) -> list[list[float]]:
     """Embed via fastembed (ONNX, local). Module-level seam: tests fake this;
     the ImportError message tells the user exactly what to install."""
     try:
-        from fastembed import TextEmbedding
+        from fastembed import TextEmbedding  # type: ignore[import-not-found]
     except ImportError as exc:
-        raise ImportError("semantic_coverage needs the [semantic] extra "
-                          "(pip install 'evarness[semantic]')") from exc
+        raise ImportError(
+            "semantic_coverage needs the [semantic] extra (pip install 'evarness[semantic]')"
+        ) from exc
     if model not in _EMBED_CACHE:
         _EMBED_CACHE[model] = TextEmbedding(model_name=model)
     return [list(v) for v in _EMBED_CACHE[model].embed(texts)]
@@ -402,7 +413,14 @@ def _cos(a: list[float], b: list[float]) -> float:
     return dot / (na * nb) if na and nb else 0.0
 
 
-__all__ = ["register_grounding_rule", "get_grounding_rule",
-           "available_grounding_rules", "check_grounding", "rule_config",
-           "reload_rules_config", "unsupported_entities", "requested_count",
-           "DEFAULT_RULES"]
+__all__ = [
+    "register_grounding_rule",
+    "get_grounding_rule",
+    "available_grounding_rules",
+    "check_grounding",
+    "rule_config",
+    "reload_rules_config",
+    "unsupported_entities",
+    "requested_count",
+    "DEFAULT_RULES",
+]

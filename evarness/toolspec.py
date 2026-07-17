@@ -28,6 +28,7 @@ manifest — YAML/JSON on disk — and everything else derives from it:
   ``validated``, ``signature`` — process gets added later, the format doesn't
   change.
 """
+
 from __future__ import annotations
 
 import re
@@ -40,8 +41,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.-]{1,63}$")
 
 #: category groups the UI and carries governance defaults for its members
-CATEGORIES = ("web", "email", "files", "calendar", "comms", "data", "code",
-              "knowledge", "system")
+CATEGORIES = ("web", "email", "files", "calendar", "comms", "data", "code", "knowledge", "system")
 
 EXECUTOR_KINDS = ("builtin", "sim", "http", "mcp", "python")
 IMPLEMENTED_KINDS = {"builtin", "sim", "http", "python", "mcp"}
@@ -49,13 +49,14 @@ IMPLEMENTED_KINDS = {"builtin", "sim", "http", "python", "mcp"}
 
 class ToolArg(BaseModel):
     """One declared parameter — typed and validated."""
+
     key: str
     label: str = ""
     type: Literal["text", "number", "bool", "list", "enum"] = "text"
     required: bool = False
     default: Any = None
-    options: list[str] = Field(default_factory=list)   # for enum
-    pattern: str | None = None                          # regex constraint (text)
+    options: list[str] = Field(default_factory=list)  # for enum
+    pattern: str | None = None  # regex constraint (text)
     min: float | None = None
     max: float | None = None
     help: str = ""
@@ -88,9 +89,10 @@ class SafetySpec(BaseModel):
     """Safety is manifest data, not convention. Approval defaults from the
     side-effect class: anything that WRITES needs a human opt-in unless the
     author explicitly says otherwise (user decision, 2026-07-12)."""
+
     side_effects: Literal["read", "write", "destructive"] = "read"
     network: Literal["none", "outbound"] = "none"
-    requires_approval: bool | None = None   # None => derived from side_effects
+    requires_approval: bool | None = None  # None => derived from side_effects
 
     def approval_required(self) -> bool:
         if self.requires_approval is not None:
@@ -101,6 +103,7 @@ class SafetySpec(BaseModel):
 class HttpResultMap(BaseModel):
     """How a JSON response becomes the mandatory documents contract. Paths are
     dot-paths ("data.results", "0.title"); items "" means the response IS the list."""
+
     items: str = ""
     id: str = "id"
     subject: str = "subject"
@@ -112,11 +115,12 @@ class HttpSpec(BaseModel):
     wrap any JSON API in a manifest, zero code. Templates may use ``{query}``,
     any declared arg key (``{count}``), and ``{secret:name}`` (vault-resolved
     at call time, never stored)."""
+
     url: str
     method: Literal["GET", "POST"] = "GET"
     query_params: dict[str, str] = Field(default_factory=dict)
     headers: dict[str, str] = Field(default_factory=dict)
-    body: dict | None = None            # JSON body template (POST)
+    body: dict | None = None  # JSON body template (POST)
     result: HttpResultMap = Field(default_factory=HttpResultMap)
     timeout_ms: int = 6000
     # http (not https) is refused unless the author opts in — localhost is fine
@@ -135,16 +139,16 @@ class McpSpec(BaseModel):
     names the server-side tool. One of ``command`` (stdio) or ``url``
     (streamable http) locates the server. The engine connects per call —
     stateless and simple; session pooling can come later if latency matters."""
-    command: str = ""                # stdio: e.g. "python -m acme_mcp"
-    url: str = ""                    # streamable http endpoint
-    query_arg: str = "query"         # which server-side argument gets the query
+
+    command: str = ""  # stdio: e.g. "python -m acme_mcp"
+    url: str = ""  # streamable http endpoint
+    query_arg: str = "query"  # which server-side argument gets the query
     args: dict[str, str] = Field(default_factory=dict)  # extra args (templated)
 
     @model_validator(mode="after")
     def _target(self):
         if bool(self.command) == bool(self.url):
-            raise ValueError("mcp spec needs exactly one of command (stdio) "
-                             "or url (http)")
+            raise ValueError("mcp spec needs exactly one of command (stdio) " "or url (http)")
         return self
 
 
@@ -152,6 +156,7 @@ class ExecutorSpec(BaseModel):
     """HOW the tool runs — the binding. ``ref`` points at the concrete thing:
     a builtin executor name, a registered python plugin function, an MCP
     server-side tool name; ``http`` carries the declarative endpoint spec."""
+
     kind: Literal["builtin", "sim", "http", "mcp", "python"] = "sim"
     ref: str = ""
     http: HttpSpec | None = None
@@ -162,18 +167,19 @@ class ExecutorSpec(BaseModel):
         if self.kind == "builtin" and not self.ref:
             raise ValueError("executor kind 'builtin' needs ref (the executor name)")
         if self.kind == "python" and not self.ref:
-            raise ValueError("executor kind 'python' needs ref (the registered "
-                             "plugin tool name — see register_tool)")
+            raise ValueError(
+                "executor kind 'python' needs ref (the registered "
+                "plugin tool name — see register_tool)"
+            )
         if self.kind == "http" and self.http is None:
-            raise ValueError("executor kind 'http' needs an http: spec "
-                             "(url, method, result mapping)")
+            raise ValueError(
+                "executor kind 'http' needs an http: spec " "(url, method, result mapping)"
+            )
         if self.kind == "mcp":
             if not self.ref:
-                raise ValueError("executor kind 'mcp' needs ref (the server-side "
-                                 "tool name)")
+                raise ValueError("executor kind 'mcp' needs ref (the server-side " "tool name)")
             if self.mcp is None:
-                raise ValueError("executor kind 'mcp' needs an mcp: spec "
-                                 "(command or url)")
+                raise ValueError("executor kind 'mcp' needs an mcp: spec " "(command or url)")
         return self
 
 
@@ -181,12 +187,14 @@ class SimRule(BaseModel):
     """Default sim behavior shipped WITH the tool: a fresh install works in sim
     mode immediately. Empty match = catch-all. '{query}' in result strings is
     substituted with the actual query."""
+
     match: dict[str, str] = Field(default_factory=dict)
     result: list[dict] = Field(default_factory=list)
 
 
 class TestCase(BaseModel):
     """Declared behavioral test — run at publish time (T4) and by users."""
+
     input: dict = Field(default_factory=dict)
     expect: dict = Field(default_factory=dict)
 
@@ -195,19 +203,20 @@ class ToolSpec(BaseModel):
     id: str
     name: str = ""
     version: str = "0.1.0"
-    category: Literal["web", "email", "files", "calendar", "comms", "data",
-                      "code", "knowledge", "system"] = "data"
+    category: Literal[
+        "web", "email", "files", "calendar", "comms", "data", "code", "knowledge", "system"
+    ] = "data"
     description: str
     args: list[ToolArg] = Field(default_factory=list)
     safety: SafetySpec = Field(default_factory=SafetySpec)
     executor: ExecutorSpec = Field(default_factory=ExecutorSpec)
-    secrets: list[str] = Field(default_factory=list)   # vault-resolved
+    secrets: list[str] = Field(default_factory=list)  # vault-resolved
     tests: list[TestCase] = Field(default_factory=list)
     sim: list[SimRule] = Field(default_factory=list)
     source: Literal["builtin", "user"] = "user"
     # reserved for the T4 verification pipeline / marketplace — format-stable now
     trust_level: Literal["first-party", "community"] = "community"
-    validated: dict = Field(default_factory=dict)      # {status, date, notes}
+    validated: dict = Field(default_factory=dict)  # {status, date, notes}
     signature: str = ""
 
     @field_validator("id")
@@ -254,9 +263,10 @@ def builtin_specs() -> list[ToolSpec]:
     global _builtin_cache
     if _builtin_cache is None:
         doc = yaml.safe_load(_PACKAGED.read_text()) or {}
-        _builtin_cache = [ToolSpec.model_validate({**t, "source": "builtin",
-                                                   "trust_level": "first-party"})
-                          for t in doc.get("tools", [])]
+        _builtin_cache = [
+            ToolSpec.model_validate({**t, "source": "builtin", "trust_level": "first-party"})
+            for t in doc.get("tools", [])
+        ]
     return _builtin_cache
 
 
@@ -265,14 +275,21 @@ def from_legacy(doc: dict) -> ToolSpec:
     into a ToolSpec, so previously published user tools keep loading."""
     if "executor" in doc and not isinstance(doc.get("executor"), dict):
         execu = doc.pop("executor", None)
-        doc["executor"] = ({"kind": "builtin", "ref": execu} if execu
-                           else {"kind": "sim"})
+        doc["executor"] = {"kind": "builtin", "ref": execu} if execu else {"kind": "sim"}
     if "params" in doc and "args" not in doc:
-        doc["args"] = [{"key": p.get("key", ""), "label": p.get("label", ""),
-                        "type": p.get("type", "text")
-                        if p.get("type") in ("text", "number", "bool", "list", "enum")
-                        else "text",
-                        "help": p.get("help", "")} for p in doc.pop("params", [])]
+        doc["args"] = [
+            {
+                "key": p.get("key", ""),
+                "label": p.get("label", ""),
+                "type": (
+                    p.get("type", "text")
+                    if p.get("type") in ("text", "number", "bool", "list", "enum")
+                    else "text"
+                ),
+                "help": p.get("help", ""),
+            }
+            for p in doc.pop("params", [])
+        ]
     doc.pop("note", None)
     return ToolSpec.model_validate(doc)
 
@@ -285,12 +302,27 @@ def sim_result(spec: ToolSpec, query: str) -> list[dict]:
         needle = str(rule.match.get("query_contains", "")).lower()
         if needle and needle not in low:
             continue
-        return [{k: (v.replace("{query}", query) if isinstance(v, str) else v)
-                 for k, v in doc.items()} for doc in rule.result]
+        return [
+            {k: (v.replace("{query}", query) if isinstance(v, str) else v) for k, v in doc.items()}
+            for doc in rule.result
+        ]
     return []
 
 
-__all__ = ["ToolSpec", "ToolArg", "SafetySpec", "ExecutorSpec", "HttpSpec", "McpSpec",
-           "HttpResultMap", "SimRule", "TestCase", "CATEGORIES",
-           "EXECUTOR_KINDS", "IMPLEMENTED_KINDS", "builtin_specs",
-           "from_legacy", "sim_result"]
+__all__ = [
+    "ToolSpec",
+    "ToolArg",
+    "SafetySpec",
+    "ExecutorSpec",
+    "HttpSpec",
+    "McpSpec",
+    "HttpResultMap",
+    "SimRule",
+    "TestCase",
+    "CATEGORIES",
+    "EXECUTOR_KINDS",
+    "IMPLEMENTED_KINDS",
+    "builtin_specs",
+    "from_legacy",
+    "sim_result",
+]
