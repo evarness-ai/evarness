@@ -11,7 +11,7 @@ classifier is registered under a name; its BEHAVIOR (markers, patterns) and the
 egress table are YAML config; the harness selects the classifier per node.
 Bring your own without a core edit::
 
-    from evarness.classification import register_classifier
+    from evarness.domains.agents.classification import register_classifier
 
     @register_classifier("dlp")
     def dlp(text, cfg):

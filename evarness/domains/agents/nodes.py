@@ -13,12 +13,24 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
-from .classification import classify, egress_allowed, max_class
-from .grounding import check_grounding, requested_count
-from .prompts import DEFAULTS, NUDGES, PROMPT_TEMPLATES, PROTOCOLS
-from .sim import REDACTION_RULES, SimVectorStore, ToolError, approx_tokens, redact, redact_pii
+from evarness.domains.agents.classification import classify, egress_allowed, max_class
+from evarness.domains.agents.grounding import check_grounding, requested_count
+from evarness.domains.agents.prompts import DEFAULTS, NUDGES, PROMPT_TEMPLATES, PROTOCOLS
+from evarness.domains.agents.sim import (
+    REDACTION_RULES,
+    SimVectorStore,
+    ToolError,
+    approx_tokens,
+    redact,
+    redact_pii,
+)
 
-REGISTRY: dict[str, type["NodeSpec"]] = {}
+from evarness.core.errors import NodeBlocked, RunPaused
+from evarness.core.registry import NODE_TYPES
+from evarness.core.registry import register_node as register
+
+#: the kernel's node-type table — re-exported for domain-local convenience
+REGISTRY = NODE_TYPES
 
 # Editable default instructions so the model is never left ungrounded (an empty
 # system prompt is how small models confabulate). The strings live in
@@ -26,11 +38,6 @@ REGISTRY: dict[str, type["NodeSpec"]] = {}
 # defaults in ~/.evarness/prompts.yaml.
 DEFAULT_LLM_SYSTEM = DEFAULTS["llm_system"]
 DEFAULT_AGENT_SYSTEM = DEFAULTS["agent_system"]
-
-
-def register(cls):
-    REGISTRY[cls.type_name] = cls
-    return cls
 
 
 # Palette presentation — icon + friendly label per node type. The Builder palette
@@ -87,29 +94,6 @@ def presentation(type_name: str) -> dict:
     return {"icon": icon, "label": label}
 
 
-class NodeBlocked(RuntimeError):
-    """Raised by governance nodes when execution must stop (deterministic block)."""
-
-    def __init__(self, node_id: str, reason: str):
-        super().__init__(reason)
-        self.node_id = node_id
-        self.reason = reason
-
-
-class RunPaused(RuntimeError):
-    """Raised by an approval_gate when a human decision is needed and none is
-     present yet. Unlike NodeBlocked (a terminal deny), this PAUSES the run: the
-     engine records it as `paused`, and a later execute() with the decision in
-     `approvals` replays deterministically up to this gate and continues past it
-    . The pause is a first-class outcome, not a failure."""
-
-    def __init__(self, node_id: str, prompt: str, preview: str):
-        super().__init__(prompt)
-        self.node_id = node_id
-        self.prompt = prompt
-        self.preview = preview
-
-
 def as_text(value: Any) -> str:
     if isinstance(value, str):
         return value
@@ -124,7 +108,7 @@ def _tool_spec_gate(tool: str, cfg, node_id: str):
     (`approve_side_effects`) or the harness refuses the call — safety is
     manifest data, enforced here, not a convention. Returns the spec (or None
     for tools with no manifest, e.g. fixture-only lesson tools)."""
-    from .catalog import tool_spec
+    from evarness.domains.agents.catalog import tool_spec
 
     spec = tool_spec(tool)
     if spec and spec.safety.approval_required() and not getattr(cfg, "approve_side_effects", False):
@@ -160,7 +144,7 @@ def _sim_default_result(spec, tool: str, query: str, ctx) -> list[dict]:
     immediately. Fixture scripts always win (the lesson author's intent)."""
     if spec is None or not spec.sim or tool in ctx.fixture.tools:
         return []
-    from .toolspec import sim_result
+    from evarness.domains.agents.toolspec import sim_result
 
     return sim_result(spec, query)
 
@@ -243,7 +227,7 @@ def _warn_free_search(node_id: str, tool: str, mode: str, provider: str, ctx) ->
     if mode != "real" or tool != "web.search":
         return
     try:
-        from .tools.search import get_search_provider  # type: ignore[import-not-found]
+        from evarness.domains.agents.tools.search import get_search_provider  # type: ignore[import-not-found]
     except ImportError:  # real search backends arrive with real execution
         return
 
@@ -693,8 +677,13 @@ class TierRouterNode(NodeSpec):
 
     @classmethod
     def run(cls, node_id, inputs, cfg, ctx):
-        from .providers import make_provider
-        from .tiers import fallback_tier, resolve_tier, tier_locality, tier_provider
+        from evarness.domains.agents.providers import make_provider
+        from evarness.domains.agents.tiers import (
+            fallback_tier,
+            resolve_tier,
+            tier_locality,
+            tier_provider,
+        )
 
         text = as_text(inputs.get("in", ""))
         intent = cls._last_intent(ctx)
@@ -1117,7 +1106,7 @@ class JudgeChainNode(NodeSpec):
 
     @classmethod
     def run(cls, node_id, inputs, cfg, ctx):
-        from .judges import get_judge, get_repair, judge_config
+        from evarness.domains.agents.judges import get_judge, get_repair, judge_config
 
         text = as_text(inputs.get("in", ""))
         timeouts = ctx.fixture.judge_timeouts

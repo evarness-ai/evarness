@@ -12,7 +12,7 @@ silent fallback to sim (which would make the trace lie about what ran).
 
 from __future__ import annotations
 
-from .sim import Completion, Fixture, SimLLMProvider
+from evarness.domains.agents.sim import Completion, Fixture, SimLLMProvider
 
 __all__ = ["Completion", "ProviderError", "make_provider", "list_providers"]
 

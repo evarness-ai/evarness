@@ -46,7 +46,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
-from .prompts import load_overlaid_yaml
+from evarness.core.config import load_overlaid_yaml, user_path
+from evarness.core.registry import CONTRACT_SOURCES
 
 # ------------------------------------------------------------- check registry
 
@@ -74,17 +75,25 @@ def _nonempty_output(event: dict) -> bool:
 
 # ------------------------------------------------------------- definitions
 
-_PACKAGED = Path(__file__).parent / "invariants.yaml"
 _SECTIONS = ("invariants",)
 
 
 def load_invariant_defs(extra: dict | None = None) -> dict[str, dict]:
-    """Merged contract definitions: packaged < user overlay < caller-supplied
-    ``extra`` (pattern-local)."""
-    data = load_overlaid_yaml(
-        _PACKAGED, "EVARNESS_INVARIANTS", Path.home() / ".evarness" / "invariants.yaml", _SECTIONS
-    )
-    defs = dict(data.get("invariants") or {})
+    """Merged contract definitions: registered domain libraries < user overlay
+    < caller-supplied ``extra`` (pattern-local). Domains contribute packaged
+    libraries via :func:`evarness.core.registry.register_contract_source`."""
+    defs: dict[str, dict] = {}
+    for source in CONTRACT_SOURCES:
+        data = load_overlaid_yaml(
+            Path(source), "EVARNESS_INVARIANTS", user_path("invariants.yaml"), _SECTIONS
+        )
+        defs.update(data.get("invariants") or {})
+    if not CONTRACT_SOURCES:  # no domain loaded: the user overlay alone still applies
+        overlay = user_path("invariants.yaml", "EVARNESS_INVARIANTS")
+        if overlay.exists():
+            import yaml
+
+            defs.update((yaml.safe_load(overlay.read_text()) or {}).get("invariants") or {})
     if extra:
         defs.update(extra)
     return defs

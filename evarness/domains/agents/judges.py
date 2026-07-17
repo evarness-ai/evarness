@@ -27,7 +27,7 @@ BEHAVIOR (thresholds, deny terms, on_fail/on_exhausted) is YAML config
 (`judges.yaml` + `~/.evarness/judges.yaml` overlay); the node picks the
 ordered list. Bring your own::
 
-    from evarness.judges import register_judge, JudgeSignal
+    from evarness.domains.agents.judges import register_judge, JudgeSignal
 
     @register_judge("pii")
     def pii(text, cfg, ctx):

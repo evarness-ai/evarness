@@ -13,21 +13,21 @@ from pathlib import Path
 
 import yaml
 
-from .engine import GraphValidationError, execute
-from .exporters import export_trace
-from .nodes import REGISTRY
-from .patterns import (
+from evarness.core.executor import GraphValidationError, execute
+from evarness.io.exporters import export_trace
+from evarness.domains.agents.nodes import REGISTRY
+from evarness.domains.agents.patterns import (
     fixture_names,
     fixture_text,
     invariant_defs as pattern_invariant_defs,
     list_patterns,
     load_pattern,
 )
-from .prove import prove, render_junit, render_proof_html, render_sarif, verify_proof
-from .schema import GraphModel, lint, migrate
-from .sim import load_fixture
-from .store import init_db, log_activity
-from .trace import trace_digest
+from evarness.core.prove import prove, render_junit, render_proof_html, render_sarif, verify_proof
+from evarness.core.graph import GraphModel, lint, migrate
+from evarness.domains.agents.sim import load_fixture
+from evarness.core.store import init_db, log_activity
+from evarness.core.trace import trace_digest
 
 
 def _load_graph(path: str) -> GraphModel:
@@ -170,7 +170,7 @@ def cmd_prove(args) -> int:
         include_events=not args.no_events,
     )
     if args.sign:
-        from .attest import AttestationError, sign_proof
+        from evarness.core.attest import AttestationError, sign_proof
 
         try:
             proof = sign_proof(proof, key_path=args.key)

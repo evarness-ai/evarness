@@ -1,6 +1,6 @@
 """Tool-manifest catalog — the one source of truth the engine consults.
 
-A tool id resolves to a validated :class:`~evarness.toolspec.ToolSpec`
+A tool id resolves to a validated :class:`~evarness.domains.agents.toolspec.ToolSpec`
 manifest: the packaged built-ins first, then any user manifests from
 ``~/.evarness/tools.yaml`` (or ``$EVARNESS_TOOLS``). The nodes consult the
 spec for safety gates (side effects require explicit approval), sim defaults,
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 
-from .toolspec import ToolSpec, builtin_specs, from_legacy
+from evarness.domains.agents.toolspec import ToolSpec, builtin_specs, from_legacy
 
 
 def _user_manifest_path() -> Path:

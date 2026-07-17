@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from .prompts import DEFAULTS
+from evarness.domains.agents.prompts import DEFAULTS
 
 
 @dataclass

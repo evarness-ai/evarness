@@ -2,9 +2,9 @@
 
 import json
 
-from evarness import patterns
-from evarness.prove import graph_hash, prove, render_proof_html
-from evarness.schema import GraphModel
+from evarness.domains.agents import patterns
+from evarness.core.prove import graph_hash, prove, render_proof_html
+from evarness.core.graph import GraphModel
 
 FLAGSHIP = "governed_email_assistant"
 GATED = "approval_gated_send"

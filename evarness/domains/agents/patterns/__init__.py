@@ -18,9 +18,10 @@ from pathlib import Path
 
 import yaml
 
-from ..nodes import REGISTRY
-from ..schema import GraphModel, lint, migrate
-from ..sim import Fixture
+from evarness.core.registry import NODE_TYPES as REGISTRY
+from evarness.domains.agents import nodes as _nodes  # noqa: F401  (registers node types)
+from evarness.core.graph import GraphModel, lint, migrate
+from evarness.domains.agents.sim import Fixture
 
 PATTERNS_DIR = Path(__file__).parent
 PATTERN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_]{1,63}$")
@@ -171,7 +172,7 @@ def publish_pattern(
             raise ValueError(
                 "invariants.yaml must be a mapping with a top-level " "'invariants:' section"
             )
-        from ..invariants import check_invariants
+        from evarness.core.invariants import check_invariants
 
         defs = inv_doc["invariants"]
         # dry-run against an empty stream: only MALFORMED contracts reject

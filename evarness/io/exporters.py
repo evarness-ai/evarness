@@ -23,7 +23,7 @@ being identifiers, not randomness.
 
 Extension point: register your own format by name —
 
-    from evarness.exporters import register_exporter
+    from evarness.io.exporters import register_exporter
 
     @register_exporter("csv", media_type="text/csv", extension=".csv")
     def export_csv(events, meta, cfg):
@@ -51,7 +51,7 @@ from typing import Any, Callable
 
 import yaml
 
-from .trace import canonical_event, trace_digest
+from evarness.core.trace import canonical_event, trace_digest
 
 _PACKAGED = Path(__file__).parent / "exporters.yaml"
 

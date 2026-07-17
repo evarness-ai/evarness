@@ -32,10 +32,15 @@ from importlib import metadata
 
 import yaml
 
-from .engine import execute
-from .schema import GraphModel
-from .sim import load_fixture
-from .trace import CANONICALIZATION_VERSION, canonical_trace, chain_digest, trace_digest
+from evarness.core.executor import execute
+from evarness.core.graph import GraphModel
+from evarness.core.registry import SUBJECT_PINNERS, load_environment
+from evarness.core.trace import (
+    CANONICALIZATION_VERSION,
+    canonical_trace,
+    chain_digest,
+    trace_digest,
+)
 
 PROOF_VERSION = "p2"
 
@@ -86,25 +91,6 @@ def _canon_hash(obj) -> str:
     )
 
 
-def _tool_hashes(graph: GraphModel) -> dict:
-    """Manifest hash for every tool the graph references — the proof names the
-    exact tool contracts in force, not just the tool ids. A tool with no
-    manifest is recorded as null (visible gap, not a silent omission)."""
-    from .catalog import tool_spec
-
-    ids: set[str] = set()
-    for n in graph.nodes:
-        if n.type == "tool" and n.config.get("tool"):
-            ids.add(n.config["tool"])
-        if n.type == "loop_controller":
-            ids.update(t for t in (n.config.get("tools") or []) if t)
-    out = {}
-    for tid in sorted(ids):
-        spec = tool_spec(tid)
-        out[tid] = _canon_hash(spec.model_dump(by_alias=True)) if spec else None
-    return out
-
-
 def _invariant_defs_hash(declared: list[str], extra: dict | None) -> str | None:
     """Hash of the RESOLVED contract definitions for the declared ids — pins
     the contract *content*, so a bundle can't silently mean different
@@ -112,7 +98,7 @@ def _invariant_defs_hash(declared: list[str], extra: dict | None) -> str | None:
     their verdicts anyway — same honesty rule)."""
     if not declared:
         return None
-    from .invariants import load_invariant_defs
+    from evarness.core.invariants import load_invariant_defs
 
     defs = load_invariant_defs(extra)
     return _canon_hash({i: defs.get(i) for i in declared})
@@ -151,7 +137,7 @@ def prove(
     notes = list(NOT_PROVEN)
 
     for name, text in scenarios:
-        fixture = load_fixture(yaml.safe_load(text) or {})
+        fixture = load_environment(yaml.safe_load(text) or {})
         run = execute(
             graph, fixture, approvals=dict(approvals or {}), invariant_defs=invariant_defs
         )
@@ -200,7 +186,10 @@ def prove(
         results.append(scenario)
 
     declared = list(graph.params.invariants)
-    tools = _tool_hashes(graph)
+    pinned: dict = {}
+    for pinner in SUBJECT_PINNERS:
+        pinned.update(pinner(graph) or {})
+    tools = pinned.get("tool_manifests") or {}
     if any(h is None for h in tools.values()):
         missing = sorted(t for t, h in tools.items() if h is None)
         notes.append(
@@ -335,7 +324,7 @@ def verify_proof(
 
     if proof.get("attestation"):
         try:
-            from .attest import verify_attestation
+            from evarness.core.attest import verify_attestation
 
             sig = verify_attestation(proof, pubkey_b64=pubkey_b64)
             checks.append({"check": "signature", "ok": sig["ok"], "detail": sig["detail"]})

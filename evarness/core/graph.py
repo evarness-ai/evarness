@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -77,7 +79,7 @@ def migrate(doc: dict) -> dict:
 # ---------------------------------------------------------------- lint
 
 
-def lint(graph: GraphModel, registry: dict) -> list[dict]:
+def lint(graph: GraphModel, registry: Mapping[str, Any]) -> list[dict]:
     """Validate a graph against the node registry. Returns [{level, code, message}]."""
     issues: list[dict] = []
 

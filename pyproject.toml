@@ -37,11 +37,11 @@ Repository = "https://github.com/evarness-ai/evarnesslab"
 [project.scripts]
 evarness = "evarness.cli:main"
 
-[tool.setuptools]
-packages = ["evarness", "evarness.patterns"]
+[tool.setuptools.packages.find]
+include = ["evarness*"]
 
 [tool.setuptools.package-data]
-evarness = ["*.yaml", "patterns/**/*.json", "patterns/**/*.yaml", "patterns/**/*.md"]
+evarness = ["py.typed", "**/*.yaml", "**/*.json", "**/*.md"]
 
 [tool.ruff]
 line-length = 100

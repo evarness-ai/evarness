@@ -4,11 +4,11 @@ verification, Ed25519 attestation, tamper detection."""
 import copy
 import json
 
-from evarness import patterns
-from evarness.attest import sign_proof, verify_attestation
-from evarness.prove import prove, verify_proof
-from evarness.schema import GraphModel
-from evarness.trace import chain_digest
+from evarness.domains.agents import patterns
+from evarness.core.attest import sign_proof, verify_attestation
+from evarness.core.prove import prove, verify_proof
+from evarness.core.graph import GraphModel
+from evarness.core.trace import chain_digest
 
 FLAGSHIP = "governed_email_assistant"
 

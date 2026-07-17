@@ -10,7 +10,7 @@ Platform shape: the CODE of a
 rule is registered under a name; its BEHAVIOR is YAML config; the harness picks
 rules per node. Bring your own rule without a core edit::
 
-    from evarness.grounding import register_grounding_rule
+    from evarness.domains.agents.grounding import register_grounding_rule
 
     @register_grounding_rule("citation_required")
     def citation_required(answer, evidence, cfg, context):

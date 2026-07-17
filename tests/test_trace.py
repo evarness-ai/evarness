@@ -2,11 +2,12 @@
 
 import json
 
-from evarness import patterns, store
-from evarness.engine import execute
-from evarness.schema import GraphModel
-from evarness.sim import load_fixture
-from evarness.trace import (
+from evarness.core import store
+from evarness.domains.agents import patterns
+from evarness.core.executor import execute
+from evarness.core.graph import GraphModel
+from evarness.domains.agents.sim import load_fixture
+from evarness.core.trace import (
     CANONICAL_ENVELOPE_FIELDS,
     CANONICALIZATION_VERSION,
     canonical_event,

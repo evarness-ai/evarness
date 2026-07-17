@@ -5,11 +5,12 @@ import json
 
 import pytest
 
-from evarness import patterns, store
-from evarness.engine import execute
-from evarness.invariants import check_invariants, load_invariant_defs, register_invariant_check
-from evarness.schema import GraphModel
-from evarness.sim import load_fixture
+from evarness.core import store
+from evarness.domains.agents import patterns
+from evarness.core.executor import execute
+from evarness.core.invariants import check_invariants, load_invariant_defs, register_invariant_check
+from evarness.core.graph import GraphModel
+from evarness.domains.agents.sim import load_fixture
 
 FLAGSHIP = "governed_email_assistant"
 GATED = "approval_gated_send"

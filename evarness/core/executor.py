@@ -15,11 +15,13 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-from .invariants import check_invariants
-from .nodes import REGISTRY, NodeBlocked, RunPaused
-from .providers import make_provider
-from .schema import GraphModel, GraphParams, lint, topological_order
-from .sim import Fixture
+from evarness.core.errors import GraphValidationError, NodeBlocked, RunPaused
+from evarness.core.graph import GraphModel, GraphParams, lint, topological_order
+from evarness.core.interfaces import Environment
+from evarness.core.invariants import check_invariants
+from evarness.core.registry import DETERMINISM_INSPECTORS, NODE_TYPES, make_provider
+
+__all__ = ["Emitter", "RunContext", "RunResult", "GraphValidationError", "execute"]
 
 
 class Emitter:
@@ -47,7 +49,7 @@ class Emitter:
 class RunContext:
     graph: GraphModel
     params: GraphParams
-    fixture: Fixture
+    fixture: Environment
     emitter: Emitter
     rng: random.Random
     provider: Any
@@ -92,21 +94,15 @@ class RunResult:
     invariants: dict | None = None
 
 
-class GraphValidationError(ValueError):
-    def __init__(self, issues: list[dict]):
-        super().__init__("; ".join(i["message"] for i in issues))
-        self.issues = issues
-
-
 def execute(
     graph: GraphModel,
-    fixture: Fixture,
+    fixture: Environment,
     user_input: str | None = None,
     on_event: Callable[[dict], None] | None = None,
     approvals: dict | None = None,
     invariant_defs: dict | None = None,
 ) -> RunResult:
-    issues = lint(graph, REGISTRY)
+    issues = lint(graph, NODE_TYPES)
     errors = [i for i in issues if i["level"] == "error"]
     if errors:
         raise GraphValidationError(errors)
@@ -124,22 +120,13 @@ def execute(
         approvals=dict(approvals or {}),
     )
 
-    # deterministic only if BOTH the provider and every tool are simulated —
-    # a single real-mode tool (pipeline node or loop) breaks reproducibility
-    # just like a real model
-    has_real_tool = any(
-        (n.type == "tool" and n.config.get("mode") == "real")
-        or (n.type == "loop_controller" and n.config.get("tool_mode") == "real")
-        for n in graph.nodes
+    # deterministic only if the provider is simulated AND no registered domain
+    # inspector objects (e.g. the agents domain flags real-mode tools and
+    # real-resolving tiers) — the kernel doesn't know the domain's reasons,
+    # only that it has them
+    deterministic = ctx.provider.deterministic and not any(
+        inspect(graph) for inspect in DETERMINISM_INSPECTORS
     )
-    # a tier_router that could resolve to a real provider breaks reproducibility
-    # too — resolve its reachable tiers against tiers.yaml
-    from .tiers import tier_router_uses_real_provider
-
-    has_real_tier = any(
-        n.type == "tier_router" and tier_router_uses_real_provider(n.config) for n in graph.nodes
-    )
-    deterministic = ctx.provider.deterministic and not has_real_tool and not has_real_tier
 
     emitter.emit(
         "run_started",
@@ -156,7 +143,7 @@ def execute(
         for node_id in topological_order(graph):
             node = graph.node(node_id)
             assert node is not None  # topological_order only yields existing ids
-            spec = REGISTRY[node.type]
+            spec = NODE_TYPES[node.type]
             cfg = spec.Config.model_validate(node.config)
 
             # gather inputs from incoming edges, keyed by target port

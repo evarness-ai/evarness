@@ -1,7 +1,7 @@
 """Test isolation: the suite must never touch the developer's real
 ``~/.evarness`` — the activity-log DB goes to a per-session temp dir, and the
 user-overlay env vars are cleared so a developer's local overlays can't change
-test outcomes. Set BEFORE any evarness import: ``evarness.store`` resolves its
+test outcomes. Set BEFORE any evarness import: ``evarness.core.store`` resolves its
 DB path (and creates the data dir) at import time."""
 
 import os

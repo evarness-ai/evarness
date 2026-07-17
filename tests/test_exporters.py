@@ -6,13 +6,13 @@ import xml.etree.ElementTree as ET
 
 import pytest
 
-from evarness import patterns
-from evarness.engine import execute
-from evarness.exporters import EXPORTERS, export_formats, export_trace, register_exporter
-from evarness.prove import prove, render_junit, render_sarif
-from evarness.schema import GraphModel
-from evarness.sim import load_fixture
-from evarness.trace import canonical_trace, trace_digest
+from evarness.domains.agents import patterns
+from evarness.core.executor import execute
+from evarness.io.exporters import EXPORTERS, export_formats, export_trace, register_exporter
+from evarness.core.prove import prove, render_junit, render_sarif
+from evarness.core.graph import GraphModel
+from evarness.domains.agents.sim import load_fixture
+from evarness.core.trace import canonical_trace, trace_digest
 
 FLAGSHIP = "governed_email_assistant"
 
