@@ -1,0 +1,23 @@
+# Response-judge config. Packaged defaults; ~/.evarness/judges.yaml (or
+# $EVARNESS_JUDGES) merges over it per judge — tune a threshold, add a deny
+# term, or change on_fail/on_exhausted without copying this file.
+#
+# Each built-in judge returns a verdict: pass | warn | retry | halt. The
+# judge_chain node runs a chosen, ordered subset; the first halt short-circuits.
+
+judges:
+  safety:
+    # extra deny terms beyond the built-in secret/dangerous patterns
+    deny: []
+  leak:
+    # architecture / identity terms that must never appear in an answer
+    deny: ["system prompt", "identity file", "governance kernel"]
+  schema:
+    format: json            # json => malformed output is a repairable retry
+  faithfulness:
+    threshold: 0.6
+    on_fail: retry          # try to recover; unrepairable, so it exhausts to...
+    on_exhausted: halt      # ...a halt (a confidently wrong answer is blocked)
+  groundedness:
+    threshold: 0.6
+    on_fail: warn           # a soft signal — banner, don't block

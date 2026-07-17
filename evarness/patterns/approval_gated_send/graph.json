@@ -1,0 +1,41 @@
+{
+  "ir_version": 1,
+  "id": "approval-gated-send",
+  "name": "Approval-Gated Send",
+  "description": "A consequential action (sending an email) behind two layers of safety: the tool's static write-approval opt-in AND a runtime approval_gate that pauses the whole run for a human decision. Run it and it PAUSES; resume with approve to send, reject to stop.",
+  "nodes": [
+    {"id": "n1", "type": "input", "label": "User request",
+     "config": {"schema": "user_question"}, "position": {"x": 40, "y": 120}},
+    {"id": "n2", "type": "intent_router", "label": "Intent router",
+     "config": {"rules": [{"route": "send_email",
+        "keywords": ["send", "email", "reply", "forward"]}],
+       "fallback": "reject"},
+     "position": {"x": 240, "y": 120}},
+    {"id": "n3", "type": "approval_gate", "label": "Human approval",
+     "config": {"prompt": "Send this email on your behalf?", "require_when": "always"},
+     "position": {"x": 460, "y": 120}},
+    {"id": "n4", "type": "tool", "label": "Send email",
+     "config": {"tool": "email.send", "mode": "sim", "approve_side_effects": true},
+     "position": {"x": 680, "y": 120}},
+    {"id": "n5", "type": "output_parser", "config": {"format": "text"},
+     "position": {"x": 680, "y": 240}},
+    {"id": "n6", "type": "audit_log_sink", "label": "Audit ledger",
+     "config": {"include": "governance", "format": "jsonl"},
+     "position": {"x": 460, "y": 240}},
+    {"id": "n7", "type": "output", "config": {"schema": "answer"},
+     "position": {"x": 240, "y": 240}}
+  ],
+  "edges": [
+    {"from": "n1", "to": "n2"},
+    {"from": "n2", "to": "n3"},
+    {"from": "n3", "to": "n4"},
+    {"from": "n4", "to": "n5"},
+    {"from": "n5", "to": "n6"},
+    {"from": "n6", "to": "n7"}
+  ],
+  "params": {"context_budget_tokens": 4000, "seed": 42, "provider": "sim:helpful-v1",
+             "invariants": ["approval-precedes-send", "no-model-call-after-block", "no-send-after-rejection"]},
+  "metadata": {"category": "Governance",
+               "tags": ["intermediate", "human-in-the-loop", "approval", "side-effects"],
+               "origin": "pattern"}
+}

@@ -1,0 +1,17 @@
+scenario: email-happy
+user_input: "How many vacation days do I have left?"
+memory:
+  - {role: user, text: "Remind me what my manager said about Q3 planning"}
+  - {role: assistant, text: "Your manager asked you to draft the Q3 plan by Friday."}
+llm:
+  - match: {contains: "vacation"}
+    respond: {text: "Based on the PTO balance email from HR, you have 12 vacation days remaining this year. Two more accrue on the 1st of next month [1]."}
+default_response: {text: "I could not find that in your email context."}
+tools:
+  email.search:
+    - match: {query_contains: "vacation"}
+      result:
+        - {id: m1, subject: "PTO balance update", snippet: "Your current PTO balance is 12 days", score_hint: 0.91}
+        - {id: m2, subject: "Holiday calendar 2026", snippet: "Company holidays and accrual schedule", score_hint: 0.84}
+        - {id: m3, subject: "Team offsite", snippet: "Please confirm attendance", score_hint: 0.62}
+faults: {blocklist: []}

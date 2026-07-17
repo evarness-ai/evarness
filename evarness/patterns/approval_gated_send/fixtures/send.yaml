@@ -1,0 +1,16 @@
+# The action to gate: sending an email. Running this harness PAUSES at the
+# approval_gate (status: paused) — there is no decision yet, so the send never
+# happens. Resume the run with the gate approved to send, or rejected to stop.
+# The decision is supplied on resume, not in the fixture — that's the whole
+# point: a human, not the script, decides.
+scenario: approval-send
+user_input: "Send the Q3 report to my manager"
+
+tools:
+  email.send:
+    - match: {query_contains: "q3"}
+      result:
+        - {id: sent-1, subject: "Sent: Q3 report to manager",
+           snippet: "Delivered to manager@example.com", source: email.send}
+
+default_response: {text: "Nothing to send."}

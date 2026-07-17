@@ -1,0 +1,25 @@
+{
+  "ir_version": 1,
+  "id": "single-shot-qa",
+  "name": "Single-shot Q&A",
+  "description": "The baseline: prompt in, answer out. Where every lesson starts.",
+  "nodes": [
+    {"id": "n1", "type": "input", "config": {}, "position": {"x": 40, "y": 120}},
+    {"id": "n2", "type": "context_assembler", "config": {"system": "You are a concise teaching assistant."}, "position": {"x": 240, "y": 120}},
+    {"id": "n3", "type": "prompt_template", "config": {"template": "plain_qa"}, "position": {"x": 460, "y": 120}},
+    {"id": "n4", "type": "llm", "config": {"temperature": 0.2}, "position": {"x": 660, "y": 120}},
+    {"id": "n5", "type": "interceptor", "config": {"chain": ["schema_validate", "audit_tap"]}, "position": {"x": 860, "y": 120}},
+    {"id": "n6", "type": "output_parser", "config": {}, "position": {"x": 860, "y": 240}},
+    {"id": "n7", "type": "output", "config": {}, "position": {"x": 660, "y": 240}}
+  ],
+  "edges": [
+    {"from": "n1", "to": "n2", "to_port": "question"},
+    {"from": "n2", "to": "n3"},
+    {"from": "n3", "to": "n4"},
+    {"from": "n4", "to": "n5"},
+    {"from": "n5", "to": "n6"},
+    {"from": "n6", "to": "n7"}
+  ],
+  "params": {"context_budget_tokens": 4000, "seed": 42, "provider": "sim:helpful-v1"},
+  "metadata": {"category": "Fundamentals", "tags": ["beginner"], "origin": "pattern"}
+}

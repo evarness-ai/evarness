@@ -1,0 +1,138 @@
+# Built-in tool manifests (T0) — the engine's own tools in the SAME ToolSpec
+# format users publish with. Every tool: identity, category, typed args, safety
+# class (write => approval by default), an executor binding, and default sim
+# rules so the tool works in sim mode with zero fixture authoring.
+# Contract for every binding: query -> list[documents] {id, subject, snippet, source}.
+
+tools:
+  - id: email.search
+    name: Email Search
+    version: "1.0"
+    category: email
+    description: >
+      Searches a mailbox and returns matching messages as documents. Sim twin
+      only in v1 — scripted by fixtures or these default rules.
+    safety: {side_effects: read, network: none}
+    executor: {kind: sim}
+    args:
+      - {key: query, label: Search query, type: text,
+         help: "Passed as the tool input; matched against fixture/sim rules."}
+    sim:
+      - match: {query_contains: vacation}
+        result:
+          - {id: sim-mail-1, subject: "HR: Vacation policy",
+             snippet: "Full-time employees accrue 15 PTO days per year.",
+             source: email.search}
+      - result:
+          - {id: sim-mail-2, subject: "Sim inbox result for '{query}'",
+             snippet: "Simulated message matching '{query}' — script the fixture's
+              tools section for real lesson content.", source: email.search}
+    tests:
+      - {input: {query: vacation}, expect: {min_results: 1}}
+
+  - id: web.fetch
+    name: Web Fetch
+    version: "1.0"
+    category: web
+    description: >
+      Fetches a web page and returns its title + visible text. Denied by
+      default — only hosts on the allow-list can be reached. Use when you
+      already have the URL.
+    safety: {side_effects: read, network: outbound}
+    executor: {kind: builtin, ref: web.fetch}
+    args:
+      - {key: allow_hosts, label: Allowed websites, type: list,
+         help: "web.fetch may only reach these hosts. Empty = everything refused."}
+    sim:
+      - result:
+          - {id: "https://example.com/sim", subject: "Simulated page for '{query}'",
+             snippet: "Body text of a simulated fetch — script the fixture for
+              real lesson content.", source: web.fetch}
+    tests:
+      - {input: {query: "https://example.com"}, expect: {min_results: 0}}
+
+  - id: web.search
+    name: Web Search
+    version: "1.0"
+    category: web
+    description: >
+      Turns search terms into a ranked list of candidate sources (title +
+      snippet + url). Provider-agnostic — a self-hosted SearXNG (primary) or
+      the free DuckDuckGo floor, plus any provider you register. Use when you
+      need to DISCOVER sources; pair with web.fetch to read one deeply.
+      allow_hosts scopes results to named domains (empty = open web).
+    safety: {side_effects: read, network: outbound}
+    executor: {kind: builtin, ref: web.search}
+    secrets: [api_key]
+    args:
+      - {key: search_provider, label: Search provider, type: text,
+         help: "A registered backend: 'searxng' (self-hosted, reliable) or
+          'duckduckgo' (free, best-effort)."}
+      - {key: searxng_url, label: SearXNG URL, type: text,
+         help: "Base URL of your SearXNG instance (e.g. http://localhost:8888).
+          Configured here on the tool — the harness owns it, no env vars."}
+      - {key: search_category, label: Category, type: enum,
+         options: [general, news, code, social],
+         help: "Which SearXNG category to search."}
+      - {key: freshness, label: Freshness, type: enum,
+         options: [any, day, week, month, year],
+         help: "Restrict results to a recency window."}
+      - {key: allow_hosts, label: Restrict to sources, type: list,
+         help: "Keep only results from these domains. Empty = search the open web."}
+      - {key: api_key, label: API key, type: text,
+         help: "For keyed providers (Brave/Tavily/...). Stored in the vault,
+          never in the graph — the UI renders this write-only."}
+    sim:
+      - match: {query_contains: news}
+        result:
+          - {id: "https://example.com/sim-news-1", subject: "Sim headline: {query}",
+             snippet: "A simulated news result — script the fixture's tools
+              section for real lesson content.", source: "web.search:sim"}
+          - {id: "https://example.com/sim-news-2", subject: "Second sim story",
+             snippet: "Another simulated source.", source: "web.search:sim"}
+      - result:
+          - {id: "https://example.com/sim-1", subject: "Sim result for '{query}'",
+             snippet: "Simulated search hit.", source: "web.search:sim"}
+    tests:
+      - {input: {query: "world news"}, expect: {min_results: 1}}
+
+  - id: fs.search
+    name: File Search
+    version: "1.0"
+    category: files
+    description: >
+      Searches files by term, but only inside the configured folder — never
+      outside it (symlink escapes are skipped).
+    safety: {side_effects: read, network: none}
+    executor: {kind: builtin, ref: fs.search}
+    args:
+      - {key: root, label: Folder to search, type: text,
+         help: "fs.search only reads files under this folder."}
+    sim:
+      - result:
+          - {id: "sim://notes/example.md", subject: "Sim file matching '{query}'",
+             snippet: "A simulated file-search hit — script the fixture for real
+              lesson content.", source: fs.search}
+    tests:
+      - {input: {query: notes}, expect: {min_results: 0}}
+  - id: email.send
+    name: Email Send
+    version: "1.0"
+    category: email
+    description: >
+      Sends an email on the user's behalf. A WRITE action — side_effects: write
+      means it requires approval by default (a node must set approve_side_effects
+      to opt in at design time). Pair it with an approval_gate for a human
+      decision at run time. Sim twin only in v1.
+    safety: {side_effects: write, network: none}
+    executor: {kind: sim}
+    args:
+      - {key: query, label: Recipient / subject, type: text,
+         help: "Passed as the tool input; the sim twin echoes a sent-confirmation."}
+    sim:
+      - result:
+          - {id: sim-sent-1, subject: "Sent: '{query}'",
+             snippet: "Simulated send confirmation for '{query}'.",
+             source: email.send}
+    tests:
+      - {input: {query: hello}, expect: {min_results: 1}}

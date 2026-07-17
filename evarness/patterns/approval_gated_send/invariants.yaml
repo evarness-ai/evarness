@@ -1,0 +1,17 @@
+# Pattern-local invariant contracts — these travel with the pattern and
+# take precedence over the user overlay and the packaged library. The graph
+# opts in via params.invariants; the other two ids it lists resolve from the
+# packaged invariants.yaml.
+
+invariants:
+
+  no-send-after-rejection:
+    title: No send after rejection
+    description: >
+      Once a human rejects at the approval gate, the send tool never fires
+      later in the run — rejection is final, not advisory.
+    assert:
+      never:
+        type: tool_called
+        where: {tool: email.send}
+        after: {type: approval_rejected}

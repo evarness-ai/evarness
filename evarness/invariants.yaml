@@ -1,0 +1,65 @@
+# Built-in invariant contracts. A graph opts in via params.invariants: [ids].
+# Add your own (or override these) in ~/.evarness/invariants.yaml (env
+# EVARNESS_INVARIANTS), or ship contracts with a pattern as invariants.yaml
+# next to its graph.json — pattern-local definitions win, then the user overlay,
+# then this file. Syntax reference: evarness/invariants.py module docstring.
+
+invariants:
+
+  no-model-call-after-block:
+    title: No model call after a block
+    description: >
+      Once governance blocks (policy_violation), the model is never called —
+      the governance-honesty guarantee as a checkable contract.
+    assert:
+      never:
+        type: llm_request
+        after: {type: policy_violation}
+
+  run-completes:
+    title: Run completes
+    description: >
+      The run reaches run_finished — pair with other contracts when a scenario
+      is supposed to succeed (a blocked/failed run fails this on purpose).
+    assert:
+      eventually:
+        type: run_finished
+
+  approval-precedes-send:
+    title: Approval precedes send
+    description: >
+      A send-capable tool call (email.send) never fires without a prior human
+      approval_granted in the same run. Vacuously true when nothing is sent.
+    assert:
+      precedes:
+        first: {type: approval_granted}
+        second: {type: tool_called, where: {tool: email.send}}
+
+  redaction-precedes-model:
+    title: Redaction precedes the model
+    description: >
+      When redaction is in the graph, scrubbing happens before any model call —
+      raw PII never reaches a provider after the redaction stage exists.
+    assert:
+      precedes:
+        first: {type: redaction_applied}
+        second: {type: llm_request}
+
+  final-answer-nonempty:
+    title: Final answer is non-empty
+    description: >
+      Every completed run's terminal LLM response carries non-empty text
+      (uses the nonempty_output registered check).
+    assert:
+      every:
+        match: {type: llm_response}
+        satisfies: nonempty_output
+
+  budget-never-breached:
+    title: Budget never breached
+    description: >
+      No budget_breached event anywhere in the run — use in sweeps to find
+      configurations that stay inside their ceilings.
+    assert:
+      never:
+        type: budget_breached

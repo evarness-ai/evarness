@@ -1,0 +1,94 @@
+# Prompt vocabulary — the source of truth for every prompt string the engine uses.
+# No prompts live in Python source. Override or extend any entry by creating
+# ~/.evarness/prompts.yaml (env EVARNESS_PROMPTS) with the same structure;
+# user entries merge over these per section.
+
+# Prompt layouts for the prompt_template node. `template` config = a name here
+# or a custom layout string. Placeholders {system} {memory} {documents} {question}
+# are filled from the assembled context; a placeholder-only line is dropped when
+# its segment is empty.
+templates:
+  answer_with_context: |-
+    {system}
+    {memory}
+    {documents}
+    Question: {question}
+  plain_qa: |-
+    {system}
+    Question: {question}
+
+# Editable per-node defaults (inspector shows them; empty system prompts are how
+# small models confabulate).
+defaults:
+  llm_system: |-
+    You are a careful, helpful assistant. Answer using the provided context; if the context does not contain the answer, say so plainly rather than guessing.
+  agent_system: |-
+    You are a careful, tool-using assistant. Decide the next step needed to answer the user's question. Gather evidence with the available tools before answering, and if the tools do not provide an answer, say what you looked for and that you could not find it — do not guess.
+  assembler_system: "You are a helpful, governed assistant."
+  fallback_system: "You are a helpful assistant."
+  # what the sim model says when no fixture rule matches and the fixture has no
+  # default_response — honest ignorance, never fake competence
+  sim_fallback_response: "I am not sure how to help with that."
+
+# Instruction prompts the loop_controller sends on the real-provider path.
+protocols:
+  # {tools} = allowed tool list, {transcript} = question + observations so far
+  react_decision: |
+    You are the decision step of a ReAct tool loop.
+    Tools you may call: {tools}. The user's files and data are reachable ONLY through these tools — you have no other knowledge of them.
+    Reply with EXACTLY ONE line, nothing else:
+    TOOL: <tool_name> | INPUT: <query>
+    or
+    FINAL: <your answer to the user>
+    For search tools, INPUT must be a SHORT keyword query (2-5 words, e.g. 'world political news'), never a full sentence — search engines match keywords, not prose. Cover a broad request with several small searches.
+    Answer FINAL only when the Observations above support it; if they don't and no tool can help, say you don't know.
+
+    {transcript}
+  # {stopped} = why the loop ended, {transcript} = the full loop transcript
+  best_effort_wrapup: |-
+    The tool-loop iteration budget is exhausted ({stopped}). Based ONLY on the observations in the transcript below, give your best final answer to the user's question. If the observations don't support an answer, say plainly what you looked for and that you could not find it.
+
+    {transcript}
+
+# Harness nudges — the governance messages the loop injects into the transcript
+# when it REFUSES something (evidence guard, grounding guard, empty
+# search retry). The refusal itself is enforced in code; only the words the
+# model sees live here.
+nudges:
+  # evidence guard: a FINAL before any tool ran
+  evidence_required: "[harness: FINAL refused — you have not consulted any tool yet. Reply with a TOOL line to gather evidence first.]"
+  # grounding guard, topics from the request never searched ({topics}, {first_topic})
+  grounding_topics_missing: "[harness: FINAL refused — you never searched: {topics}. Reply NOW with a TOOL line, e.g. TOOL: web.search | INPUT: {first_topic}. Only after that Observation arrives, answer as a NUMBERED list with the count the user asked for.]"
+  # grounding guard, unsupported claims / count shortfall ({issues})
+  grounding_flagged: "[harness: FINAL refused — grounding rules flagged: {issues}. Use only names and figures from the Observations and format the answer as a NUMBERED list (1., 2., ...) with the count the user asked for — or say honestly how many you found.]"
+  # a .search tool returned nothing — bad QUERY, not absent information ({tool})
+  empty_search_retry: "[harness: {tool} returned 0 results — that usually means the query was too long or too specific, not that nothing exists. Retry with a shorter, different keyword query (2-4 words) or another angle before concluding nothing was found.]"
+
+# Prompts for the prompt→harness generator's model path. Substitution is literal
+# ({registry}, {prompt}, {errors}); all other braces are sent to the model as-is.
+generator:
+  design: |
+    You design harness graphs for Evarness (Agent = Harness + Model).
+    Return ONLY a JSON object — no prose, no markdown fences.
+
+    JSON shape:
+    {"id": "generated", "name": "<short name>", "description": "<one line>",
+     "nodes": [{"id": "n1", "type": "<type>", "config": {}, "position": {"x": 0, "y": 0}}],
+     "edges": [{"from": "n1", "to": "n2", "from_port": "out", "to_port": "in"}],
+     "params": {"context_budget_tokens": 8000, "seed": 42, "provider": "sim:helpful-v1"}}
+
+    Node types (ports and config keys):
+    {registry}
+
+    Rules:
+    - exactly one input node and one output node; no cycles (use loop_controller for iteration)
+    - context_assembler input ports are: question, documents, memory
+    - every llm node must have an interceptor somewhere downstream
+    - tools feed the context_assembler documents port (via retriever), never the llm directly
+
+    User request: {prompt}
+  repair: |-
+    Your previous graph JSON had these problems:
+    {errors}
+
+    Return the corrected COMPLETE JSON object only — no prose, no fences.

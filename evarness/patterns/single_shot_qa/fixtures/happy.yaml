@@ -1,0 +1,7 @@
+scenario: qa-happy
+user_input: "What is an agentic harness?"
+llm:
+  - match: {contains: "harness"}
+    respond: {text: "An agentic harness is the deterministic structure around an LLM: routing, context assembly, tools, memory, and guards. Agent = Harness + Model."}
+default_response: {text: "Let me think about that."}
+faults: {blocklist: []}
