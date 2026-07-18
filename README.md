@@ -55,6 +55,19 @@ See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,
 reading traces, declaring your own invariants, exporting to JUnit/SARIF/OTLP, and
 wiring `prove` into CI as a merge gate.
 
+## Built to be extended
+
+The package is layered ([ARCHITECTURE.md](ARCHITECTURE.md)): `evarness.core` is
+a domain-agnostic kernel — graphs, events, digests, contracts, proofs — and
+**agents are its first domain**, contributed entirely through typed extension
+seams: node registries, a provider factory, determinism inspectors, contract
+libraries, config overlays, and pip entry points (`evarness.plugins`). The same
+kernel can govern other domains — an ML pipeline where *"no deploy without a
+passing eval"* is a declared, per-run-verified contract is the same machinery
+as *"a blocked run never reaches the model"*. If you want to build a domain or
+a node set, `evarness.core` never loads agents behind your back, the seams are
+`Protocol`-typed, and the package ships `py.typed`.
+
 ## What this does — and does not — establish
 
 A proof bundle demonstrates that declared invariants held over scripted
