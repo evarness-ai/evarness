@@ -49,10 +49,14 @@ def test_third_party_domain_gets_its_own_slot():
         def __init__(self):
             self.eval_passed = None
 
+    prior = CONTEXT_EXTENSIONS._table.get("mlpipe_test")
     register_context_extension("mlpipe_test", MlState)
     try:
         ext = build_context_extensions()
         assert isinstance(ext["mlpipe_test"], MlState)
         assert isinstance(ext["agents"], AgentsRunState)  # domains coexist
     finally:
-        CONTEXT_EXTENSIONS._table.pop("mlpipe_test", None)
+        if prior is None:
+            CONTEXT_EXTENSIONS._table.pop("mlpipe_test", None)
+        else:
+            CONTEXT_EXTENSIONS._table["mlpipe_test"] = prior

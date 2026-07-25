@@ -70,7 +70,7 @@ class RunContext:
     # populated fresh each run from registered context-extension factories.
     # The kernel never reads inside a slot — a domain's nodes reach their own
     # state through the domain's typed accessor (e.g. agents_state(ctx)).
-    ext: dict[str, Any] = field(default_factory=dict)
+    ext: dict[str, Any] = field(default_factory=build_context_extensions)
 
     def emit(self, type_: str, node_id: str | None = None, **payload) -> dict:
         return self.emitter.emit(type_, node_id, **payload)
