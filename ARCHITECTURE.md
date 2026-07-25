@@ -109,7 +109,14 @@ extends domains, the kernel stays small and stable.
   terminal events (`total_tokens`, `cost_usd`, `ctx.totals`) is agent-flavored
   — renaming it is a `c1`→`c2` canonicalization bump, honestly triggered by
   the second domain's graduation, not before; versioned public-API stability
-  promises begin at the first tagged release, not before.
+  promises begin at the first tagged release, not before; concurrent execution
+  of independent branches is unimplemented — but the contract that makes it
+  safe to add is pinned now (trace.py, rule 4): canonical event order is the
+  serial deterministic topological walk, each node's events contiguous between
+  its `node_started`/`node_finished` brackets, so a future scheduler must
+  buffer per-node events and flush them in that same order — concurrency lands
+  as a wall-clock optimization the canonical form cannot observe, digest-neutral
+  by construction, no `c1` bump.
 
 ## The invariants that outrank everything above
 

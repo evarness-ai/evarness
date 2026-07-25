@@ -24,6 +24,12 @@ silently).
    (``,`` / ``:``), and ASCII-escaped non-ASCII — byte-stable across platforms
    and Python versions.
 4. **Order**: emission order (``seq`` ascending) is preserved, never re-sorted.
+   Emission order is the serial deterministic topological walk, with each
+   node's events contiguous between its ``node_started``/``node_finished``
+   brackets. A future concurrent scheduler MUST buffer per-node events and
+   assign ``seq`` in that same order — concurrency is a scheduling
+   optimization the canonical form cannot observe, never a canonicalization
+   change.
 
 Deliberately NOT an extension point: user-configurable normalization would make
 digests incomparable between installations, and the entire value of a canonical
