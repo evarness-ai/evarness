@@ -59,10 +59,10 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the maintainer via a private report on the project's
+reported to the maintainers via a private report on the project's
 [GitHub Security Advisories page](https://github.com/evarness-ai/evarnesslab/security/advisories/new)
-or by contacting [@sathishksomasundaram](https://github.com/sathishksomasundaram)
-directly on GitHub.
+or by contacting the [evarness-ai](https://github.com/evarness-ai)
+organization on GitHub.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
