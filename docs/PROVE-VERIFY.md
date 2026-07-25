@@ -166,14 +166,25 @@ Per scenario `(name, fixture_yaml_text)`:
    fixture that ends `blocked` is a governance *success*. Only contracts
    define "correct"; status is recorded, not judged.
 
-Verdict math (`prove.py:217-228`):
+Verdict math (`_verdict()` in `prove.py` — shared verbatim with
+`verify_proof`, so producer and reviewer can never disagree):
 
 ```
-ok = bool(declared) and all_invariants_pass and all_reproduced
+failed = (not declared) or invariants_pass is False or reproduced is False
+ok     = false if failed else (null if any scenario paused else true)
 ```
 
-`bool(declared)` is the **nothing-asserted rule**: no declared invariants ⇒
-`ok: false` with a note. An empty claim must never verify as a passing proof.
+Three honesty rules live in that helper (E8):
+
+- **nothing-asserted**: no declared invariants ⇒ `ok: false` with a note. An
+  empty claim must never verify as a passing proof.
+- **pending**: nothing failed but a scenario paused ⇒ `ok: null`. Zero
+  invariants evaluated and zero reproductions attempted is not a proof, and
+  it is not a failure either — pausing is designed behavior. The CLI prints
+  `PROOF: PENDING` and exits 1; JUnit gets a failing `proof complete` case,
+  SARIF a `proof-pending` warning, the HTML badge reads PROOF PENDING.
+- **no vacuous truth**: `verdict.invariants_pass` and `verdict.reproduced`
+  are `null` (not `true`) when nothing was evaluated/attempted.
 
 Bundle top-level keys: `proof_version` (`p2`), `generated_at`, `engine`,
 `environment`, `subject`, `scenarios`, `verdict`, `not_proven`

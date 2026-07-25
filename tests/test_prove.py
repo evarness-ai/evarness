@@ -69,7 +69,79 @@ def test_paused_scenario_is_honestly_noted_and_approve_unblocks():
     assert any("paused awaiting a human decision" in n for n in paused["not_proven"])
     approved = prove(graph, scenarios, invariant_defs=defs, approvals={"n3": "approve"})
     sc = approved["scenarios"][0]
-    assert sc["status"] == "completed" and approved["verdict"]["ok"]
+    assert sc["status"] == "completed" and approved["verdict"]["ok"] is True
+
+
+# ------------------------------------------------- pending verdicts (E8)
+# A paused-only bundle evaluated zero invariants and attempted zero
+# reproductions — it must never claim a proof. Regression for the
+# pre-release finding where optimistic verdict flags made it ok=true.
+
+
+def test_paused_only_bundle_is_pending_not_ok():
+    graph, scenarios = _subject(GATED)
+    proof = prove(graph, scenarios, invariant_defs=patterns.invariant_defs(GATED))
+    v = proof["verdict"]
+    assert v["ok"] is None  # pending: not proven, not failed
+    assert v["invariants_pass"] is None  # nothing evaluated — no vacuous True
+    assert v["reproduced"] is None  # nothing attempted — no vacuous True
+    assert "pending" in v["note"] and "--approve" in v["note"]
+
+
+def test_verdict_precedence_failure_beats_pending():
+    from evarness.core.prove import _verdict
+
+    # a real failure in one scenario sinks the proof even if another paused
+    v = _verdict(2, declared=True, invariants_pass=False, reproduced=None, paused=1)
+    assert v["ok"] is False
+    v = _verdict(2, declared=True, invariants_pass=None, reproduced=False, paused=1)
+    assert v["ok"] is False
+    # nothing declared beats everything — NOTHING ASSERTED even when paused
+    v = _verdict(1, declared=False, invariants_pass=None, reproduced=None, paused=1)
+    assert v["ok"] is False and "nothing was asserted" in v["note"]
+    # nothing failed + a pause = pending; no pause = holds
+    v = _verdict(2, declared=True, invariants_pass=True, reproduced=True, paused=1)
+    assert v["ok"] is None
+    v = _verdict(1, declared=True, invariants_pass=True, reproduced=True, paused=0)
+    assert v["ok"] is True and v["note"] is None
+
+
+def test_pending_bundle_verifies_consistent_but_forged_ok_is_caught():
+    from evarness.core.prove import verify_proof
+
+    graph, scenarios = _subject(GATED)
+    proof = prove(graph, scenarios, invariant_defs=patterns.invariant_defs(GATED))
+    honest = verify_proof(proof)
+    assert honest["ok"]  # pending is internally consistent — verify passes
+    # a pre-E8-style bundle (or a forger) claiming ok=true over a paused row
+    # must be flagged by the reviewer side
+    forged = json.loads(json.dumps(proof))
+    forged["verdict"].update(ok=True, invariants_pass=True, reproduced=True)
+    result = verify_proof(forged)
+    assert not result["ok"]
+    bad = next(c for c in result["checks"] if c["check"] == "verdict consistent with scenario rows")
+    assert bad["ok"] is False
+
+
+def test_pending_gates_junit_sarif_and_html():
+    from evarness.core.prove import render_junit, render_sarif
+
+    graph, scenarios = _subject(GATED)
+    proof = prove(graph, scenarios, invariant_defs=patterns.invariant_defs(GATED))
+    junit = render_junit(proof)
+    assert 'name="proof complete"' in junit and "failure message=" in junit
+    sarif = json.loads(render_sarif(proof))
+    assert any(r["ruleId"] == "proof-pending" for r in sarif["runs"][0]["results"])
+    assert "PROOF PENDING" in render_proof_html(proof)
+
+
+def test_cli_pending_prove_exits_nonzero(capsys, tmp_path, monkeypatch):
+    from evarness.cli import main
+
+    monkeypatch.chdir(tmp_path)
+    assert main(["prove", GATED, "-o", "pending.json"]) == 1
+    out = capsys.readouterr().out
+    assert "PROOF: PENDING" in out and "--approve" in out
 
 
 def test_bundle_carries_its_own_limits_and_metadata():

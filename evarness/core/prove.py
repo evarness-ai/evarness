@@ -11,10 +11,15 @@ For every scenario the prover:
    marked unreproducible),
 3. records the invariant verdicts and the full canonical event stream.
 
-The bundle's `verdict.ok` is true only when every scenario's invariants pass and
-every deterministic scenario reproduced its digest. A scenario's run *status* is
-recorded but never judged — a failure-lab fixture that blocks is a governance
-success, and the contracts (not the status) say what "correct" means.
+The bundle's `verdict.ok` is tri-state (E8): **true** only when every declared
+claim was actually checked and held — invariants evaluated and passing, every
+deterministic scenario's digest reproduced; **null (pending)** when nothing
+failed but a scenario paused at a human gate, so the claims were not checked
+(a pending proof gates CI exactly like a failed one — it proves nothing yet);
+**false** when a contract failed, a digest did not reproduce, or no invariants
+were declared. A scenario's run *status* is otherwise recorded but never
+judged — a failure-lab fixture that blocks is a governance success, and the
+contracts (not the status) say what "correct" means.
 
 The `not_proven` section is part of the format on purpose: a finite scenario set
 verifies declared invariants under scripted conditions; it does not establish
@@ -134,6 +139,9 @@ def prove(
     results = []
     all_invariants_pass = True
     all_reproduced = True
+    invariants_evaluated = False
+    reproduction_attempted = False
+    paused_count = 0
     notes = list(NOT_PROVEN)
 
     for name, text in scenarios:
@@ -152,6 +160,7 @@ def prove(
                     graph, fixture, approvals=dict(approvals or {}), invariant_defs=invariant_defs
                 )
                 reproduced = trace_digest(second.events) == digest
+                reproduction_attempted = True
                 all_reproduced = all_reproduced and reproduced
             else:
                 notes.append(
@@ -161,12 +170,14 @@ def prove(
 
         inv = run.invariants
         if run.status == "paused":
+            paused_count += 1
             notes.append(
                 f"scenario '{name}': paused awaiting a human decision — "
                 "invariants not evaluated; prove the resumed branches by "
                 "passing --approve"
             )
         elif inv:
+            invariants_evaluated = True
             all_invariants_pass = all_invariants_pass and inv["failed"] == 0
 
         scenario: dict = {
@@ -214,19 +225,53 @@ def prove(
             "tools": tools,
         },
         "scenarios": results,
-        "verdict": {
-            "scenarios": len(results),
-            "invariants_pass": all_invariants_pass,
-            "reproduced": all_reproduced,
-            "ok": bool(declared) and all_invariants_pass and all_reproduced,
-            "note": (
-                None
-                if declared
-                else "graph declares no invariants — nothing was asserted, so "
-                "nothing was proven (params.invariants is empty)"
-            ),
-        },
+        "verdict": _verdict(
+            len(results),
+            declared=bool(declared),
+            invariants_pass=all_invariants_pass if invariants_evaluated else None,
+            reproduced=all_reproduced if reproduction_attempted else None,
+            paused=paused_count,
+        ),
         "not_proven": notes,
+    }
+
+
+def _verdict(
+    scenario_count: int,
+    declared: bool,
+    invariants_pass: bool | None,
+    reproduced: bool | None,
+    paused: int,
+) -> dict:
+    """The tri-state verdict (E8). `invariants_pass`/`reproduced` are None when
+    nothing was evaluated/attempted — vacuous truth is never reported as truth.
+    `ok` is: false when the proof failed (nothing declared, a contract failed,
+    or a digest did not reproduce); **null (pending)** when nothing failed but
+    a scenario paused, so the bundle proves nothing yet; true only when every
+    declared claim was actually checked and held. Shared verbatim by
+    `verify_proof` so the producer and reviewer can never disagree."""
+    failed = (not declared) or invariants_pass is False or reproduced is False
+    ok = False if failed else (None if paused else True)
+    if not declared:
+        note = (
+            "graph declares no invariants — nothing was asserted, so "
+            "nothing was proven (params.invariants is empty)"
+        )
+    elif ok is None:
+        note = (
+            f"{paused} scenario(s) paused awaiting a human decision — nothing "
+            "failed, but the paused scenarios' invariants were not evaluated "
+            "and reproduction was not attempted; the proof is pending until "
+            "the resumed branches run (pass --approve)"
+        )
+    else:
+        note = None
+    return {
+        "scenarios": scenario_count,
+        "invariants_pass": invariants_pass,
+        "reproduced": reproduced,
+        "ok": ok,
+        "note": note,
     }
 
 
@@ -301,22 +346,19 @@ def verify_proof(
 
     v = proof.get("verdict") or {}
     scenarios = proof.get("scenarios", [])
-    inv_pass = all(
-        (sc.get("invariants") or {}).get("failed", 0) == 0
-        for sc in scenarios
-        if sc.get("invariants") is not None
+    evaluated = [sc["invariants"] for sc in scenarios if sc.get("invariants") is not None]
+    attempted = [sc["reproduced"] for sc in scenarios if sc.get("reproduced") is not None]
+    expected = _verdict(
+        len(scenarios),
+        declared=bool((proof.get("subject") or {}).get("invariants_declared")),
+        invariants_pass=all(i.get("failed", 0) == 0 for i in evaluated) if evaluated else None,
+        reproduced=all(attempted) if attempted else None,
+        paused=sum(1 for sc in scenarios if sc.get("status") == "paused"),
     )
-    repro = all(sc.get("reproduced") in (True, None) for sc in scenarios)
-    declared = bool((proof.get("subject") or {}).get("invariants_declared"))
-    expected_ok = declared and inv_pass and repro
     checks.append(
         {
             "check": "verdict consistent with scenario rows",
-            "ok": (
-                v.get("invariants_pass") == inv_pass
-                and v.get("reproduced") == repro
-                and v.get("ok") == expected_ok
-            ),
+            "ok": all(v.get(k) == expected[k] for k in ("invariants_pass", "reproduced", "ok")),
             "detail": f"ok={v.get('ok')} invariants_pass="
             f"{v.get('invariants_pass')} reproduced={v.get('reproduced')}",
         }
@@ -426,6 +468,21 @@ def render_junit(proof: dict) -> str:
                 ],
             )
         )
+    elif proof["verdict"]["ok"] is None:
+        # PENDING must break CI the same way NOTHING ASSERTED does — a proof
+        # that proved nothing yet must never pass a merge gate silently (E8)
+        total += 1
+        failures += 1
+        note = proof["verdict"]["note"] or "proof pending — a scenario paused"
+        suites.append(
+            (
+                "(pending)",
+                [
+                    f'<testcase classname="{_xml_esc(suite_cls)}" name="proof complete">'
+                    f'<failure message="{_xml_esc(note)}"/></testcase>'
+                ],
+            )
+        )
 
     suite_xml = "".join(
         f'<testsuite name="{_xml_esc(f"{suite_cls}:{name}")}" '
@@ -465,6 +522,15 @@ def render_sarif(proof: dict) -> str:
         {
             "id": "nothing-asserted",
             "shortDescription": {"text": "a proof is only as strong as its declared invariants"},
+        }
+    )
+    rules.append(
+        {
+            "id": "proof-pending",
+            "shortDescription": {
+                "text": "a paused scenario leaves the proof pending — nothing "
+                "is proven until the resumed branches run"
+            },
         }
     )
 
@@ -511,6 +577,14 @@ def render_sarif(proof: dict) -> str:
                 "message": {
                     "text": v["note"] or "graph declares no invariants — nothing was asserted"
                 },
+            }
+        )
+    elif v["ok"] is None:
+        results.append(
+            {
+                "ruleId": "proof-pending",
+                "level": "warning",
+                "message": {"text": v["note"] or "proof pending — a scenario paused"},
             }
         )
 
@@ -561,12 +635,14 @@ def render_proof_html(proof: dict) -> str:
     """Self-contained single-file report — inline CSS, no external assets."""
     v, s = proof["verdict"], proof["subject"]
     ok = v["ok"]
-    badge = (
-        ("PROOF HOLDS" if ok else "PROOF FAILED")
-        if s["invariants_declared"]
-        else "NOTHING ASSERTED"
-    )
-    color = "#1a7f37" if ok else ("#b35900" if not s["invariants_declared"] else "#c62828")
+    if not s["invariants_declared"]:
+        badge, color = "NOTHING ASSERTED", "#b35900"
+    elif ok is True:
+        badge, color = "PROOF HOLDS", "#1a7f37"
+    elif ok is None:
+        badge, color = "PROOF PENDING", "#b35900"
+    else:
+        badge, color = "PROOF FAILED", "#c62828"
 
     def esc(x):
         return str(x).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

@@ -152,26 +152,31 @@ Verified results (2026-07-18):
 | Approve | `--approve n3=approve` | 22 events, `approval_granted` → `tool_called email.send` → `run_finished`, 3/3 invariants pass; events 0–7 byte-identical to the paused run (the replay) |
 | Reject | `--approve n3=reject` | `approval_rejected` → `policy_violation` → `run_failed`, 11 events, no send, invariants pass |
 | Determinism | two identical approve runs | identical digest both times |
-| Prove+verify | `prove` then `verify` | PROOF HOLDS, reproduced=True; offline verify all green (digest, chain, verdict consistency) |
-| Suite | `pytest -q` | **107 passed in 0.48s** |
+| Prove pending | `prove` with no decision | PROOF: PENDING, exit 1 — scenario paused, `ok: null`, invariants/reproduction not evaluated (§5) |
+| Prove+verify | `prove --approve n3=approve` then `verify` | PROOF HOLDS, reproduced=True; offline verify all green (digest, chain, verdict consistency) |
+| Suite | `pytest -q` | **112 passed** |
 
-## 5. Nuance found (minor doc/UX gap)
+## 5. The pending verdict (tri-state `ok`, E8)
 
-The README's sixty-second pitch says `evarness prove approval_gated_send`
-"demonstrates its three declared invariants held." It doesn't quite: the
-scenario **pauses** at the gate, so invariants are *not evaluated* — the
-bundle honestly records this in `not_proven` ("paused awaiting a human
-decision… prove the resumed branches by passing --approve") and still reports
-`ok=true` because pausing is the designed behavior. To actually demonstrate
-the three invariants:
+`evarness prove approval_gated_send` with no `--approve` **pauses** at the
+gate, so invariants are *not evaluated* and reproduction is *not attempted*.
+The verdict is honest about that in three states:
+
+- `ok: true` — every declared claim was actually checked and held.
+- `ok: null` — **PENDING**: nothing failed, but a scenario paused, so nothing
+  was checked. `invariants_pass`/`reproduced` are `null` too (vacuous truth is
+  never reported as truth). The CLI exits 1 and JUnit/SARIF carry a failing/
+  warning entry — a proof that proved nothing yet must not pass a merge gate.
+- `ok: false` — a contract failed, a digest did not reproduce, or no
+  invariants were declared (NOTHING ASSERTED).
+
+Pausing is still *designed behavior* — PENDING is not a failure, it is an
+instruction. To actually demonstrate the three invariants:
 
 ```bash
 evarness prove approval_gated_send --approve n3=approve -o proof.json
-# → invariants 3✓/0✗, reproduced
+# → invariants 3✓/0✗, reproduced, PROOF: HOLDS
 ```
-
-Candidate fixes: tweak the README wording, or have the pattern's default prove
-include the approved branch.
 
 ## 6. Rerun crib sheet
 

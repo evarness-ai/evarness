@@ -72,7 +72,7 @@ skipped.
 ## 4. Prove, then verify anywhere
 
 ```bash
-evarness prove approval_gated_send -o proof.json --html report.html
+evarness prove approval_gated_send --approve n3=approve -o proof.json --html report.html
 evarness verify proof.json
 ```
 
@@ -81,6 +81,13 @@ asserted), evaluates the declared contracts, and pins the subject: graph hash,
 tool-manifest hashes, resolved contract-definitions hash, engine version, and
 environment. The bundle carries the canonical event streams and a rolling
 per-event chain digest.
+
+The verdict's `ok` is tri-state: `true` (every declared claim checked and
+held), `null` (**PENDING** — a scenario paused at a human gate, so nothing was
+checked and nothing is claimed; the CLI exits 1 and the CI projections carry
+it), or `false` (a contract failed, a digest didn't reproduce, or nothing was
+declared). Without `--approve`, `approval_gated_send` pauses by design — you
+get PENDING, not a proof.
 
 `verify` re-checks all of it offline: digests recompute, chains recompute,
 verdicts consistent, signature valid (if present). A bundle with no declared

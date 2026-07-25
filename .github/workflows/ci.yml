@@ -44,5 +44,8 @@ jobs:
           python -m venv /tmp/clean
           /tmp/clean/bin/pip install dist/*.whl
           cd /tmp
-          /tmp/clean/bin/evarness prove approval_gated_send -o /tmp/proof.json
+          # --approve so the gate resumes and the invariants are actually
+          # evaluated: without it the scenario pauses and prove exits 1
+          # with PROOF: PENDING (E8 — a pending proof gates CI on purpose)
+          /tmp/clean/bin/evarness prove approval_gated_send --approve n3=approve -o /tmp/proof.json
           /tmp/clean/bin/evarness verify /tmp/proof.json
