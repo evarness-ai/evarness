@@ -13,6 +13,7 @@ from pathlib import Path
 
 import yaml
 
+from evarness.core.errors import EvarnessError
 from evarness.core.executor import GraphValidationError, execute
 from evarness.io.exporters import export_trace
 from evarness.domains.agents.nodes import REGISTRY
@@ -351,7 +352,15 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=cmd_patterns)
 
     args = ap.parse_args(argv)
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except EvarnessError as exc:
+        # Refusals and misconfigurations are messages, not tracebacks (E9):
+        # the family covers provider refusals, graph validation, registry
+        # misses, and unknown export formats. Anything OUTSIDE the family is
+        # a genuine bug and keeps its stack trace.
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
