@@ -42,6 +42,34 @@ Export the canonical stream for other tooling with
 `run --trace-out trace.jsonl` (or `--trace-format otlp` for an
 OpenTelemetry/GenAI-semconv document).
 
+### See the run: the render artifact
+
+```bash
+evarness run path/to/graph.json --fixture path/to/fixture.yaml --html run.html
+evarness render path/to/graph.json          # static canvas, no execution
+```
+
+`--html` writes the run as one **self-contained HTML file**: the graph as a
+canvas, a playhead that replays the canonical events (a blocked run visibly
+stops before the model), and the invariant verdicts in a separate judgment
+pane. The rules you already know apply to the artifact itself:
+
+- **No external requests, ever.** Inline SVG/CSS/JS, a CSP that pins
+  `default-src 'none'`, and hostile fixture content renders inert. Open it
+  anywhere, attach it to a bug report, email it to an auditor.
+- **The digest travels inside.** The embedded data island contains the
+  canonical events verbatim — recompute `trace_digest` from the artifact
+  alone and it must match the digest in the provenance bar.
+- **Evidence and judgment stay separate.** Verdicts live in their own pane
+  and their own data key; a failing verdict's `seq` links scrub the playhead
+  to the cited event.
+- **A not-established footer.** Every artifact states what it does not prove,
+  including honest lines for paused runs and zero-contract runs.
+
+Artifacts are byte-stable for deterministic runs and stamped with a renderer
+version (`r1`) — derived evidence, deliberately outside the `c1` digest
+contract. Bring your own format with `register_renderer` (io/render.py).
+
 ## 3. Declare invariants — contracts, not prose
 
 The guarantees a harness claims live in an `invariants.yaml`, resolved from the

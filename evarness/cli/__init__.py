@@ -1,7 +1,7 @@
 """evarness CLI — everything the library can do, headless.
 
-Commands: validate | run | prove | verify | trace | patterns. Every command is
-recorded in the activity log (actor=cli) — full traceability.
+Commands: validate | run | render | prove | verify | patterns. Every command
+is recorded in the activity log (actor=cli) — full traceability.
 """
 
 from __future__ import annotations
@@ -16,7 +16,9 @@ import yaml
 from evarness.core.errors import EvarnessError
 from evarness.core.executor import GraphValidationError, execute
 from evarness.io.exporters import export_trace
+from evarness.io.render import RENDER_VERSION, RenderSubject, render
 from evarness.domains.agents.nodes import REGISTRY
+from evarness.domains.agents.nodes.base import presentation
 from evarness.domains.agents.patterns import (
     fixture_names,
     fixture_text,
@@ -28,12 +30,18 @@ from evarness.core.prove import prove, render_junit, render_proof_html, render_s
 from evarness.core.graph import GraphModel, lint, migrate
 from evarness.domains.agents.sim import load_fixture
 from evarness.core.store import init_db, log_activity
-from evarness.core.trace import trace_digest
+from evarness.core.trace import canonical_trace, trace_digest
 
 
 def _load_graph(path: str) -> GraphModel:
     doc = migrate(json.loads(Path(path).read_text()))
     return GraphModel.model_validate(doc)
+
+
+def _presentation_for(graph: GraphModel) -> dict:
+    """The domain's palette as plain data — io/render stays domain-agnostic;
+    the CLI (a caller) is where domain presentation gets wired in."""
+    return {t: presentation(t) for t in {n.type for n in graph.nodes}}
 
 
 def cmd_validate(args) -> int:
@@ -123,9 +131,45 @@ def cmd_run(args) -> int:
         Path(args.trace_out).write_text(doc)
         if not args.json:
             print(f"wrote {args.trace_out} ({args.trace_format})")
+    if args.html:
+        subject = RenderSubject(
+            graph=graph,
+            events=canonical_trace(run.events),
+            verdicts=run.invariants,
+            presentation=_presentation_for(graph),
+            meta={
+                "scenario": fixture.scenario,
+                "status": run.status,
+                "reason": run.reason,
+                "provider": graph.params.provider,
+                "seed": graph.params.seed,
+                "deterministic": (
+                    run.events[0]["payload"].get("deterministic") if run.events else None
+                ),
+            },
+        )
+        Path(args.html).write_text(render(subject))
+        if not args.json:
+            print(f"wrote {args.html} (render {RENDER_VERSION})")
     # CI gate: a completed run with a failed invariant is a failing exit code
     inv_failed = bool(run.invariants and run.invariants["failed"])
     return 0 if run.status == "completed" and not inv_failed else 1
+
+
+def cmd_render(args) -> int:
+    """Draw a graph as a self-contained HTML artifact — no execution. Lint
+    findings ride along on the canvas; a run's replay comes from
+    ``run --html`` instead."""
+    graph = _load_graph(args.graph)
+    issues = lint(graph, REGISTRY)
+    log_activity("cli.render", graph.id, actor="cli", issues=len(issues))
+    subject = RenderSubject(
+        graph=graph, presentation=_presentation_for(graph), meta={"lint": issues}
+    )
+    out = args.out or str(Path(args.graph).with_suffix(".html"))
+    Path(out).write_text(render(subject, args.renderer))
+    print(f"wrote {out} ({args.renderer}, render {RENDER_VERSION})")
+    return 0
 
 
 def cmd_prove(args) -> int:
@@ -294,7 +338,19 @@ def main(argv: list[str] | None = None) -> int:
         default="jsonl",
         help="trace export format for --trace-out (jsonl, otlp, or a " "plugin-registered format)",
     )
+    r.add_argument(
+        "--html",
+        metavar="PATH",
+        help="also write a self-contained replay artifact "
+        "(canvas + playhead over the canonical events + verdicts)",
+    )
     r.set_defaults(fn=cmd_run)
+
+    rd = sub.add_parser("render", help="draw a graph as a self-contained HTML artifact")
+    rd.add_argument("graph", help="path to a graph.json")
+    rd.add_argument("-o", "--out", help="output path (default: the graph path with .html)")
+    rd.add_argument("--renderer", default="html", help="registered renderer name (default: html)")
+    rd.set_defaults(fn=cmd_render)
 
     pv = sub.add_parser("prove", help="build a proof bundle: scenarios + invariants + digests")
     pv.add_argument("target", help="pattern id, or path to a graph.json")

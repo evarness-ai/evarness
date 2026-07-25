@@ -55,7 +55,12 @@ invariants held over the scripted scenario, that the run reproduces
 digest-for-digest, and — in its `not_proven` section — exactly what none of this
 establishes.
 
-Every command works headless: `evarness validate | run | prove | verify | patterns`.
+Every command works headless: `evarness validate | run | render | prove | verify | patterns`.
+`run --html run.html` writes the run as a **self-contained HTML artifact** — the
+graph canvas, a playhead over the canonical events, and the invariant verdicts
+in one file with no external requests; the digest travels inside and is
+recomputable from the artifact alone. `evarness render graph.json` draws a
+graph without executing it.
 See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,
 reading traces, declaring your own invariants, exporting to JUnit/SARIF/OTLP, and
 wiring `prove` into CI as a merge gate.

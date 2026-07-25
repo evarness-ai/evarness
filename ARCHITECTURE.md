@@ -30,6 +30,9 @@ evarness/
 │       └── patterns/     #   packaged runnable examples (graph+fixtures+lesson)
 ├── io/                   # evidence in formats the world reads
 │   ├── exporters.py      #   trace exports: jsonl, otlp (registry-extensible)
+│   ├── render.py         #   render artifacts: graph+run+verdicts as one
+│   │                     #   self-contained HTML file (registry-extensible;
+│   │                     #   no external requests, byte-stable, r1-versioned)
 │   └── renderers live with prove (junit/sarif/html render *verdicts*, not traces)
 └── cli/                  # thin: argparse over the library, nothing else
 ```
