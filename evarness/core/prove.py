@@ -261,7 +261,7 @@ def _verdict(
         note = (
             f"{paused} scenario(s) paused awaiting a human decision — nothing "
             "failed, but the paused scenarios' invariants were not evaluated "
-            "and reproduction was not attempted; the proof is pending until "
+            "and their reproduction was not attempted; the proof is pending until "
             "the resumed branches run (pass --approve)"
         )
     else:
@@ -358,7 +358,7 @@ def verify_proof(
     checks.append(
         {
             "check": "verdict consistent with scenario rows",
-            "ok": all(v.get(k) == expected[k] for k in ("invariants_pass", "reproduced", "ok")),
+            "ok": all(v.get(k) == expected[k] for k in ("invariants_pass", "reproduced", "ok", "scenarios", "note")),
             "detail": f"ok={v.get('ok')} invariants_pass="
             f"{v.get('invariants_pass')} reproduced={v.get('reproduced')}",
         }
