@@ -489,11 +489,11 @@ def render_html(subject: RenderSubject) -> str:
     if subject.events is not None:
         n = len(subject.events)
         controls = (
-            '<button type="button" id="first">⏮</button>'
-            '<button type="button" id="prev">◀</button>'
-            '<button type="button" id="play">▶</button>'
-            '<button type="button" id="next">▶▎</button>'
-            '<button type="button" id="last">⏭</button>'
+            '<button type="button" id="first" aria-label="First event" title="First event">⏮</button>'
+            '<button type="button" id="prev" aria-label="Previous event" title="Previous event">◀</button>'
+            '<button type="button" id="play" aria-label="Play / Pause" title="Play / Pause">▶</button>'
+            '<button type="button" id="next" aria-label="Next event" title="Next event">▶▎</button>'
+            '<button type="button" id="last" aria-label="Last event" title="Last event">⏭</button>'
             f'<input type="range" id="ph" min="-1" max="{n - 1}" value="{n - 1}" step="1">'
             '<span id="phlabel"></span>'
         )

@@ -63,11 +63,13 @@ def island_of(doc: str) -> dict:
 def test_no_external_origins_ever():
     doc = render(subject_for(FLAGSHIP, "happy"))
     assert "http://" not in doc and "https://" not in doc
+    # also catch protocol-relative URLs (//host/…) that bypass scheme checks
+    assert not re.search(r'(?:src|href|action)\s*=\s*["\']?//', doc)
     assert "Content-Security-Policy" in doc and "default-src 'none'" in doc
 
 
 def test_renderer_source_never_uses_innerhtml():
-    src = Path("evarness/io/render.py").read_text()
+    src = (Path(__file__).parent.parent / "evarness" / "io" / "render.py").read_text()
     assert "innerHTML" not in src
 
 
@@ -243,7 +245,7 @@ def test_cli_run_html_and_render(tmp_path):
 # ------------------------------------------------------------------ stability
 
 
-GOLDEN_ARTIFACT_SHA256 = "2776d4ee2d292e60b10299fa2cb98e1fa35f083e17c6ba659a422a03fce4f743"
+GOLDEN_ARTIFACT_SHA256 = "264d22fd7f1855a72464c37002002974c5d8d677c743f3833c9726af472be66a"
 
 
 def test_artifact_is_byte_stable_and_pinned():
