@@ -12,6 +12,7 @@ silent fallback to sim (which would make the trace lie about what ran).
 
 from __future__ import annotations
 
+from evarness.core.errors import EvarnessError
 from evarness.domains.agents.sim import Completion, Fixture, SimLLMProvider
 
 __all__ = ["Completion", "ProviderError", "make_provider", "list_providers"]
@@ -19,8 +20,10 @@ __all__ = ["Completion", "ProviderError", "make_provider", "list_providers"]
 _REAL_KINDS = ("anthropic", "ollama")
 
 
-class ProviderError(RuntimeError):
-    """A provider could not be constructed or called."""
+class ProviderError(EvarnessError, RuntimeError):
+    """A provider could not be constructed or called. Part of the
+    :class:`EvarnessError` family so the CLI boundary renders it as a
+    message, not a traceback (E9)."""
 
 
 def make_provider(spec: str, fixture: Fixture | None = None):

@@ -51,9 +51,16 @@ from typing import Any, Callable
 
 import yaml
 
+from evarness.core.errors import EvarnessError
 from evarness.core.trace import canonical_event, trace_digest
 
 _PACKAGED = Path(__file__).parent / "exporters.yaml"
+
+
+class ExportFormatError(EvarnessError, ValueError):
+    """An unknown trace format was requested. Still a ValueError for existing
+    callers; also part of the EvarnessError family so the CLI renders it as a
+    message, not a traceback (E9)."""
 
 
 def _overlay_path() -> Path:
@@ -136,7 +143,7 @@ def export_trace(fmt: str, events: list[dict], meta: dict | None = None) -> tupl
     _load_plugin_exporters()
     exp = EXPORTERS.get(fmt)
     if exp is None:
-        raise ValueError(
+        raise ExportFormatError(
             f"unknown trace format '{fmt}' — available: " f"{', '.join(sorted(EXPORTERS))}"
         )
     cfg = exporter_config().get(fmt) or {}
