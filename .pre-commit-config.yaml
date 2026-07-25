@@ -1,0 +1,34 @@
+# Pre-commit hooks: hygiene + secret scanning (GRADUATION §6).
+# Python formatting/linting deliberately NOT duplicated here — ruff, black,
+# and mypy gate in CI at pinned versions; a second, drifting copy of those
+# gates would be the nondeterminism this project tells its users to avoid.
+#
+# Install once after clone: `pre-commit install`
+# Run manually:             `pre-commit run --all-files`
+
+repos:
+  # Standard hygiene
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+        # the training lab is a single self-contained HTML file with
+        # embedded screenshots — known, deliberate, reviewed
+        exclude: ^docs/training-lab\.html$
+      - id: detect-private-key
+
+  # Security — scan for accidentally committed secrets
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
