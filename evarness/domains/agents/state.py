@@ -36,7 +36,7 @@ def agents_state(ctx) -> AgentsRunState:
         return ctx.ext["agents"]
     except (KeyError, AttributeError) as exc:
         raise RuntimeError(
-            "agents_state() requires ctx.ext[\"agents\"] to be present — "
+            'agents_state() requires ctx.ext["agents"] to be present — '
             "make sure the agents domain is imported and RunContext was built "
             "via execute() or with ext=build_context_extensions()."
         ) from exc
