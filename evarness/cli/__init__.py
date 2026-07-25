@@ -201,8 +201,9 @@ def cmd_prove(args) -> int:
             f"  {sc['fixture']:<16} {sc['status']:<10} invariants {inv_txt:<8} "
             f"{repro:<15} {sc['trace_digest'][:24]}\u2026"
         )
+    state = {True: "HOLDS", False: "FAILED", None: "PENDING"}[v["ok"]]
     print(
-        f"PROOF: {'HOLDS' if v['ok'] else 'FAILED'} \u2014 "
+        f"PROOF: {state} \u2014 "
         f"{v['scenarios']} scenario(s), invariants_pass={v['invariants_pass']}, "
         f"reproduced={v['reproduced']}" + (f" ({v['note']})" if v.get("note") else "")
     )
