@@ -3,9 +3,10 @@
 These are the digests the README and docs cite as reproducible across
 installs and platforms. The determinism test (same seed → same events)
 only proves a run agrees with *itself*; it cannot detect a change that is
-stable within one process but shifts the canonical bytes — e.g. reordering
-a fan-in merge or a topological tie-break. Only a pinned expected value
-catches that class of regression.
+stable within one process but shifts the canonical bytes. Verified live:
+reversing the topological tie-break (``ready.sort(reverse=True)`` in
+graph.py) leaves the rest of the suite green while two of these digests
+change. Only a pinned expected value catches that class of regression.
 
 If one of these assertions fails, the c1 digest contract has changed.
 That is sometimes a legitimate decision — but it is a *contract* decision
