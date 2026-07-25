@@ -41,14 +41,19 @@ Python ≥ 3.10. Two runtime dependencies (`pydantic`, `pyyaml`).
 
 ```bash
 evarness patterns                          # what's runnable out of the box
-evarness prove approval_gated_send -o proof.json
+evarness prove approval_gated_send -o proof.json     # → PROOF: PENDING
+evarness prove approval_gated_send --approve n3=approve -o proof.json
 evarness verify proof.json
 ```
 
 `approval_gated_send` is a harness whose contract is that **nothing sends without
-a human approval**. The proof bundle demonstrates its three declared invariants
-held over the scripted scenario, that the run reproduces digest-for-digest, and —
-in its `not_proven` section — exactly what none of this establishes.
+a human approval** — so the first `prove` pauses at that human gate and says so:
+`PROOF: PENDING`, because a paused scenario's invariants were never evaluated and
+a proof that checked nothing must not claim anything. Supplying the decision with
+`--approve` produces the real thing: the bundle demonstrates the three declared
+invariants held over the scripted scenario, that the run reproduces
+digest-for-digest, and — in its `not_proven` section — exactly what none of this
+establishes.
 
 Every command works headless: `evarness validate | run | prove | verify | patterns`.
 See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,

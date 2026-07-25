@@ -1,0 +1,54 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        # toolchain pinned to the locally-verified versions: an unpinned ruff
+        # release changed default rules and failed CI on untouched files —
+        # a repo about reproducibility should not have a drifting lint gate
+        run: python -m pip install -e ".[dev,sign]" ruff==0.15.22 black==26.5.1 mypy==2.3.0 types-PyYAML
+      - name: Lint
+        run: ruff check evarness/ tests/
+      - name: Format
+        run: black --check evarness/ tests/
+      - name: Types
+        run: mypy evarness/
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+  artifact:
+    # the wheel IS the release artifact: build it, install it into a clean
+    # venv, and re-prove the shipped example from the installed package —
+    # the digest must reproduce outside the checkout
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build wheel
+        run: python -m pip install build && python -m build --wheel
+      - name: Clean-venv install + prove + verify
+        run: |
+          python -m venv /tmp/clean
+          /tmp/clean/bin/pip install dist/*.whl
+          cd /tmp
+          # --approve so the gate resumes and the invariants are actually
+          # evaluated: without it the scenario pauses and prove exits 1
+          # with PROOF: PENDING (E8 — a pending proof gates CI on purpose)
+          /tmp/clean/bin/evarness prove approval_gated_send --approve n3=approve -o /tmp/proof.json
+          /tmp/clean/bin/evarness verify /tmp/proof.json
