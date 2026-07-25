@@ -1,0 +1,26 @@
+# Model-tier routing. Packaged defaults; ~/.evarness/tiers.yaml (or
+# $EVARNESS_TIERS) merges over it per section — repoint a tier at a real
+# provider, remap an intent, or change the fallback without copying this file.
+#
+# Each tier declares a provider spec and a DECLARED locality (sim|local|cloud).
+# In sim every tier runs the deterministic twin; the locality is what the egress
+# law and the trace reason about — so a "cloud" tier is checked as cloud
+# even though its sim bytes never leave the box. Repoint it at anthropic:… in
+# the overlay for a real cloud call (the run then reports deterministic:false).
+
+tiers:
+  router:       {provider: "sim:router-v1",   locality: local}   # cheap intent/label calls
+  local_fast:   {provider: "sim:helpful-v1",  locality: local}   # fast local replies
+  local_reason: {provider: "sim:helpful-v1",  locality: local}   # local reasoning
+  cloud_large:  {provider: "sim:helpful-v1",  locality: cloud}   # big model, opt-in / public only
+
+# intent -> tier. The intent name comes from the upstream intent_router's route.
+intents:
+  market:      cloud_large
+  email_query: local_fast
+  calendar:    local_fast
+  system_meta: local_fast
+  general:     local_reason
+
+default_tier:  local_reason   # unmapped intents
+fallback_tier: local_fast     # egress-safe local tier the downshift targets

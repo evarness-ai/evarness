@@ -1,0 +1,11 @@
+# Trace-exporter knobs (exporters.py). One section per format, merged with the
+# user overlay at ~/.evarness/exporters.yaml ($EVARNESS_EXPORTERS) — overlay
+# keys win per format. Content-as-data: tunables live here, logic in code.
+
+otlp:
+  # OpenTelemetry resource identity stamped on every export.
+  service_name: evarness
+  # Extra resource attributes, e.g. deployment.environment: ci
+  resource_attributes: {}
+
+jsonl: {}

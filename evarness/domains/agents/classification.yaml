@@ -1,0 +1,26 @@
+# Data classification + egress rules. This packaged file is the default;
+# ~/.evarness/classification.yaml (or $EVARNESS_CLASSIFICATION) merges over
+# it per classifier and per egress row — loosen or tighten without copying.
+
+classifiers:
+  # built-in deterministic marker/pattern classifier. Secret/personal SHAPES
+  # (api keys, ssn, email, phone) are compiled patterns in code; the marker
+  # lists below are the user-tunable vocabulary on top.
+  keyword:
+    secret_markers: []                    # e.g. ["vault://", "BEGIN OPENSSH"]
+    personal_markers: ["my address", "date of birth", "my salary"]
+    internal_markers: ["internal only", "confidential", "do not distribute"]
+
+# The egress law: which destinations each classification may reach.
+# Destinations: sim (fixture twin) · local (on-host model/tool) · cloud (hosted
+# model API) · network (a tool carrying content off-host).
+#
+# Defaults are CONSERVATIVE, mirroring the origin system's law: personal never
+# leaves local tiers; secrets never enter any prompt — not even the sim twin,
+# which forces the graph to redact BEFORE the model boundary (that's the
+# lesson). Opt internal into cloud via the overlay when you mean it.
+egress:
+  public:   [sim, local, cloud, network]
+  internal: [sim, local]
+  personal: [sim, local]
+  secret:   []

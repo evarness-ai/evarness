@@ -1,0 +1,90 @@
+# Grounding rules — configuration for the deterministic answer-faithfulness checks
+# This file is the packaged default; users tune or extend it with an
+# overlay at ~/.evarness/grounding.yaml (or $EVARNESS_GROUNDING) — overlay
+# entries merge per rule, so you can override one knob or configure a rule you
+# registered yourself without copying this file.
+#
+# A rule's CODE is registered in Python (register_grounding_rule); its BEHAVIOR
+# lives here. The loop node picks which rules run via its `grounding_rules`
+# config, so rule selection is per-harness, sweepable, and user-editable.
+
+rules:
+  entity_support:
+    description: >
+      Every capitalized entity span and figure in a final answer must appear
+      (normalized, word-level) somewhere in the evidence the tools returned.
+      Catches fabricated event/person/place names and invented numbers; lets
+      lowercase paraphrase and recomposition of supported words pass.
+    # sentence-start function words absorbed into a span are capitalization,
+    # not part of the entity ("The U.S. Open ...")
+    stop_capitals: [The, A, An, It, In, On, At, By, For, As, This, That, These,
+                    Those, There, Here, And, But, Or, If, So, Not, No, Yes, Now,
+                    Today, However, Meanwhile]
+    # "olympic" matches "olympics" — real runs false-positive without this
+    plural_tolerance: true
+    # "Balogun's World Cup" is Balogun + World Cup — split before matching so
+    # the report names the offending sub-entity
+    split_possessives: true
+    # cap on how many unsupported claims a single check reports
+    max_reported: 8
+
+  topic_coverage:
+    description: >
+      Every content word of the USER REQUEST must be reflected in at least one
+      tool query or observation before a final answer is accepted — a
+      multi-topic request ("AI news and FIFA controversies") is not answered
+      by searching one topic. Deterministic and explainable; pairs with
+      semantic_coverage for paraphrase awareness.
+    # request words that carry no topic (verbs of asking, counts, time words)
+    stopwords: [fetch, get, find, show, give, tell, list, search, summarize,
+                summary, please, me, my, the, a, an, of, about, and, or, for,
+                to, in, on, at, by, as, we, do, so, no, if, up, off, out, with,
+                its, it, is, are, was, were, be, this, that, these, those,
+                what, which, who, how, when, where, from, top, last, latest,
+                current, recent, new, today, now, daily, news, item, items,
+                story, stories, headline, headlines, article, articles,
+                result, results, global, world, regional, local, international]
+    # 2, not 3: "AI", "EU", "5G" are real topics (found live, run 0d2df43d68a5:
+    # min_word_len 3 silently dropped "AI" and the whole topic went unsearched)
+    min_word_len: 2
+    plural_tolerance: true
+    # deterministic typo bridge (measured: embeddings do NOT cover misspellings —
+    # 'controvercies' vs 'controversies' scored 0.26 on MiniLM): allow edit
+    # distance 1 for words >= typo_min_len, 2 for words >= typo_len_for_two
+    typo_tolerance: true
+    typo_min_len: 4
+    typo_len_for_two: 8
+    max_reported: 6
+
+  count_intent:
+    description: >
+      "top 10" is a contract: if the request names an item count, the final
+      answer must enumerate that many items or honestly say how many were
+      found. Also read by the loop to raise search max_results so the count
+      is even possible.
+    # regexes that extract the requested count from the user request
+    patterns: ['\btop\s+(\d{1,2})\b',
+               '\b(\d{1,2})\s+(?:news|items|stories|headlines|results|articles|things)\b']
+    # an answer admitting a shortfall passes (honesty beats padding)
+    honesty_phrases: ['only', 'fewer', 'could not', "couldn't", 'no more',
+                      'not enough', 'just']
+    # regex forms of the same honesty — "(3/10)" found live, run 0d2df43d68a5
+    honesty_patterns: ['\b\d+\s*/\s*\d+\b']
+    # hard cap on how far a request can push search max_results
+    max_count: 20
+
+  semantic_coverage:
+    description: >
+      Paraphrase-aware twin of topic_coverage (optional [semantic] extra,
+      fastembed/ONNX MiniLM): request facets are embedded and each must reach
+      cosine-similarity threshold against some query or observation. Catches
+      "football" covered by "soccer" that keyword matching misses. Model-based
+      — run it alongside the deterministic rules, not instead of them.
+    model: sentence-transformers/all-MiniLM-L6-v2
+    # calibrated on measured MiniLM pairs (2026-07-12): related/synonym facets
+    # score 0.45-0.87 ('football news'/'soccer headlines' 0.60, 'fifa word cup'/
+    # 'world cup controversies' 0.45), unrelated -0.02-0.14 — 0.40 separates
+    # them cleanly. Typos are NOT semantic's job (0.26) — topic_coverage's
+    # typo_tolerance handles those deterministically.
+    threshold: 0.40
+    max_reported: 6

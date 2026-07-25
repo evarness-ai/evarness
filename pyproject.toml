@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "evarness"
+version = "0.1.0"
+description = "Prove an AI agent harness before it touches real data: canonical traces, invariant contracts, portable proof bundles, offline verification."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Evarness contributors" }]
+keywords = ["ai-agents", "harness", "determinism", "invariants", "provenance", "verification"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+sign = ["cryptography>=42"]
+
+[project.urls]
+Homepage = "https://github.com/evarness-ai/evarnesslab"
+Repository = "https://github.com/evarness-ai/evarnesslab"
+
+[project.scripts]
+evarness = "evarness.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["evarness*"]
+
+[tool.setuptools.package-data]
+evarness = ["py.typed", "**/*.yaml", "**/*.json", "**/*.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.black]
+line-length = 100
+target-version = ["py310", "py311", "py312"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_ignores = true
+no_implicit_optional = true

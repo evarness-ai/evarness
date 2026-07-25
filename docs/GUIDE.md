@@ -1,0 +1,113 @@
+# Evarness guide
+
+From install to a signed, offline-verifiable proof bundle. Everything here runs
+in simulation — no API keys, no network, no side effects.
+
+## 1. Install and orient
+
+```bash
+pip install git+https://github.com/evarness-ai/evarnesslab
+evarness patterns
+```
+
+A **pattern** is a packaged harness: `graph.json` (the topology), `fixtures/`
+(scripted scenarios), and a lesson. Three ship built in:
+
+| Pattern | What it teaches |
+| --- | --- |
+| `single_shot_qa` | The minimal graph: input → llm → output, one scripted answer |
+| `governed_email_assistant` | Routing, interception, retrieval, memory, budget-aware assembly — and a failure fixture the policy gate must block |
+| `approval_gated_send` | A send tool behind a human approval gate, with declared invariants |
+
+User patterns live in `~/.evarness/patterns/`.
+
+## 2. Run a graph and read the trace
+
+```bash
+evarness run path/to/graph.json --fixture path/to/fixture.yaml --json
+```
+
+A run is an **event stream**: `run_started`, `intent_routed`, `llm_request`,
+`policy_violation`, `run_finished`, … Failures, blocks, and budget overflows are
+first-class events — never silent. The run's identity is its **canonical
+digest**:
+
+- `canonical form` strips the wall-clock envelope and serializes byte-stably
+  (sorted keys, compact, ascii).
+- `trace_digest(events)` names it: `c1:sha256:…`. The `c1` names the
+  canonicalization version — anything that changes canonical output bumps it.
+- Same graph + fixture + seed ⇒ same digest. On your laptop, in CI, on any OS.
+
+Export the canonical stream for other tooling with
+`run --trace-out trace.jsonl` (or `--trace-format otlp` for an
+OpenTelemetry/GenAI-semconv document).
+
+## 3. Declare invariants — contracts, not prose
+
+The guarantees a harness claims live in an `invariants.yaml`, resolved from the
+pattern directory, then `~/.evarness/invariants.yaml`, then the packaged
+library. A contract is a temporal assertion over the event stream:
+
+```yaml
+invariants:
+  no-model-call-after-block:
+    title: No model call after a block
+    assert:
+      never:
+        type: llm_request
+        after: {type: policy_violation}
+  approval-precedes-send:
+    title: Approval precedes send
+    assert:
+      precedes:
+        first: {type: approval_granted}
+        second: {type: tool_called, where: {tool: email.send}}
+```
+
+A graph opts in via `params.invariants: [id, …]`. Verdicts are computed from
+the events but stored **outside** them — checking a run never changes its
+digest. Unknown or malformed contracts are failed verdicts, never silently
+skipped.
+
+## 4. Prove, then verify anywhere
+
+```bash
+evarness prove approval_gated_send -o proof.json --html report.html
+evarness verify proof.json
+```
+
+`prove` runs every scenario **twice** (digest reproduction demonstrated, not
+asserted), evaluates the declared contracts, and pins the subject: graph hash,
+tool-manifest hashes, resolved contract-definitions hash, engine version, and
+environment. The bundle carries the canonical event streams and a rolling
+per-event chain digest.
+
+`verify` re-checks all of it offline: digests recompute, chains recompute,
+verdicts consistent, signature valid (if present). A bundle with no declared
+invariants verifies as **"nothing asserted"** — a loud state, not a quiet pass.
+
+For CI: `prove --junit verdicts.xml` (test report) or `--sarif findings.sarif`
+(code scanning); the exit code gates the merge. Sign with `prove --sign`
+(Ed25519, key auto-created under `~/.evarness/keys/`) and pin the signer with
+`verify --pubkey … --require-signature`.
+
+## 5. The honesty rules
+
+Worth knowing because they shape every command's behavior:
+
+- **Refuse, don't degrade.** Real providers (`anthropic:…`, `ollama:…`) and
+  `mode: real` tools are refused with remediation — they haven't shipped in this
+  release, and a silent sim fallback would make the trace lie about what ran.
+- **Side effects need explicit approval.** A tool whose manifest declares
+  `write`/`destructive` side effects refuses to run unless the node sets
+  `approve_side_effects: true` — even in simulation.
+- **Every bundle states what it doesn't prove.** Scripted scenarios ≠ universal
+  safety; a signature ≠ the runs happened. The `not_proven` section and the
+  `verify` output say so explicitly.
+
+## Data locations
+
+`~/.evarness/` holds the activity log (`evarness.db`, override with
+`$EVARNESS_DB`), user patterns, user overlays (`invariants.yaml`,
+`prompts.yaml`, `tools.yaml`, …), and signing keys. The overlays merge over the
+packaged defaults; every one has an `$EVARNESS_*` env override.
