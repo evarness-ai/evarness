@@ -108,6 +108,7 @@ def judges_config() -> dict:
     if _config_cache is None:
         cfg = yaml.safe_load(_PACKAGED.read_text()) or {}
         judges = dict(cfg.get("judges") or {})
+        panel = dict(cfg.get("panel") or {})
         overlay = _overlay_path()
         if overlay.is_file():
             user = yaml.safe_load(overlay.read_text()) or {}
@@ -115,7 +116,8 @@ def judges_config() -> dict:
                 merged = dict(judges.get(name) or {})
                 merged.update(knobs or {})
                 judges[name] = merged
-        _config_cache = {"judges": judges}
+            panel.update(user.get("panel") or {})
+        _config_cache = {"judges": judges, "panel": panel}
     return _config_cache
 
 
@@ -126,6 +128,11 @@ def reload_judges_config() -> None:
 
 def judge_config(name: str) -> dict:
     return judges_config()["judges"].get((name or "").lower(), {})
+
+
+def panel_config() -> dict:
+    """Aggregation defaults for the judge_panel node (``panel:`` section)."""
+    return judges_config()["panel"]
 
 
 # ------------------------------------------------------------------ built-in judges

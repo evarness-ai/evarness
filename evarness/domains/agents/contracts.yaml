@@ -63,3 +63,26 @@ invariants:
     assert:
       never:
         type: budget_breached
+
+  panel-precedes-output:
+    title: Panel verdict precedes output
+    description: >
+      Nothing reaches the output node without a prior PASSED panel verdict —
+      the verifier gate itself as a checkable temporal contract. Vacuously
+      true when the run never reaches output (a blocked run satisfies it by
+      construction); pair with run-completes when success is expected.
+    assert:
+      precedes:
+        first: {type: panel_verdict, where: {passed: true}}
+        second: {type: node_started, where: {type: output}}
+
+  panel-quorate:
+    title: Panel verdicts are quorate
+    description: >
+      Every panel verdict in the run was reached by at least two evaluated
+      members — a verdict about nothing-checked must not exist, and a panel
+      that degraded down to one voter is a chain, not a panel.
+    assert:
+      every:
+        match: {type: panel_verdict}
+        where: {evaluated: {gte: 2}}

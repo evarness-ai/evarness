@@ -495,6 +495,131 @@ class JudgeChainNode(NodeSpec):
 
 
 @register
+class JudgePanelNode(NodeSpec):
+    type_name = "judge_panel"
+    group = "governance"
+    doc = (
+        "N independent verdicts on the same text, aggregated at one gate — the "
+        "panel complement to judge_chain's ordered curation. No short-circuit: "
+        "every member votes and the trace shows the full vote. diverse mode "
+        "(default): each member is a distinct registered judge, a lens; lenses "
+        "are orthogonal failure modes, so every evaluated lens must survive — "
+        "no quorum can outvote a safety halt. adversarial mode: one judge "
+        "seated N times (seat index passed in its config), each seat trying "
+        "to refute; the text survives only if the surviving fraction reaches "
+        "quorum — majority-fail-to-kill. A timed-out member fails OPEN "
+        "(degraded, shrinks the denominator), but a panel below min_evaluated "
+        "is INQUORATE and follows on_fail: a verdict reached by nobody must "
+        "never read as a pass. Panels never repair — a retry verdict is a "
+        "failed vote (repair between members would mutate the text and break "
+        "their independence)."
+    )
+    inputs: ClassVar[dict] = {"in": "text"}
+    outputs: ClassVar[dict] = {"out": "text"}
+
+    class Config(BaseModel):
+        mode: Literal["diverse", "adversarial"] = "diverse"
+        members: list[str] = Field(
+            default_factory=lambda: ["safety", "faithfulness", "groundedness"]
+        )
+        skeptics: int = Field(default=3, ge=1)  # adversarial: seats of members[0]
+        # None -> judges.yaml panel: defaults (overlay-tunable like judge knobs)
+        quorum: float | None = Field(default=None, ge=0.0, le=1.0)
+        min_evaluated: int | None = Field(default=None, ge=1)
+        on_fail: Literal["block", "flag"] = "block"
+
+    @classmethod
+    def run(cls, node_id, inputs, cfg, ctx):
+        from evarness.domains.agents.judges import get_judge, judge_config, panel_config
+
+        text = as_text(inputs.get("in", ""))
+        pcfg = panel_config()
+        quorum = cfg.quorum if cfg.quorum is not None else float(pcfg.get("quorum", 0.5))
+        # floor-clamped to 1: an all-degraded panel must never pass, whatever the config
+        min_evaluated = max(
+            1,
+            (
+                cfg.min_evaluated
+                if cfg.min_evaluated is not None
+                else int(pcfg.get("min_evaluated", 2))
+            ),
+        )
+        if cfg.mode == "adversarial":
+            seats = [(cfg.members[0], i) for i in range(cfg.skeptics)]
+        else:
+            seats = [(name, i) for i, name in enumerate(cfg.members)]
+
+        timeouts = ctx.fixture.judge_timeouts
+        votes = {"pass": 0, "warn": 0, "halt": 0, "retry": 0, "degraded": 0, "unknown_judge": 0}
+        banners: list[str] = []
+        for name, seat in seats:
+            # fail-open on timeout, like the chain — availability is not a verdict
+            if name.lower() in timeouts:
+                ctx.emit(
+                    "panel_member_verdict",
+                    node_id,
+                    member=name,
+                    seat=seat,
+                    verdict="degraded",
+                    reason="timeout",
+                )
+                votes["degraded"] += 1
+                continue
+            judge = get_judge(name)
+            if judge is None:
+                ctx.emit(
+                    "panel_member_verdict", node_id, member=name, seat=seat, verdict="unknown_judge"
+                )
+                votes["unknown_judge"] += 1
+                continue
+            sig = judge(text, {**judge_config(name), "seat": seat}, ctx)
+            ctx.emit(
+                "panel_member_verdict",
+                node_id,
+                member=name,
+                seat=seat,
+                verdict=sig.verdict,
+                **({"score": round(sig.score, 4)} if sig.score is not None else {}),
+                **({"reason": sig.reason} if sig.reason else {}),
+            )
+            votes[sig.verdict] = votes.get(sig.verdict, 0) + 1
+            if sig.verdict == "warn":
+                banners.append(sig.reason or f"{name} flagged")
+
+        evaluated = votes["pass"] + votes["warn"] + votes["halt"] + votes["retry"]
+        surviving = votes["pass"] + votes["warn"]
+        if evaluated < min_evaluated:
+            ctx.emit("panel_inquorate", node_id, evaluated=evaluated, min_evaluated=min_evaluated)
+            passed = False
+            detail = f"inquorate: {evaluated} evaluated, {min_evaluated} required"
+        elif cfg.mode == "diverse":
+            passed = surviving == evaluated
+            detail = f"{surviving}/{evaluated} lenses survived"
+        else:
+            passed = (surviving / evaluated) >= quorum
+            detail = f"{surviving}/{evaluated} skeptics failed to kill (quorum {quorum})"
+
+        # evidence before enforcement: the verdict is traced even when it blocks
+        ctx.emit(
+            "panel_verdict",
+            node_id,
+            mode=cfg.mode,
+            passed=passed,
+            evaluated=evaluated,
+            quorum=quorum,
+            votes=votes,
+            detail=detail,
+        )
+        if not passed:
+            if cfg.on_fail == "block":
+                raise NodeBlocked(node_id, f"judge_panel failed: {detail}")
+            banners.append(detail)
+        if banners:
+            text = f"[panel: {'; '.join(banners)}] {text}"
+        return text
+
+
+@register
 class RedactionRulesNode(NodeSpec):
     type_name = "redaction_rules"
     group = "governance"
