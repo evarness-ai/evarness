@@ -32,6 +32,7 @@ NODE_PRESENTATION: dict[str, tuple[str, str]] = {
     "tier_router": ("🎚️", "Tier Router"),
     "approval_gate": ("✋", "Approval Gate"),
     "judge_chain": ("⚖️", "Judge Chain"),
+    "judge_panel": ("🏛️", "Judge Panel"),
     "llm_guard": ("🛡️", "LLM Guard"),
     "llm_judge": ("⚖️", "LLM Judge"),
     "redaction_rules": ("🧼", "Redaction"),
@@ -195,4 +196,8 @@ _GOVERNANCE_EVENTS = {
     "judge_degraded",
     "chain_halted",
     "judge_chain_finished",
+    # judge panel
+    "panel_member_verdict",
+    "panel_verdict",
+    "panel_inquorate",
 }

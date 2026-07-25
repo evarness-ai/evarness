@@ -21,3 +21,13 @@ judges:
   groundedness:
     threshold: 0.6
     on_fail: warn           # a soft signal — banner, don't block
+
+# The judge_panel node: aggregation defaults (per-member knobs stay under
+# judges:). quorum applies in adversarial mode only — the surviving fraction
+# required for the text to outlive its skeptics. min_evaluated is the quorum
+# floor in BOTH modes: a panel with fewer evaluated members is inquorate and
+# follows the node's on_fail — never a pass (clamped to >= 1 in the node; a
+# verdict reached by nobody must not exist).
+panel:
+  quorum: 0.5
+  min_evaluated: 2
