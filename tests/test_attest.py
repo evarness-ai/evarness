@@ -161,3 +161,33 @@ def test_cli_prove_sign_then_verify(tmp_path, capsys, monkeypatch):
     assert main(["verify", "p.json"]) == 1
     out = capsys.readouterr().out
     assert "VERIFY: FAILED" in out and "✗" in out
+
+
+def test_tamper_and_resign_with_different_key_is_caught_only_by_pinning(tmp_path):
+    # the re-sign attack: an attacker edits the bundle, recomputes nothing
+    # (the digests still hold — the edit is outside the events), and signs
+    # with their OWN key. Verification without a pinned key is fooled — the
+    # embedded key legitimately signed these bytes. Only pinning the
+    # original signer's public key catches the impostor. This is the
+    # "trust reduces to the signer" limit, exercised end to end.
+    from evarness.core.attest import public_key_b64, sign_proof, _load_or_create_key
+
+    signed = sign_proof(_proof(), key_path=tmp_path / "signer-a.pem")
+    pin = signed["attestation"]["public_key"]
+
+    forged = copy.deepcopy(signed)
+    forged["generated_at"] = 0.0  # outside the events: every digest still holds
+    forged = sign_proof(forged, key_path=tmp_path / "signer-b.pem")
+
+    fooled = verify_proof(forged, require_signature=True)
+    assert fooled["ok"]  # internally consistent AND validly signed — by someone
+
+    caught = verify_proof(forged, pubkey_b64=pin, require_signature=True)
+    assert not caught["ok"]
+    sig = next(c for c in caught["checks"] if c["check"] == "signature")
+    assert sig["ok"] is False and "does not match the pinned key" in sig["detail"]
+
+    # the honest bundle still verifies under the same pin
+    assert verify_proof(signed, pubkey_b64=pin, require_signature=True)["ok"]
+    key_a, created = _load_or_create_key(tmp_path / "signer-a.pem")
+    assert not created and public_key_b64(key_a) == pin
