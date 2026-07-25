@@ -17,7 +17,10 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install
-        run: python -m pip install -e ".[dev,sign]" ruff black mypy types-PyYAML
+        # toolchain pinned to the locally-verified versions: an unpinned ruff
+        # release changed default rules and failed CI on untouched files —
+        # a repo about reproducibility should not have a drifting lint gate
+        run: python -m pip install -e ".[dev,sign]" ruff==0.15.22 black==26.5.1 mypy==2.3.0 types-PyYAML
       - name: Lint
         run: ruff check evarness/ tests/
       - name: Format
