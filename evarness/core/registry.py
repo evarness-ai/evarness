@@ -158,6 +158,26 @@ def register_subject_pinner(fn: Callable[[Any], dict]) -> Callable[[Any], dict]:
     return fn
 
 
+# ------------------------------------------------------- context extensions
+
+#: domain name -> zero-arg factory for that domain's per-run state object.
+#: The kernel constructs nothing domain-shaped (E10): RunContext carries a
+#: namespaced ``ext`` mapping, populated fresh per run from these factories.
+#: Composition, not inheritance — N domains coexist in one run, each owning
+#: its slot; a domain's nodes reach their state via their own typed accessor.
+CONTEXT_EXTENSIONS = Registry("context extension")
+
+
+def register_context_extension(name: str, factory: Callable[[], Any]) -> None:
+    CONTEXT_EXTENSIONS.register(name, factory)
+
+
+def build_context_extensions() -> dict[str, Any]:
+    """Fresh state objects for every registered domain — called once per run,
+    so no state ever leaks between runs."""
+    return {name: factory() for name, factory in CONTEXT_EXTENSIONS.items()}
+
+
 # ----------------------------------------------------------- contract sources
 
 #: packaged contract-library YAML paths, in resolution order after any

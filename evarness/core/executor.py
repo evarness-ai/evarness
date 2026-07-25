@@ -19,7 +19,12 @@ from evarness.core.errors import GraphValidationError, NodeBlocked, RunPaused
 from evarness.core.graph import GraphModel, GraphParams, lint, topological_order
 from evarness.core.interfaces import Environment
 from evarness.core.invariants import check_invariants
-from evarness.core.registry import DETERMINISM_INSPECTORS, NODE_TYPES, make_provider
+from evarness.core.registry import (
+    DETERMINISM_INSPECTORS,
+    NODE_TYPES,
+    build_context_extensions,
+    make_provider,
+)
 
 __all__ = ["Emitter", "RunContext", "RunResult", "GraphValidationError", "execute"]
 
@@ -57,19 +62,15 @@ class RunContext:
     totals: dict = field(default_factory=lambda: {"tokens": 0, "cost_usd": 0.0})
     scratch: dict = field(default_factory=dict)  # run-scoped working memory
     output: Any = None
-    # data classification: monotonic high-water mark for the run + the egress
-    # regime. Both stay inert ("public"/"off") until a data_classifier node arms
-    # them — graphs without one are completely unaffected.
-    classification: str = "public"
-    egress_mode: str = "off"
-    # tier routing: a tier_router node arms these; the llm/loop boundaries
-    # then run on ctx.provider (swapped) and the egress gate reads tier_locality.
-    # Inert (None) until a tier_router node exists.
-    tier: str | None = None
-    tier_locality: str | None = None
     # human-in-the-loop: {gate_node_id: "approve"|"reject"} decisions supplied
     # on resume. Empty on a first run — an approval_gate with no decision pauses.
+    # Kernel-owned: pausing (RunPaused) is core control flow.
     approvals: dict = field(default_factory=dict)
+    # namespaced per-run domain state (E10): {domain_name: state_object},
+    # populated fresh each run from registered context-extension factories.
+    # The kernel never reads inside a slot — a domain's nodes reach their own
+    # state through the domain's typed accessor (e.g. agents_state(ctx)).
+    ext: dict[str, Any] = field(default_factory=dict)
 
     def emit(self, type_: str, node_id: str | None = None, **payload) -> dict:
         return self.emitter.emit(type_, node_id, **payload)
@@ -118,6 +119,7 @@ def execute(
         provider=make_provider(graph.params.provider, fixture),
         user_input=user_input if user_input is not None else fixture.user_input,
         approvals=dict(approvals or {}),
+        ext=build_context_extensions(),
     )
 
     # deterministic only if the provider is simulated AND no registered domain

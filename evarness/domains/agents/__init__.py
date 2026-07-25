@@ -18,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from evarness.core.registry import (
+    register_context_extension,
     register_contract_source,
     register_determinism_inspector,
     register_subject_pinner,
@@ -27,6 +28,7 @@ from evarness.core.registry import (
 from evarness.domains.agents import nodes as nodes  # registers all node types
 from evarness.domains.agents.providers import make_provider
 from evarness.domains.agents.sim import load_fixture
+from evarness.domains.agents.state import AgentsRunState
 
 
 @register_determinism_inspector
@@ -84,5 +86,6 @@ def _pin_tool_manifests(graph) -> dict:
 
 
 set_provider_factory(make_provider)
+register_context_extension("agents", AgentsRunState)
 set_environment_loader(load_fixture)
 register_contract_source(Path(__file__).parent / "contracts.yaml")
