@@ -10,13 +10,13 @@ date (107/107 tests passing).
 ## 0. Naming (this trips everyone up)
 
 - **Evarnesslab** is this repo; the Python package inside is **`evarness`**.
-- It is the open-source graduation of **HarnessLab** (the private workbench at
-  `agent-workbench/harness-lab`). Features are proven in HarnessLab first, then
-  graduate here through the core/domain seams.
-- It is deliberately **separate** from DLIF. ADR-025 in the DLIF repo
-  (`docs/decisions/025-harnesslab-integration-boundary.md`) fixes the boundary:
-  Evarness governs and evaluates AI execution; DLIF supplies private
-  distributed inference. They will share an adapter contract, never a codebase.
+- It is the open-source graduation of **HarnessLab**, the private workbench it
+  graduates from. Features are proven in HarnessLab first, then graduate here
+  through the core/domain seams.
+- It is deliberately **separate** from DLIF. A decision record in the DLIF
+  project (ADR-025) fixes the boundary: Evarness governs and evaluates AI
+  execution; DLIF supplies private distributed inference. They will share an
+  adapter contract, never a codebase.
 
 ## 1. What the product is
 
@@ -181,7 +181,7 @@ evarness prove approval_gated_send --approve n3=approve -o proof.json
 ## 6. Rerun crib sheet
 
 ```bash
-cd agent-workbench/evarnesslab
+cd evarnesslab
 source .venv/bin/activate
 P=evarness/domains/agents/patterns/approval_gated_send
 
