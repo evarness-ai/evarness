@@ -8,6 +8,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 from pydantic import BaseModel
 from evarness.domains.agents.classification import egress_allowed
+from evarness.domains.agents.state import agents_state
 from evarness.domains.agents.prompts import DEFAULTS
 from evarness.core.errors import NodeBlocked
 from evarness.core.registry import NODE_TYPES
@@ -85,7 +86,7 @@ def _provider_locality(ctx) -> str:
     has armed a tier, its DECLARED locality wins (the egress law reasons about
     the tier the run represents, not the sim twin). Otherwise the provider's own
     locality; anything undeclared fails CLOSED as cloud."""
-    tier_loc = getattr(ctx, "tier_locality", None)
+    tier_loc = agents_state(ctx).tier_locality
     if tier_loc:
         return tier_loc
     return getattr(ctx.provider, "locality", "cloud")
@@ -107,10 +108,11 @@ def _egress_gate(ctx, node_id: str, destination: str) -> None:
     data_classifier node arms the run (egress_mode stays 'off' — existing graphs
     are untouched). warn traces the verdict; enforce blocks BEFORE the boundary
     is crossed, so a denied run never calls the model or tool."""
-    mode = getattr(ctx, "egress_mode", "off")
+    st = agents_state(ctx)
+    mode = st.egress_mode
     if mode == "off":
         return
-    classification = getattr(ctx, "classification", "public")
+    classification = st.classification
     allowed = egress_allowed(classification, destination)
     ctx.emit(
         "egress_checked",

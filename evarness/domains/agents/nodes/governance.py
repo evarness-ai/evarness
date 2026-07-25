@@ -7,6 +7,7 @@ from __future__ import annotations
 from typing import ClassVar, Literal
 from pydantic import BaseModel, Field
 from evarness.domains.agents.classification import classify, egress_allowed, max_class
+from evarness.domains.agents.state import agents_state
 from evarness.domains.agents.sim import (
     REDACTION_RULES,
     redact,
@@ -127,18 +128,18 @@ class DataClassifierNode(NodeSpec):
         classification, signals, unknown = classify(text, cfg.classifier)
         # monotonic high-water mark: later, lower classifications never launder
         # earlier, higher ones; the strictest requested egress mode wins
-        ctx.classification = max_class(getattr(ctx, "classification", "public"), classification)
-        current = getattr(ctx, "egress_mode", "off")
-        if _EGRESS_MODE_RANK[cfg.egress] > _EGRESS_MODE_RANK.get(current, 0):
-            ctx.egress_mode = cfg.egress
+        st = agents_state(ctx)
+        st.classification = max_class(st.classification, classification)
+        if _EGRESS_MODE_RANK[cfg.egress] > _EGRESS_MODE_RANK.get(st.egress_mode, 0):
+            st.egress_mode = cfg.egress
         ctx.emit(
             "content_classified",
             node_id,
             classifier=cfg.classifier if not unknown else "keyword",
             classification=classification,
             signals=signals[:8],
-            run_classification=ctx.classification,
-            egress=ctx.egress_mode,
+            run_classification=st.classification,
+            egress=st.egress_mode,
             **({"unknown_classifier": unknown} if unknown else {}),
         )
         return text
@@ -167,7 +168,7 @@ class ApprovalGateNode(NodeSpec):
     @classmethod
     def run(cls, node_id, inputs, cfg, ctx):
         text = as_text(inputs.get("in", ""))
-        classification = getattr(ctx, "classification", "public")
+        classification = agents_state(ctx).classification
         if cfg.require_when == "classified":
             needs = classification != "public"
         elif cfg.require_when == "personal_or_secret":
@@ -249,8 +250,9 @@ class TierRouterNode(NodeSpec):
         locality = tier_locality(tier)
         reason = "intent"
 
-        egress_on = getattr(ctx, "egress_mode", "off") != "off"
-        classification = getattr(ctx, "classification", "public")
+        st = agents_state(ctx)
+        egress_on = st.egress_mode != "off"
+        classification = st.classification
         if egress_on and not egress_allowed(classification, locality):
             if cfg.on_forbidden_egress == "block":
                 ctx.emit(
@@ -301,8 +303,8 @@ class TierRouterNode(NodeSpec):
                 tier, locality, reason = fb, fb_loc, "egress_downshift"
 
         spec = tier_provider(tier)
-        ctx.tier = tier
-        ctx.tier_locality = locality
+        st.tier = tier
+        st.tier_locality = locality
         ctx.provider = make_provider(spec, ctx.fixture)
         ctx.emit(
             "tier_selected",

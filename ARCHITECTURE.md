@@ -98,12 +98,18 @@ extends domains, the kernel stays small and stable.
 
 - Done: layer boundaries as packages; one config loader; generic registries +
   entry-point discovery; typed public API + `py.typed`; exception hierarchy;
-  nodes split by concern; determinism inspection lifted out of core.
+  nodes split by concern; determinism inspection lifted out of core; per-run
+  domain state as namespaced context extensions (`RunContext.ext`, E10) — the
+  kernel constructs nothing domain-shaped, and the agents governance fields
+  live in the domain's own `AgentsRunState`.
 - Planned (tracked, not pretended): a second in-tree example domain proving the
   thesis end to end; `Environment` fully abstracted so `core.executor` takes
   any environment (today the sim fixture is the only implementation and some
-  of its shape still shows); versioned public-API stability promises begin at
-  the first tagged release, not before.
+  of its shape still shows); the token/cost vocabulary the kernel emits in
+  terminal events (`total_tokens`, `cost_usd`, `ctx.totals`) is agent-flavored
+  — renaming it is a `c1`→`c2` canonicalization bump, honestly triggered by
+  the second domain's graduation, not before; versioned public-API stability
+  promises begin at the first tagged release, not before.
 
 ## The invariants that outrank everything above
 
