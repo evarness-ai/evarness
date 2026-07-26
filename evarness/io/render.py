@@ -385,19 +385,73 @@ def _footer(lines: list[str], title: str = "What this artifact does not establis
     return f"<h2>{escape(title)}</h2><ul>{items}</ul>"
 
 
-def _provenance(subject: RenderSubject, digest: str | None) -> str:
+def _badge(text: str, cls: str) -> str:
+    return f'<span class="badge {cls}">{escape(text)}</span>'
+
+
+# run statuses reuse the verdict badge palette: green good, red stopped,
+# orange human-pending, faint for a canvas with no run attached
+_STATUS_BADGES = {
+    "completed": ("COMPLETED", "holds"),
+    "blocked": ("BLOCKED", "failed"),
+    "failed": ("FAILED", "failed"),
+    "paused": ("PAUSED", "pending"),
+}
+
+
+def _stat(label: str, value: str, code: bool = False) -> str:
+    v = f"<code>{escape(value)}</code>" if code else escape(value)
+    return (
+        f'<div class="stat"><span class="stat-l">{escape(label)}</span>'
+        f'<span class="stat-v">{v}</span></div>'
+    )
+
+
+def _masthead(badge_html: str, title: str, subtitle_html: str, stats_html: str) -> str:
+    """The page header: badge + title block on the left, labeled stat chips
+    on the right; the digest gets its own full-width strip below (75 chars
+    of hash never fits politely on a chip)."""
+    return (
+        f'<div class="masthead"><div class="title">{badge_html}'
+        f"<div><h1>{escape(title)}</h1>"
+        f'<div class="subtitle">{subtitle_html}</div></div></div>'
+        f'<div class="stats">{stats_html}</div></div>'
+    )
+
+
+def _digestbar(digest: str) -> str:
+    return (
+        f'<div class="digestbar"><span class="stat-l">digest</span>'
+        f"<code>{escape(digest)}</code></div>"
+    )
+
+
+def _run_header(subject: RenderSubject, digest: str | None) -> str:
     g, meta = subject.graph, subject.meta
-    bits = [f"<strong>{escape(g.name or g.id)}</strong>"]
-    for key in ("scenario", "status", "provider"):
-        if meta.get(key):
-            bits.append(f"{key} {escape(str(meta[key]))}")
-    bits.append(f"seed {g.params.seed}")
-    if digest:
-        bits.append(f"digest <code>{escape(digest)}</code>")
+    if subject.events is None:
+        badge = _badge("STATIC", "static")
+        sub_bits = ["graph only — no run attached"]
+    else:
+        text, cls = _STATUS_BADGES.get(
+            str(meta.get("status")), (str(meta.get("status", "run")).upper(), "static")
+        )
+        badge = _badge(text, cls)
+        sub_bits = []
+        if meta.get("scenario"):
+            sub_bits.append(f"scenario {escape(str(meta['scenario']))}")
+        if meta.get("reason"):
+            sub_bits.append(f'<span class="reason">{escape(str(meta["reason"]))}</span>')
+    stats = []
+    if meta.get("provider"):
+        stats.append(_stat("provider", str(meta["provider"]), code=True))
+    stats.append(_stat("seed", str(g.params.seed)))
     if meta.get("deterministic") is not None:
-        bits.append(f"deterministic {str(bool(meta['deterministic'])).lower()}")
-    bits.append(f"renderer {RENDER_VERSION}")
-    return " · ".join(bits)
+        stats.append(_stat("deterministic", str(bool(meta["deterministic"])).lower()))
+    stats.append(_stat("renderer", RENDER_VERSION))
+    header = _masthead(badge, g.name or g.id, " · ".join(sub_bits), "".join(stats))
+    if digest:
+        header += _digestbar(digest)
+    return header + _lint_strip(meta)
 
 
 _STYLE = """
@@ -409,15 +463,37 @@ _STYLE = """
 * { box-sizing: border-box; }
 body { margin:0; background:var(--bg); color:var(--txt);
   font:14px/1.5 -apple-system, 'Segoe UI', Roboto, sans-serif; }
-header { padding:11px 18px; border-bottom:1px solid var(--line);
+header { padding:12px 18px 10px; border-bottom:1px solid var(--line);
   background:var(--bg2); font-size:13px; }
 header code, .head code { background:var(--bg3); padding:1px 6px;
   border-radius:4px; font-size:11.5px; }
+.masthead { display:flex; justify-content:space-between; align-items:center;
+  gap:18px; flex-wrap:wrap; }
+.title { display:flex; align-items:center; gap:12px; min-width:0; }
+.title h1 { font-size:15px; font-weight:700; margin:0; line-height:1.25; }
+.subtitle { font-size:11.5px; color:var(--dim); margin-top:1px; }
+.subtitle .reason { color:var(--red); }
+.stats { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+.stat { display:flex; flex-direction:column; gap:1px; }
+.stat-l { font-size:9px; text-transform:uppercase; letter-spacing:.09em;
+  color:var(--faint); }
+.stat-v { font-size:12px; color:var(--txt);
+  font-variant-numeric:tabular-nums; white-space:nowrap; }
+.digestbar { margin-top:9px; padding-top:8px; border-top:1px solid var(--line);
+  display:flex; align-items:baseline; gap:10px; }
+.digestbar code { font-size:11.5px; word-break:break-all; }
+.warnstrip { margin-top:9px; padding:6px 11px; border:1px solid var(--orange);
+  border-radius:8px; color:var(--orange); font-size:12px;
+  background:rgba(224,175,104,.07); }
 main { padding:16px 18px; }
 .viewer { display:grid; grid-template-columns: minmax(0,1fr) 380px; gap:14px;
   margin-bottom:18px; }
 .viewer .head { grid-column: 1 / -1; padding:7px 12px; border:1px solid
-  var(--line); border-radius:9px; background:var(--bg2); font-size:12.5px; }
+  var(--line); border-radius:9px; background:var(--bg2); font-size:12.5px;
+  display:flex; justify-content:space-between; align-items:center; gap:12px;
+  flex-wrap:wrap; }
+.head-l, .head-r { display:flex; align-items:center; gap:10px; min-width:0; }
+.head-r { color:var(--dim); }
 .panel { background:var(--bg2); border:1px solid var(--line); border-radius:10px;
   padding:12px; overflow:auto; }
 .canvas { overflow:auto; }
@@ -632,7 +708,7 @@ def render_html(subject: RenderSubject) -> str:
     return _PAGE.substitute(
         TITLE=escape(subject.graph.name or subject.graph.id),
         STYLE=_STYLE,
-        HEADER=_provenance(subject, digest) + _lint_strip(subject.meta),
+        HEADER=_run_header(subject, digest),
         BODY=_viewer(
             _canvas_svg(subject.graph, subject.presentation, node_index),
             controls,
@@ -680,23 +756,28 @@ def render_proof_browser(
 
     badge_text, badge_cls = _BADGES["nothing"] if not declared else _BADGES[verdict.get("ok")]
     name = subject.get("graph_name") or subject.get("graph_id") or "proof"
-    bits = [
-        f'<span class="badge {badge_cls}">{escape(badge_text)}</span>',
-        f"<strong>{escape(str(name))}</strong>",
-    ]
-    for label, key in (("pattern", "pattern"), ("seed", "seed"), ("provider", "provider")):
-        if subject.get(key) is not None:
-            bits.append(f"{label} {escape(str(subject[key]))}")
-    bits.append(f'graph <code>{escape(str(subject.get("graph_sha256"))[:16])}…</code>')
+    scenarios = bundle.get("scenarios", [])
+    sub_bits = []
+    if subject.get("pattern"):
+        sub_bits.append(f"pattern {escape(str(subject['pattern']))}")
+    sub_bits.append(f"{len(scenarios)} scenario(s)")
     engine = bundle.get("engine") or {}
-    bits.append(
-        f'proof {escape(str(bundle.get("proof_version")))} · '
-        f'evarness {escape(str(engine.get("evarness")))} · renderer {RENDER_VERSION}'
+    stats = []
+    if subject.get("provider") is not None:
+        stats.append(_stat("provider", str(subject["provider"]), code=True))
+    if subject.get("seed") is not None:
+        stats.append(_stat("seed", str(subject["seed"])))
+    stats.append(_stat("graph", str(subject.get("graph_sha256"))[:16] + "…", code=True))
+    stats.append(_stat("proof", str(bundle.get("proof_version"))))
+    stats.append(_stat("evarness", str(engine.get("evarness"))))
+    stats.append(_stat("renderer", RENDER_VERSION))
+    header = _masthead(
+        _badge(badge_text, badge_cls), str(name), " · ".join(sub_bits), "".join(stats)
     )
     if bundle.get("attestation"):
-        bits.append(
-            '<span class="pending">signed — signature NOT checked by this page; '
-            "run evarness verify --require-signature</span>"
+        header += (
+            '<div class="warnstrip">signed — signature NOT checked by this page; '
+            "run evarness verify --require-signature</div>"
         )
 
     viewers = []
@@ -706,12 +787,17 @@ def render_proof_browser(
             False: '<span class="repro-bad">✗ DIGEST DID NOT REPRODUCE</span>',
             None: '<span class="quiet">reproduction not attempted</span>',
         }[sc.get("reproduced")]
+        st_text, st_cls = _STATUS_BADGES.get(
+            str(sc.get("status")), (str(sc.get("status", "")).upper(), "static")
+        )
         head = (
-            f'<div class="head"><strong>{escape(sc.get("fixture", ""))}</strong> · '
-            f'status {escape(sc.get("status", ""))} · '
-            f'deterministic {str(bool(sc.get("deterministic"))).lower()} · {repro} · '
-            f'digest <code>{escape(sc.get("trace_digest", ""))}</code> · '
-            f'{int(sc.get("events_count", 0))} events</div>'
+            f'<div class="head"><div class="head-l">'
+            f'<strong>{escape(sc.get("fixture", ""))}</strong>'
+            f"{_badge(st_text, st_cls)}"
+            f'<span class="quiet">deterministic '
+            f'{str(bool(sc.get("deterministic"))).lower()}</span>{repro}</div>'
+            f'<div class="head-r">digest <code>{escape(sc.get("trace_digest", ""))}</code>'
+            f'<span class="quiet">{int(sc.get("events_count", 0))} events</span></div></div>'
         )
         events = sc.get("events")
         if graph is not None:
@@ -747,7 +833,7 @@ def render_proof_browser(
     return _PAGE.substitute(
         TITLE=escape(f"proof · {name}"),
         STYLE=_STYLE,
-        HEADER=" · ".join(bits),
+        HEADER=header,
         BODY="\n".join(viewers) or '<p class="quiet">The bundle contains no scenarios.</p>',
         FOOTER=_footer(lines, title="What this bundle does not prove"),
         DATA=island,

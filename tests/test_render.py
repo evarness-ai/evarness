@@ -248,7 +248,7 @@ def test_cli_run_html_and_render(tmp_path):
 # r3 (platform design language: dark canvas, group dots, state progression,
 # arrowhead edges) — the pin moves ONLY with a RENDER_VERSION bump, never as
 # a routine test update
-GOLDEN_ARTIFACT_SHA256 = "4bd8db78bb893c2f07784fb42f30cc1e36e8d04a80349fc035e1e673386afa3b"
+GOLDEN_ARTIFACT_SHA256 = "6e04570d3e6706da74be5bcab01b1be75c834986a214dd8ddd976c46b27fd936"
 
 
 def test_artifact_is_byte_stable_and_pinned():
