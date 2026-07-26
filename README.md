@@ -60,7 +60,10 @@ Every command works headless: `evarness validate | run | render | prove | verify
 graph canvas, a playhead over the canonical events, and the invariant verdicts
 in one file with no external requests; the digest travels inside and is
 recomputable from the artifact alone. `evarness render graph.json` draws a
-graph without executing it.
+graph without executing it, and `evarness render proof.json` produces the
+**proof browser**: one viewer per scenario under the bundle's verdict badge,
+with the whole bundle embedded — extract it from the page and `evarness
+verify` re-checks it offline, signature included.
 See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,
 reading traces, declaring your own invariants, exporting to JUnit/SARIF/OTLP, and
 wiring `prove` into CI as a merge gate.

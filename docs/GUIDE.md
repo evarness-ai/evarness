@@ -126,6 +126,30 @@ For CI: `prove --junit verdicts.xml` (test report) or `--sarif findings.sarif`
 (Ed25519, key auto-created under `~/.evarness/keys/`) and pin the signer with
 `verify --pubkey … --require-signature`.
 
+### Browse a bundle
+
+```bash
+evarness render proof.json -o proof.html
+```
+
+The **proof browser** is the render artifact applied to a whole bundle: the
+tri-state verdict badge, then one viewer per scenario — canvas, playhead over
+that scenario's canonical events, reproduction status, and its invariant
+verdicts — with the bundle's `not_proven` section rendered verbatim as the
+footer. Same self-containment guarantees as `run --html`, plus three rules of
+its own:
+
+- **The canvas never lies about identity.** A graph is drawn only when its
+  hash matches the bundle's pinned `graph_sha256`: the pattern named by the
+  bundle is auto-resolved and hash-checked; `--graph PATH` is hash-checked and
+  a mismatch is a loud error; no matching graph means the canvas is honestly
+  omitted, never substituted.
+- **The page never vouches for itself.** A signed bundle is labeled
+  "signature NOT checked by this page" — checking is `evarness verify`'s job.
+- **The island IS the bundle.** The full bundle rides in the data island:
+  extract its `bundle` key to a file and `evarness verify` re-checks it
+  offline, signature included. The HTML file alone carries a verifiable proof.
+
 ## 5. The honesty rules
 
 Worth knowing because they shape every command's behavior:

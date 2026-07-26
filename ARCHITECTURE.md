@@ -31,8 +31,10 @@ evarness/
 ├── io/                   # evidence in formats the world reads
 │   ├── exporters.py      #   trace exports: jsonl, otlp (registry-extensible)
 │   ├── render.py         #   render artifacts: graph+run+verdicts as one
-│   │                     #   self-contained HTML file (registry-extensible;
-│   │                     #   no external requests, byte-stable, r1-versioned)
+│   │                     #   self-contained HTML file, and the proof browser
+│   │                     #   (one viewer per scenario, bundle embedded for
+│   │                     #   offline verify; registry-extensible, no external
+│   │                     #   requests, byte-stable, r2-versioned)
 │   └── renderers live with prove (junit/sarif/html render *verdicts*, not traces)
 └── cli/                  # thin: argparse over the library, nothing else
 ```
