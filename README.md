@@ -30,9 +30,9 @@ calls.
 ## Install
 
 ```bash
-pip install git+https://github.com/evarness-ai/evarnesslab
+pip install git+https://github.com/evarness-ai/evarness
 # signing support:
-pip install "evarness[sign] @ git+https://github.com/evarness-ai/evarnesslab"
+pip install "evarness[sign] @ git+https://github.com/evarness-ai/evarness"
 ```
 
 Python ≥ 3.10. Two runtime dependencies (`pydantic`, `pyyaml`).

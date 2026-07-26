@@ -600,7 +600,7 @@ def render_sarif(proof: dict) -> str:
                     "driver": {
                         "name": "evarness",
                         "version": proof["engine"]["evarness"],
-                        "informationUri": "https://github.com/evarness-ai/evarnesslab",
+                        "informationUri": "https://github.com/evarness-ai/evarness",
                         "rules": rules,
                     }
                 },

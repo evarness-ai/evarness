@@ -21,7 +21,7 @@ such as `$env:TEMP\evarness-e2e`, and replace `$OLDPWD` with
 `$PWD.Path` captured before the `cd`.
 
 ```bash
-git clone https://github.com/evarness-ai/evarnesslab && cd evarnesslab
+git clone https://github.com/evarness-ai/evarness && cd evarness
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 mkdir -p /tmp/evarness-e2e && cd /tmp/evarness-e2e

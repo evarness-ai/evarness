@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the maintainers via a private report on the project's
-[GitHub Security Advisories page](https://github.com/evarness-ai/evarnesslab/security/advisories/new)
+[GitHub Security Advisories page](https://github.com/evarness-ai/evarness/security/advisories/new)
 or by contacting the [evarness-ai](https://github.com/evarness-ai)
 organization on GitHub.
 All complaints will be reviewed and investigated promptly and fairly.
