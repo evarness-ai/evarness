@@ -16,7 +16,12 @@ import yaml
 from evarness.core.errors import EvarnessError
 from evarness.core.executor import GraphValidationError, execute
 from evarness.io.exporters import export_trace
-from evarness.io.render import RENDER_VERSION, RenderSubject, render
+from evarness.io.render import (
+    RENDER_VERSION,
+    RenderSubject,
+    render,
+    render_proof_browser,
+)
 from evarness.domains.agents.nodes import REGISTRY
 from evarness.domains.agents.nodes.base import presentation
 from evarness.domains.agents.patterns import (
@@ -156,18 +161,90 @@ def cmd_run(args) -> int:
     return 0 if run.status == "completed" and not inv_failed else 1
 
 
+def _bundle_graph(bundle: dict, graph_arg: str | None) -> tuple[GraphModel | None, str | None]:
+    """Resolve a canvas graph for a proof bundle, honestly: an explicit
+    ``--graph`` is hash-checked inside the renderer (mismatch raises); the
+    bundle's pattern id is auto-resolved only if its hash still matches the
+    pinned subject; otherwise the canvas is omitted with a printed note —
+    never silently drawn from an unproven graph."""
+    from evarness.core.prove import graph_hash
+
+    subject = bundle.get("subject") or {}
+    if graph_arg:
+        return _load_graph(graph_arg), None  # renderer enforces the hash pin
+    pattern = subject.get("pattern")
+    if pattern:
+        pattern_doc = load_pattern(pattern)
+        if pattern_doc is None:
+            return None, f"note: pattern '{pattern}' not found locally — canvas omitted"
+        graph = GraphModel.model_validate(migrate(pattern_doc))
+        if graph_hash(graph) != subject.get("graph_sha256"):
+            return None, (
+                f"note: pattern '{pattern}' on disk no longer matches the bundle's "
+                "pinned graph — canvas omitted (the canvas is only ever drawn from "
+                "the proven graph)"
+            )
+        return graph, None
+    return None, (
+        "note: the bundle pins its graph by hash only — pass --graph PATH to "
+        "draw the canvas (it must match the pinned graph_sha256)"
+    )
+
+
 def cmd_render(args) -> int:
-    """Draw a graph as a self-contained HTML artifact — no execution. Lint
-    findings ride along on the canvas; a run's replay comes from
-    ``run --html`` instead."""
-    graph = _load_graph(args.graph)
+    """Draw a target as a self-contained HTML artifact — no execution.
+    A graph file or pattern id gets a static canvas with lint findings
+    (a run's replay comes from ``run --html``); a proof bundle gets the
+    browsable proof: verdict badge, one viewer per scenario, the bundle's
+    not_proven section, and the whole bundle embedded for offline verify."""
+    target = args.target
+    if target.endswith(".json"):
+        try:
+            doc = json.loads(Path(target).read_text())
+        except FileNotFoundError:
+            print(f"error: file not found: {target}", file=sys.stderr)
+            return 2
+        except json.JSONDecodeError as exc:
+            print(f"error: {target}: not valid JSON: {exc}", file=sys.stderr)
+            return 2
+    else:
+        doc = None
+
+    if doc is not None and "proof_version" in doc:
+        if args.renderer != "html":
+            print(
+                f"error: proof bundles only support --renderer html (got '{args.renderer}')",
+                file=sys.stderr,
+            )
+            return 2
+        graph, note = _bundle_graph(doc, args.graph)
+        html = render_proof_browser(
+            doc, graph=graph, presentation=_presentation_for(graph) if graph else None
+        )
+        subject = doc.get("subject") or {}
+        log_activity("cli.render", str(subject.get("graph_id")), actor="cli", bundle=True)
+        out = args.out or str(Path(target).with_suffix(".html"))
+        Path(out).write_text(html)
+        if note:
+            print(note)
+        print(f"wrote {out} (proof browser, render {RENDER_VERSION})")
+        return 0
+
+    if doc is None:
+        doc = load_pattern(target)
+        if doc is None:
+            print(f"unknown target '{target}': not a .json path or a known pattern id")
+            return 2
+    graph = GraphModel.model_validate(migrate(doc))
     issues = lint(graph, REGISTRY)
     log_activity("cli.render", graph.id, actor="cli", issues=len(issues))
-    subject = RenderSubject(
+    subject_r = RenderSubject(
         graph=graph, presentation=_presentation_for(graph), meta={"lint": issues}
     )
-    out = args.out or str(Path(args.graph).with_suffix(".html"))
-    Path(out).write_text(render(subject, args.renderer))
+    out = args.out or (
+        str(Path(target).with_suffix(".html")) if target.endswith(".json") else f"{target}.html"
+    )
+    Path(out).write_text(render(subject_r, args.renderer))
     print(f"wrote {out} ({args.renderer}, render {RENDER_VERSION})")
     return 0
 
@@ -346,10 +423,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     r.set_defaults(fn=cmd_run)
 
-    rd = sub.add_parser("render", help="draw a graph as a self-contained HTML artifact")
-    rd.add_argument("graph", help="path to a graph.json")
-    rd.add_argument("-o", "--out", help="output path (default: the graph path with .html)")
+    rd = sub.add_parser(
+        "render", help="draw a graph, pattern, or proof bundle as a self-contained HTML artifact"
+    )
+    rd.add_argument("target", help="graph.json path, pattern id, or proof.json bundle")
+    rd.add_argument("-o", "--out", help="output path (default: the target path with .html)")
     rd.add_argument("--renderer", default="html", help="registered renderer name (default: html)")
+    rd.add_argument(
+        "--graph",
+        metavar="PATH",
+        help="bundle browsing: draw the canvas from this graph "
+        "(must match the bundle's pinned graph_sha256)",
+    )
     rd.set_defaults(fn=cmd_render)
 
     pv = sub.add_parser("prove", help="build a proof bundle: scenarios + invariants + digests")

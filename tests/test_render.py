@@ -161,7 +161,7 @@ def test_graph_only_render_declares_itself():
     graph = GraphModel.model_validate(patterns.load_pattern(FLAGSHIP))
     doc = render(RenderSubject(graph=graph, meta={"lint": []}))
     assert "no run attached" in doc.lower()
-    assert 'id="ph"' not in doc  # no playhead without events
+    assert '<input type="range"' not in doc  # no playhead without events
     data = island_of(doc)
     assert "canonical_events" not in data and "trace_digest" not in data["meta"]
 
@@ -245,7 +245,9 @@ def test_cli_run_html_and_render(tmp_path):
 # ------------------------------------------------------------------ stability
 
 
-GOLDEN_ARTIFACT_SHA256 = "264d22fd7f1855a72464c37002002974c5d8d677c743f3833c9726af472be66a"
+# r2 (per-viewer scoping for multi-scenario pages) — the pin moves ONLY with
+# a RENDER_VERSION bump, never as a routine test update
+GOLDEN_ARTIFACT_SHA256 = "5ab42beb8d6511d64cbfd7c1f676741811e498d3eef585bdd3ec98ebd4316ceb"
 
 
 def test_artifact_is_byte_stable_and_pinned():
