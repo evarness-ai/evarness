@@ -113,7 +113,7 @@ extends domains, the kernel stays small and stable.
   of its shape still shows); the token/cost vocabulary the kernel emits in
   terminal events (`total_tokens`, `cost_usd`, `ctx.totals`) is agent-flavored
   — renaming it is a `c1`→`c2` canonicalization bump, honestly triggered by
-  the second domain's graduation, not before; versioned public-API stability
+  the second domain's arrival, not before; versioned public-API stability
   promises begin at the first tagged release, not before; concurrent execution
   of independent branches is unimplemented — but the contract that makes it
   safe to add is pinned now (trace.py, rule 4): canonical event order is the

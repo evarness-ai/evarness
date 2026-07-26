@@ -1,4 +1,4 @@
-# Pre-commit hooks: hygiene + secret scanning (GRADUATION §6).
+# Pre-commit hooks: hygiene + secret scanning.
 # Python formatting/linting deliberately NOT duplicated here — ruff, black,
 # and mypy gate in CI at pinned versions; a second, drifting copy of those
 # gates would be the nondeterminism this project tells its users to avoid.

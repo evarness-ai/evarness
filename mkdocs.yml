@@ -15,7 +15,6 @@ edit_uri: blob/main/docs/
 docs_dir: docs
 exclude_docs: |
   hooks/
-  training-lab.html
 theme:
   name: material
   palette:
