@@ -245,9 +245,10 @@ def test_cli_run_html_and_render(tmp_path):
 # ------------------------------------------------------------------ stability
 
 
-# r2 (per-viewer scoping for multi-scenario pages) — the pin moves ONLY with
-# a RENDER_VERSION bump, never as a routine test update
-GOLDEN_ARTIFACT_SHA256 = "5ab42beb8d6511d64cbfd7c1f676741811e498d3eef585bdd3ec98ebd4316ceb"
+# r3 (platform design language: dark canvas, group dots, state progression,
+# arrowhead edges) — the pin moves ONLY with a RENDER_VERSION bump, never as
+# a routine test update
+GOLDEN_ARTIFACT_SHA256 = "6e04570d3e6706da74be5bcab01b1be75c834986a214dd8ddd976c46b27fd936"
 
 
 def test_artifact_is_byte_stable_and_pinned():
