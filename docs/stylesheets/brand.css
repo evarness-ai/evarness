@@ -1,0 +1,8 @@
+/* Light brand alignment with the render artifacts' palette — the docs and
+   the artifacts should feel like one product. */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #0d1017;
+  --md-code-bg-color: #1a2030;
+  --md-accent-fg-color: #7dcfff;
+  --md-typeset-a-color: #7aa2f7;
+}
