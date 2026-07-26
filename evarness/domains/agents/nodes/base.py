@@ -65,10 +65,29 @@ GROUP_TITLES = {
     "observability": "Observability",
 }
 
+# canvas accent per concern group — the render artifact's node dot and any
+# future palette share this table
+GROUP_COLORS = {
+    "core": "#7aa2f7",
+    "governance": "#f7768e",
+    "rag": "#9ece6a",
+    "tools": "#e0af68",
+    "context": "#bb9af7",
+    "memory": "#ad8ee6",
+    "observability": "#c0caf5",
+}
+
 
 def presentation(type_name: str) -> dict:
     icon, label = NODE_PRESENTATION.get(type_name, ("⬡", type_name.replace("_", " ").title()))
-    return {"icon": icon, "label": label}
+    spec = NODE_TYPES.get(type_name)
+    group = getattr(spec, "group", "core") if spec is not None else "core"
+    return {
+        "icon": icon,
+        "label": label,
+        "group": group,
+        "color": GROUP_COLORS.get(group, GROUP_COLORS["core"]),
+    }
 
 
 def as_text(value: Any) -> str:

@@ -34,7 +34,7 @@ evarness/
 │   │                     #   self-contained HTML file, and the proof browser
 │   │                     #   (one viewer per scenario, bundle embedded for
 │   │                     #   offline verify; registry-extensible, no external
-│   │                     #   requests, byte-stable, r2-versioned)
+│   │                     #   requests, byte-stable, r-versioned)
 │   └── renderers live with prove (junit/sarif/html render *verdicts*, not traces)
 └── cli/                  # thin: argparse over the library, nothing else
 ```
