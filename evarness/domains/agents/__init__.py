@@ -25,6 +25,7 @@ from evarness.core.registry import (
     set_environment_loader,
     set_provider_factory,
 )
+from evarness.domains.agents import lint as lint  # registers domain lint rules
 from evarness.domains.agents import nodes as nodes  # registers all node types
 from evarness.domains.agents.providers import make_provider
 from evarness.domains.agents.sim import load_fixture

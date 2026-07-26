@@ -109,6 +109,19 @@ def register_determinism_inspector(fn: Callable[[Any], bool]) -> Callable[[Any],
     return fn
 
 
+#: graph lint rules contributed by domains: (graph, node_registry) -> issues
+#: ([{level, code, message}]). Core's lint() runs its structural checks
+#: (ids, edges, cycles, configs), then every registered rule — the kernel
+#: owns graph shape, the domain owns the policy its vocabulary makes
+#: meaningful. Domains append here.
+GRAPH_LINT_RULES: list[Callable[[Any, Mapping], list[dict]]] = []
+
+
+def register_lint_rule(fn: Callable[[Any, Mapping], list[dict]]) -> Callable[[Any, Mapping], list[dict]]:
+    GRAPH_LINT_RULES.append(fn)
+    return fn
+
+
 _provider_factory: Callable[..., Any] | None = None
 
 

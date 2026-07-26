@@ -142,21 +142,13 @@ def lint(graph: GraphModel, registry: Mapping[str, Any]) -> list[dict]:
         if n.id not in connected and len(graph.nodes) > 1:
             warn("unconnected", f"Node {n.id} ({n.type}) has no connections")
 
-    # policy lint: every llm should have a validator interceptor downstream (governance rule)
-    llm_ids = [n.id for n in graph.nodes if n.type == "llm"]
-    for lid in llm_ids:
-        downstream, frontier = set(), [lid]
-        while frontier:
-            cur = frontier.pop()
-            for e in graph.edges:
-                if e.from_ == cur and e.to not in downstream:
-                    downstream.add(e.to)
-                    frontier.append(e.to)
-        if not any(types.get(d) == "interceptor" for d in downstream):
-            warn(
-                "policy_unguarded_llm",
-                f"Policy: LLM node {lid} reaches output without a validator interceptor",
-            )
+    # domain-contributed rules (core.registry.register_lint_rule): the kernel
+    # checks structure; policy lints belong to the domain whose vocabulary
+    # they speak
+    from evarness.core.registry import GRAPH_LINT_RULES
+
+    for rule in GRAPH_LINT_RULES:
+        issues.extend(rule(graph, registry))
 
     return issues
 
