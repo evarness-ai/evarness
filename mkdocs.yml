@@ -7,9 +7,9 @@
 
 site_name: Evarness
 site_description: Prove an AI agent harness before it touches real data.
-site_url: https://evarness-ai.github.io/evarnesslab/
-repo_url: https://github.com/evarness-ai/evarnesslab
-repo_name: evarness-ai/evarnesslab
+site_url: https://evarness-ai.github.io/evarness/
+repo_url: https://github.com/evarness-ai/evarness
+repo_name: evarness-ai/evarness
 edit_uri: blob/main/docs/
 
 docs_dir: docs

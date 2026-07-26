@@ -34,8 +34,8 @@ sign = ["cryptography>=42"]
 docs = ["mkdocs==1.6.1", "mkdocs-material==9.7.7"]
 
 [project.urls]
-Homepage = "https://github.com/evarness-ai/evarnesslab"
-Repository = "https://github.com/evarness-ai/evarnesslab"
+Homepage = "https://github.com/evarness-ai/evarness"
+Repository = "https://github.com/evarness-ai/evarness"
 
 [project.scripts]
 evarness = "evarness.cli:main"

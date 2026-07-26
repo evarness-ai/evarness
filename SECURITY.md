@@ -14,7 +14,7 @@ Evarness is pre-1.0. Only the latest release (and `main`) receive security fixes
 Please **do not** open a public issue for security problems.
 
 Report vulnerabilities privately via
-[GitHub Security Advisories](https://github.com/evarness-ai/evarnesslab/security/advisories/new)
+[GitHub Security Advisories](https://github.com/evarness-ai/evarness/security/advisories/new)
 ("Report a vulnerability" on the repository's Security tab).
 
 Include what you can of: affected component, a reproduction (graph + fixture + seed

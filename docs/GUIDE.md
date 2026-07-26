@@ -6,7 +6,7 @@ in simulation — no API keys, no network, no side effects.
 ## 1. Install and orient
 
 ```bash
-pip install git+https://github.com/evarness-ai/evarnesslab
+pip install git+https://github.com/evarness-ai/evarness
 evarness patterns
 ```
 

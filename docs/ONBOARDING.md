@@ -181,7 +181,7 @@ evarness prove approval_gated_send --approve n3=approve -o proof.json
 ## 6. Rerun crib sheet
 
 ```bash
-cd evarnesslab
+cd evarness
 source .venv/bin/activate
 P=evarness/domains/agents/patterns/approval_gated_send
 
