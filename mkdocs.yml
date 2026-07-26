@@ -1,0 +1,57 @@
+# Docs site — MkDocs Material, confined to the [docs] extra (build-time only,
+# never in the wheel). Pages include the canonical markdown via snippets, so
+# GitHub and the site render the same files: there is no forked prose.
+# The demos hook (docs/hooks/demos.py) generates the live artifacts by running
+# the CLI at build time and FAILS THE BUILD if the reference digests don't
+# reproduce — the docs cannot claim what the build didn't demonstrate.
+
+site_name: Evarness
+site_description: Prove an AI agent harness before it touches real data.
+site_url: https://evarness-ai.github.io/evarnesslab/
+repo_url: https://github.com/evarness-ai/evarnesslab
+repo_name: evarness-ai/evarnesslab
+edit_uri: blob/main/docs/
+
+docs_dir: docs
+exclude_docs: |
+  hooks/
+  training-lab.html
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: black
+    accent: cyan
+  features:
+    - content.code.copy
+    - navigation.footer
+    - navigation.top
+    - toc.follow
+
+extra_css:
+  - stylesheets/brand.css
+
+# note: canonical-file inclusion (the `--8<--` lines in wrapper pages) is
+# handled by the demos hook, which also rewrites repo-relative links to their
+# site-context targets before MkDocs validates them
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+
+hooks:
+  - docs/hooks/demos.py
+
+nav:
+  - Home: index.md
+  - Live demos: demos.md
+  - Guide: GUIDE.md
+  - End-to-end walkthrough: E2E.md
+  - Onboarding: ONBOARDING.md
+  - Prove & verify: PROVE-VERIFY.md
+  - Architecture: architecture.md
+  - Decision log: decisions.md
+  - Security: security.md
+  - Contributing: contributing.md
