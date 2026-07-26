@@ -198,9 +198,25 @@ def cmd_render(args) -> int:
     browsable proof: verdict badge, one viewer per scenario, the bundle's
     not_proven section, and the whole bundle embedded for offline verify."""
     target = args.target
-    doc = json.loads(Path(target).read_text()) if target.endswith(".json") else None
+    if target.endswith(".json"):
+        try:
+            doc = json.loads(Path(target).read_text())
+        except FileNotFoundError:
+            print(f"error: file not found: {target}", file=sys.stderr)
+            return 2
+        except json.JSONDecodeError as exc:
+            print(f"error: {target}: not valid JSON: {exc}", file=sys.stderr)
+            return 2
+    else:
+        doc = None
 
     if doc is not None and "proof_version" in doc:
+        if args.renderer != "html":
+            print(
+                f"error: proof bundles only support --renderer html (got '{args.renderer}')",
+                file=sys.stderr,
+            )
+            return 2
         graph, note = _bundle_graph(doc, args.graph)
         html = render_proof_browser(
             doc, graph=graph, presentation=_presentation_for(graph) if graph else None

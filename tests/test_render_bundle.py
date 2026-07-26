@@ -129,9 +129,12 @@ def test_signed_bundle_is_labeled_unchecked():
 
 
 def test_page_never_claims_to_verify():
-    doc = render_proof_browser(make_bundle(FLAGSHIP))
-    assert "It verifies nothing itself" in doc
+    bundle = make_bundle(FLAGSHIP)
+    doc = render_proof_browser(bundle)
     assert "What this bundle does not prove" in doc
+    assert "It verifies nothing itself" not in doc  # footer is verbatim; no extra lines appended
+    for line in (bundle.get("not_proven") or []):
+        assert line in doc
 
 
 # ----------------------------------------------------------------- stability

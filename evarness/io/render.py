@@ -645,10 +645,10 @@ def render_proof_browser(
             None: '<span class="quiet">reproduction not attempted</span>',
         }[sc.get("reproduced")]
         head = (
-            f'<div class="head"><strong>{escape(sc["fixture"])}</strong> · '
-            f'status {escape(sc["status"])} · '
+            f'<div class="head"><strong>{escape(sc.get("fixture", ""))}</strong> · '
+            f'status {escape(sc.get("status", ""))} · '
             f'deterministic {str(bool(sc.get("deterministic"))).lower()} · {repro} · '
-            f'digest <code>{escape(sc["trace_digest"])}</code> · '
+            f'digest <code>{escape(sc.get("trace_digest", ""))}</code> · '
             f'{int(sc.get("events_count", 0))} events</div>'
         )
         events = sc.get("events")
@@ -673,10 +673,6 @@ def render_proof_browser(
         viewers.append(_viewer(canvas, controls, evidence, judgment, head=head))
 
     lines = list(bundle.get("not_proven") or [])
-    lines.append(
-        "This page is a derived view of the bundle. It verifies nothing itself — "
-        "extract the data island's 'bundle' key and run evarness verify."
-    )
 
     meta = {
         "artifact": "proof-browser",
