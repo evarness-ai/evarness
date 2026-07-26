@@ -1,7 +1,8 @@
 """evarness CLI — everything the library can do, headless.
 
-Commands: validate | run | render | prove | verify | patterns. Every command
-is recorded in the activity log (actor=cli) — full traceability.
+Commands: validate | run | render | prove | verify | export | patterns.
+Every command is recorded in the activity log (actor=cli) — full
+traceability.
 """
 
 from __future__ import annotations
@@ -15,7 +16,7 @@ import yaml
 
 from evarness.core.errors import EvarnessError
 from evarness.core.executor import GraphValidationError, execute
-from evarness.io.exporters import export_trace
+from evarness.io.exporters import export_bundle, export_trace
 from evarness.io.render import (
     RENDER_VERSION,
     RenderSubject,
@@ -246,6 +247,33 @@ def cmd_render(args) -> int:
     )
     Path(out).write_text(render(subject_r, args.renderer))
     print(f"wrote {out} ({args.renderer}, render {RENDER_VERSION})")
+    return 0
+
+
+def cmd_export(args) -> int:
+    """Unpack a proof bundle into the standard interchange set: per-scenario
+    canonical JSONL + OTLP (and any plugin format), JUnit/SARIF verdicts,
+    and a manifest with sha256 receipts. The bundle is verified first —
+    a failing bundle is refused with nothing written."""
+    bundle = json.loads(Path(args.bundle).read_text())
+    out = args.out or f"{Path(args.bundle).stem}-export"
+    formats = tuple(args.format) if args.format else ("jsonl", "otlp")
+    manifest = export_bundle(bundle, out, trace_formats=formats)
+    log_activity(
+        "cli.export",
+        str((manifest["subject"] or {}).get("graph_id")),
+        actor="cli",
+        files=len(manifest["files"]),
+    )
+    for f in manifest["files"]:
+        print(f"  {f['path']:<36} {f['kind']:<12} sha256:{f['sha256'][:12]}…")
+    skipped = [s["fixture"] for s in manifest["scenarios"] if not s["events_exported"]]
+    if skipped:
+        print(
+            f"  (no events embedded for: {', '.join(skipped)} — named by digest "
+            "in the manifest, not exported)"
+        )
+    print(f"wrote {out}/manifest.json (export {manifest['export_version']}, verified bundle)")
     return 0
 
 
@@ -488,6 +516,22 @@ def main(argv: list[str] | None = None) -> int:
         help="fail if the bundle is unsigned or unverifiable",
     )
     vf.set_defaults(fn=cmd_verify)
+
+    ex = sub.add_parser(
+        "export",
+        help="unpack a verified proof bundle into standard interchange files "
+        "(per-scenario JSONL + OTLP traces, JUnit/SARIF verdicts, manifest)",
+    )
+    ex.add_argument("bundle", help="path to a proof.json")
+    ex.add_argument("-o", "--out", help="output directory (default: <bundle>-export/)")
+    ex.add_argument(
+        "--format",
+        action="append",
+        metavar="FMT",
+        help="trace format to export (repeatable; default: jsonl and otlp; "
+        "any registered exporter format works)",
+    )
+    ex.set_defaults(fn=cmd_export)
 
     p = sub.add_parser("patterns", help="list built-in and user patterns")
     p.set_defaults(fn=cmd_patterns)
