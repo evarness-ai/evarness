@@ -11,7 +11,14 @@ contract says the same graph + fixture + seed produces the same
 below doesn't match yours byte-for-byte, that is a bug — please report it.
 
 Paths are relative to the repo root. Work in a scratch directory so the
-artifacts don't land in the tree:
+artifacts don't land in the tree.
+
+**Shell / OS scope:** the commands below are written for **bash** on
+**macOS or Linux** (including WSL on Windows). Windows PowerShell
+equivalents: replace `source .venv/bin/activate` with
+`.venv\Scripts\Activate.ps1`, replace `/tmp/evarness-e2e` with a path
+such as `$env:TEMP\evarness-e2e`, and replace `$OLDPWD` with
+`$PWD.Path` captured before the `cd`.
 
 ```bash
 git clone https://github.com/evarness-ai/evarnesslab && cd evarnesslab
@@ -123,7 +130,7 @@ evarness run "$PAT/governed_email_assistant/graph.json" \
 Static canvas (no execution — lint findings ride along):
 
 ```bash
-evarness render governed_email_assistant -o static.html && open static.html
+evarness render governed_email_assistant -o static.html && python -m webbrowser static.html
 ```
 
 Replay artifact — canvas, playhead over the canonical events, judgment pane:
@@ -131,7 +138,7 @@ Replay artifact — canvas, playhead over the canonical events, judgment pane:
 ```bash
 evarness run "$PAT/governed_email_assistant/graph.json" \
   --fixture "$PAT/governed_email_assistant/fixtures/happy.yaml" --html replay.html
-open replay.html
+python -m webbrowser replay.html
 ```
 
 Scrub the playhead: nodes light blue (active) → green (done) in
@@ -140,7 +147,7 @@ topological order. Then the one worth showing people:
 ```bash
 evarness run "$PAT/governed_email_assistant/graph.json" \
   --fixture "$PAT/governed_email_assistant/fixtures/failure.yaml" --html blocked.html
-open blocked.html
+python -m webbrowser blocked.html
 ```
 
 The interceptor node turns **red** and every node after it — including the
@@ -159,6 +166,7 @@ diff a.html b.html && echo byte-identical
 
 # self-contained: no external origin anywhere in the file
 grep -cE 'https?://' replay.html            # 0
+grep -cE '(src|href|action)=.?//' replay.html  # 0 — protocol-relative URLs
 
 # hostile input renders inert (the artifact's threat model is your browser)
 evarness run "$PAT/governed_email_assistant/graph.json" \
@@ -358,7 +366,7 @@ VERIFY: FAILED — bundle is inconsistent or tampered; see ✗ above
 ## 8. The proof browser
 
 ```bash
-evarness render proof.json -o proof.html && open proof.html
+evarness render proof.json -o proof.html && python -m webbrowser proof.html
 ```
 
 ```
@@ -435,7 +443,7 @@ page must never vouch for its own integrity; pin the signer with
 `verify --pubkey demo_ed25519.pub --require-signature`:
 
 ```bash
-evarness render signed.json -o signed.html && open signed.html
+evarness render signed.json -o signed.html && python -m webbrowser signed.html
 ```
 
 ---
