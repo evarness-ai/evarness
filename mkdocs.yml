@@ -56,6 +56,9 @@ nav:
   - Live demos: demos.md
   - Guide: GUIDE.md
   - End-to-end walkthrough: E2E.md
+  - Tutorials:
+      - Your first node: tutorial-custom-node.md
+      - A domain plugin: tutorial-domain-plugin.md
   - Onboarding: ONBOARDING.md
   - Prove & verify: PROVE-VERIFY.md
   - Architecture: architecture.md

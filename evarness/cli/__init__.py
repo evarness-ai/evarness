@@ -15,6 +15,7 @@ from pathlib import Path
 import yaml
 
 from evarness.core.errors import EvarnessError
+from evarness.core.registry import load_entry_point_plugins
 from evarness.core.executor import GraphValidationError, execute
 from evarness.io.exporters import export_bundle, export_trace
 from evarness.io.render import (
@@ -413,6 +414,10 @@ def cmd_patterns(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     init_db()
+    # the CLI is the batteries-included surface: installed plugins register
+    # their nodes/rules before any command parses a graph (the lazy top-level
+    # import no longer does this as a side effect — E18)
+    load_entry_point_plugins()
     ap = argparse.ArgumentParser(
         prog="evarness", description="Evarness engine — run harness graphs headless"
     )

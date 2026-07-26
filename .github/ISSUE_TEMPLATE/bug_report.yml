@@ -1,0 +1,43 @@
+name: Bug report
+description: Something behaved wrong — bring the deterministic repro.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        A graph, a fixture, and a seed are a complete, deterministic
+        reproduction — the house currency. With those three, we see exactly
+        what you saw, byte for byte.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Include the command you ran and its output.
+    validations:
+      required: true
+  - type: textarea
+    id: graph
+    attributes:
+      label: Graph
+      description: The graph.json (or the packaged pattern id).
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Fixture
+      description: The scenario YAML (redact anything private — content, not structure).
+      render: yaml
+  - type: input
+    id: digest
+    attributes:
+      label: Trace digest
+      description: The `c1:sha256:…` the run printed, if it got that far.
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: "evarness version, Python version, OS (e.g. 0.1.0 / 3.12 / macOS 15)."
+    validations:
+      required: true

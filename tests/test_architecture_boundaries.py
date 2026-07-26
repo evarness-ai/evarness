@@ -128,6 +128,19 @@ print("ok")
     assert result.stdout.strip() == "ok"
 
 
+def test_cli_loads_entry_point_plugins(monkeypatch):
+    """The CLI is the batteries-included surface: installed plugins must be
+    registered before any command parses a graph. The lazy top-level import
+    no longer does this as a side effect, so `main()` must do it itself —
+    this pins that."""
+    import evarness.cli as cli
+
+    calls = []
+    monkeypatch.setattr(cli, "load_entry_point_plugins", lambda: calls.append(True))
+    cli.main(["patterns"])
+    assert calls, "main() must call load_entry_point_plugins() before dispatching"
+
+
 def test_unguarded_llm_rule_is_domain_registered():
     """The policy lint arrives with the agents domain, not the kernel."""
     import evarness.domains.agents  # noqa: F401  (registers the rule)
