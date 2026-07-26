@@ -1,8 +1,8 @@
 """E9 — the CLI renders the EvarnessError family as messages, not tracebacks.
 
-Regressions for the pre-release finding where a real-provider refusal and an
-unknown-export-format error escaped `main()` as raw stack traces while the
-mode:real tool refusal rendered cleanly.
+Regression coverage: a real-provider refusal and an unknown-export-format
+error once escaped `main()` as raw stack traces while the mode:real tool
+refusal rendered cleanly.
 """
 
 import json

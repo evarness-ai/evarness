@@ -10,9 +10,9 @@ date (107/107 tests passing).
 ## 0. Naming (this trips everyone up)
 
 - **Evarnesslab** is this repo; the Python package inside is **`evarness`**.
-- It is the open-source graduation of **HarnessLab**, the private workbench it
-  graduates from. Features are proven in HarnessLab first, then graduate here
-  through the core/domain seams.
+- It is the public face of a longer private effort: features are proven in a
+  private workbench first, then arrive here through the core/domain seams —
+  only finished, verified work lands in this repo.
 - It is deliberately **separate** from DLIF. A decision record in the DLIF
   project (ADR-025) fixes the boundary: Evarness governs and evaluates AI
   execution; DLIF supplies private distributed inference. They will share an

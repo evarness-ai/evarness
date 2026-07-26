@@ -74,8 +74,8 @@ def test_paused_scenario_is_honestly_noted_and_approve_unblocks():
 
 # ------------------------------------------------- pending verdicts (E8)
 # A paused-only bundle evaluated zero invariants and attempted zero
-# reproductions — it must never claim a proof. Regression for the
-# pre-release finding where optimistic verdict flags made it ok=true.
+# reproductions — it must never claim a proof. Regression: optimistic
+# verdict flags once made it ok=true.
 
 
 def test_paused_only_bundle_is_pending_not_ok():
