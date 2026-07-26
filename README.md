@@ -66,7 +66,9 @@ with the whole bundle embedded — extract it from the page and `evarness
 verify` re-checks it offline, signature included.
 See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,
 reading traces, declaring your own invariants, exporting to JUnit/SARIF/OTLP, and
-wiring `prove` into CI as a merge gate.
+wiring `prove` into CI as a merge gate — and [docs/E2E.md](docs/E2E.md) to
+exercise every feature end to end with verified commands, expected outputs, and
+the reference digests your machine should reproduce byte-for-byte.
 
 ## Built to be extended
 
