@@ -19,13 +19,40 @@ FORBIDDEN_PREFIXES = ("evarness.domains", "evarness.io", "evarness.cli")
 
 
 def _imports(path: Path) -> list[str]:
+    """Return every module name that ``path`` imports.
+
+    Handles:
+    * ``import X`` → records ``X``
+    * ``from X import Y`` → records ``X`` and ``X.Y``
+    * relative imports (``from ..domains import agents``) → normalised to
+      absolute names before recording
+    """
+    # Derive the dotted package for this file so relative imports can be
+    # resolved.  ``path`` is inside the repo root; strip the suffix and
+    # reconstruct the package hierarchy from there.
+    repo_root = CORE.parent.parent
+    pkg_parts = list(path.relative_to(repo_root).with_suffix("").parts[:-1])
+
     tree = ast.parse(path.read_text())
     found: list[str] = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             found.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module:
-            found.append(node.module)
+        elif isinstance(node, ast.ImportFrom):
+            level = node.level or 0
+            if level > 0:
+                # Resolve relative import: strip (level-1) tail segments from
+                # the package to find the anchor package.
+                anchor = pkg_parts[: len(pkg_parts) - (level - 1)]
+                base = ".".join(anchor)
+                module = f"{base}.{node.module}" if node.module else base
+            else:
+                module = node.module or ""
+            if not module:
+                continue
+            found.append(module)
+            for alias in node.names:
+                found.append(f"{module}.{alias.name}")
     return found
 
 
