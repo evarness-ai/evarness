@@ -117,7 +117,9 @@ def register_determinism_inspector(fn: Callable[[Any], bool]) -> Callable[[Any],
 GRAPH_LINT_RULES: list[Callable[[Any, Mapping], list[dict]]] = []
 
 
-def register_lint_rule(fn: Callable[[Any, Mapping], list[dict]]) -> Callable[[Any, Mapping], list[dict]]:
+def register_lint_rule(
+    fn: Callable[[Any, Mapping], list[dict]],
+) -> Callable[[Any, Mapping], list[dict]]:
     GRAPH_LINT_RULES.append(fn)
     return fn
 
