@@ -150,6 +150,20 @@ its own:
   extract its `bundle` key to a file and `evarness verify` re-checks it
   offline, signature included. The HTML file alone carries a verifiable proof.
 
+### Export a bundle
+
+```bash
+evarness export proof.json            # -> proof-export/
+```
+
+Unpacks a bundle into the standard interchange set for other frameworks and
+pipelines: per-scenario canonical JSONL (the digest input, line by line) and
+OTLP traces (`--format` repeatable — any registered exporter format works),
+JUnit/SARIF verdicts, and a `manifest.json` carrying the subject, verdict,
+`not_proven` verbatim, and a sha256 receipt for every file. The bundle is
+verified first; **a bundle that fails verification is refused with nothing
+written** — export never launders a tampered bundle into clean-looking files.
+
 ## 5. The honesty rules
 
 Worth knowing because they shape every command's behavior:

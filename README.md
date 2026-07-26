@@ -55,7 +55,12 @@ invariants held over the scripted scenario, that the run reproduces
 digest-for-digest, and — in its `not_proven` section — exactly what none of this
 establishes.
 
-Every command works headless: `evarness validate | run | render | prove | verify | patterns`.
+Every command works headless: `evarness validate | run | render | prove | verify | export | patterns`.
+`export proof.json` unpacks a **verified** bundle into standard interchange
+files — per-scenario canonical JSONL and OTLP traces, JUnit/SARIF verdicts,
+and a manifest with sha256 receipts — so other frameworks and pipelines can
+consume proofs without adopting our formats; a bundle that fails verification
+is refused with nothing written.
 `run --html run.html` writes the run as a **self-contained HTML artifact** — the
 graph canvas, a playhead over the canonical events, and the invariant verdicts
 in one file with no external requests; the digest travels inside and is

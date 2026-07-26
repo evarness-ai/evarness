@@ -423,7 +423,46 @@ evarness render slim.json -o slim.html    # "…named by the digest but not repl
 
 ---
 
-## 9. Sign and pin (optional — needs the `[sign]` extra)
+## 9. Export the bundle for other tooling
+
+```bash
+evarness export proof.json
+```
+
+```
+  verdicts.junit.xml                   junit        sha256:a7c587017591…
+  verdicts.sarif.json                  sarif        sha256:31f774d6fd14…
+  scenarios/failure.jsonl              trace:jsonl  sha256:85e51cf253a2…
+  scenarios/failure.otlp.json          trace:otlp   sha256:6e165250d724…
+  scenarios/happy.jsonl                trace:jsonl  sha256:c646e1a5d3e1…
+  scenarios/happy.otlp.json            trace:otlp   sha256:75c68dc522af…
+wrote proof-export/manifest.json (export x1, verified bundle)
+```
+
+The standard interchange set: per-scenario canonical JSONL (the digest input
+— recompute `trace_digest` over a file's lines and you get the scenario's
+pinned digest), OTLP for OpenTelemetry-speaking frameworks and observability
+pipelines, JUnit/SARIF verdicts for CI and code scanning, and a manifest with
+a sha256 receipt for every file. The bundle is **verified before anything is
+written** — repeat §7's tamper and watch export refuse:
+
+```bash
+evarness export tampered.json -o should-not-exist
+```
+
+```
+error: bundle failed verification — export refused; nothing written
+(failing checks: digest recomputes)
+```
+
+Exit 1, and the output directory was never created — export never launders a
+tampered bundle into clean-looking interchange files. (Canonical streams
+carry no wall clock, so exported OTLP declares
+`evarness.time_basis: canonical-ordinal` instead of inventing timestamps.)
+
+---
+
+## 10. Sign and pin (optional — needs the `[sign]` extra)
 
 ```bash
 pip install -e "$REPO[sign]"
