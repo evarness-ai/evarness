@@ -31,6 +31,14 @@ theme:
 extra_css:
   - stylesheets/brand.css
 
+# the blog is part of the same gated build (E17): Material's built-in blog
+# plugin, no new dependency; declaring plugins disables the defaults, so
+# search is re-added explicitly
+plugins:
+  - search
+  - blog:
+      authors: false
+
 # note: canonical-file inclusion (the `--8<--` lines in wrapper pages) is
 # handled by the demos hook, which also rewrites repo-relative links to their
 # site-context targets before MkDocs validates them
@@ -53,5 +61,7 @@ nav:
   - Prove & verify: PROVE-VERIFY.md
   - Architecture: architecture.md
   - Decision log: decisions.md
+  - Blog:
+      - blog/index.md
   - Security: security.md
   - Contributing: contributing.md
