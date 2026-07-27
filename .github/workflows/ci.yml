@@ -34,9 +34,9 @@ jobs:
     # the wheel IS the release artifact: build it, install it into a clean
     # venv, and re-prove the shipped example from the installed package —
     # the digest must reproduce outside the checkout. The matrix spans the
-    # OS/Python spread the reproducibility claim cites (Linux and macOS,
+    # OS/Python spread that the reproducibility claim cites (Linux and macOS,
     # oldest supported and newest Python) so the claim is re-earned on
-    # every push, not just at release time.
+    # every push to main and on every PR, not just at release time.
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
