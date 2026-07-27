@@ -14,11 +14,17 @@
 [Discussions](https://github.com/evarness-ai/evarness/discussions) ·
 [Studio](https://github.com/evarness-ai/evarness-studio)
 
+Your agent has an approval gate in front of its send tool — but yesterday's
+refactor may or may not have kept every path behind it, and when a security
+review asks you to *demonstrate* that nothing sends without a human, a green
+test suite isn't a demonstration. Evarness is **harness assurance**: run the
+harness in simulation, prove its declared rules held, and hand anyone a
+proof bundle they can verify on their own machine.
+
 An agent is a harness plus a model. The model reasons — but the **harness**,
 the deterministic scaffolding that routes, gates, and audits every turn, is
-what decides whether the system is safe to run. Evarness turns a harness's
-safety story into **evidence anyone can check**: run it in simulation, prove
-its declared rules held, and hand anyone a bundle they can verify offline.
+what decides whether the system is safe to run. Evarness turns its safety
+story into **evidence anyone can check**.
 
 ## Why Evarness
 
@@ -32,10 +38,17 @@ its declared rules held, and hand anyone a bundle they can verify offline.
 - **Offline verification** — `evarness verify` re-checks any bundle with no
   network and no trust in the machine that produced it. Signing optional.
 
-Everything is **simulation-first**: every model and tool response is a
-scripted fixture, so hostile scenarios are exact, repeatable, and safe. Real
-providers and tools are refused with an actionable error — this package makes
-no network calls, by design.
+## Simulation is the point, not the limitation
+
+Every model and tool response comes from a scripted fixture — which is
+precisely what makes hostile scenarios exact, repeatable, and safe to run a
+thousand times. The harness is the *deterministic* part of an agent: the
+gates, routes, redactions, and budgets. If you can't prove the deterministic
+part holds, the model's quality is irrelevant — a leak through an unguarded
+edge doesn't care how good the model was. You're proving the seatbelt, not
+the driver. Real providers and real tools are refused with an actionable
+error, never silently simulated: this package makes no network calls, by
+design.
 
 ## Try it in sixty seconds
 
@@ -49,8 +62,12 @@ evarness prove approval_gated_send --approve n3=approve -o proof.json
 evarness verify proof.json          # → VERIFY: OK, offline
 ```
 
-Your digest should match the [v0.1.0 release receipt](https://github.com/evarness-ai/evarness/releases/tag/v0.1.0)
-byte for byte. Every command runs headless:
+**The digest challenge:** your digest should match the
+[v0.1.0 release receipt](https://github.com/evarness-ai/evarness/releases/tag/v0.1.0)
+byte for byte. If it doesn't, that's a bug —
+[file it](https://github.com/evarness-ai/evarness/issues). If it does, you
+just reproduced the product's central claim on your own machine. Every
+command runs headless:
 `validate | run | render | prove | verify | export | patterns`.
 
 ## See it before you install it

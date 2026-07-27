@@ -9,8 +9,10 @@ below was run and verified on that date.
 
 The digests shown are **expected values, not examples**: the determinism
 contract says the same graph + fixture + seed produces the same
-`c1:sha256:…` digest on any OS, any machine, any Python ≥ 3.10. If a digest
-below doesn't match yours byte-for-byte, that is a bug — please report it.
+`c1:sha256:…` digest across supported platforms and Pythons — Linux and
+macOS, Python 3.10–3.14, re-earned by CI on every push. If a digest below
+doesn't match yours byte-for-byte — on these platforms or any other — that
+is a bug, and reporting it is exactly the point.
 
 Paths are relative to the repo root. Work in a scratch directory so the
 artifacts don't land in the tree.
