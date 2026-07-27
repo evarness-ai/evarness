@@ -1,0 +1,30 @@
+name: Feature or domain proposal
+description: A capability you want, or a domain you're building on the kernel.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can't you do (or prove) today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The shape of a solution
+      description: >
+        Sketch is fine. If it's a domain: which nodes, which events, which
+        contracts? The seams are listed in the domain-plugin tutorial.
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Where does it live?
+      options:
+        - A domain / plugin (no core changes)
+        - The kernel (core/) — say why a seam isn't enough
+        - The CLI or io surfaces
+        - Docs
+        - Not sure
+    validations:
+      required: true
