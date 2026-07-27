@@ -3,6 +3,7 @@
 **Prove an AI agent harness before it touches real data.**
 
 [![ci](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml/badge.svg)](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml)
+[![pypi](https://img.shields.io/pypi/v/evarness)](https://pypi.org/project/evarness/)
 [![release](https://img.shields.io/github/v/release/evarness-ai/evarness)](https://github.com/evarness-ai/evarness/releases)
 [![license](https://img.shields.io/github/license/evarness-ai/evarness)](LICENSE)
 [![python](https://img.shields.io/badge/python-3.10–3.14-blue)](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml)
@@ -53,7 +54,7 @@ design.
 ## Try it in sixty seconds
 
 ```bash
-pip install "evarness @ git+https://github.com/evarness-ai/evarness.git@v0.1.0"
+pip install evarness==0.1.0a1
 
 # expected: PROOF: PENDING, exit 1 — nothing sends without a human approval
 evarness prove approval_gated_send -o proof.json
@@ -119,9 +120,10 @@ bundle says this about itself. Scope in [SECURITY.md](SECURITY.md).
 ## Status
 
 **Alpha, evaluated in the open.** This first release is the assurance spine,
-simulation-only. Real providers, sandboxed tools, and adapters for other
-agent frameworks are on the roadmap, each arriving as a separately proven
-release. PyPI comes after community evaluation. The optional visual client
+simulation-only — on PyPI as the pre-release `evarness==0.1.0a1`. Real
+providers, sandboxed tools, and adapters for other agent frameworks are on
+the roadmap, each arriving as a separately proven release. The **stable**
+0.1.0 follows community evaluation — that gate hasn't moved. The optional visual client
 is [Evarness Studio](https://github.com/evarness-ai/evarness-studio) —
 nothing here requires it.
 
