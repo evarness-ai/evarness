@@ -72,6 +72,5 @@ nav:
       - Contributing: contributing.md
       - Security: security.md
       - Developer onboarding: ONBOARDING.md
-      - Decision log: decisions.md
   - Blog:
       - blog/index.md

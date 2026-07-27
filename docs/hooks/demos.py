@@ -113,7 +113,7 @@ _LINK_MAP = {
     "docs/ONBOARDING.md": "ONBOARDING.md",
     "docs/PROVE-VERIFY.md": "PROVE-VERIFY.md",
     "ARCHITECTURE.md": "architecture.md",
-    "DECISIONS.md": "decisions.md",
+    "DECISIONS.md": "https://github.com/evarness-ai/evarness/blob/main/DECISIONS.md",
     "SECURITY.md": "security.md",
     "CONTRIBUTING.md": "contributing.md",
 }
