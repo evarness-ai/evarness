@@ -2,116 +2,111 @@
 
 **Prove an AI agent harness before it touches real data.**
 
-An agent is a harness plus a model: the model reasons, but the harness — the
-deterministic scaffolding that routes, gates, grounds, and audits every turn — is
-what decides whether the system is safe to run. Evarness makes the harness's
-guarantees *checkable*:
+[![ci](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml/badge.svg)](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/evarness-ai/evarness)](https://github.com/evarness-ai/evarness/releases)
+[![license](https://img.shields.io/github/license/evarness-ai/evarness)](LICENSE)
+[![python](https://img.shields.io/badge/python-3.10–3.14-blue)](https://github.com/evarness-ai/evarness/actions/workflows/ci.yml)
 
-- **Canonical traces** — the same graph, fixture, and seed always produce the same
-  canonical event stream, named by a versioned digest (`c1:sha256:…`). The digest
-  is identical across machines, operating systems, and Python versions.
-- **Invariant contracts** — the guarantees a harness claims ("a blocked run never
-  reaches the model", "approval precedes send") are declared as contracts over the
-  event stream, not prose — and evaluated on every run.
-- **Proof bundles** — `evarness prove` runs every scenario twice, demonstrates
-  digest reproduction, evaluates the contracts, and emits a portable bundle —
-  including a mandatory section stating what was *not* proven.
-- **Offline verification** — `evarness verify` re-checks a bundle's digests, event
-  chains, and verdicts anywhere, with no network and no trust in the machine that
-  produced it. `--sign` adds an Ed25519 attestation; `verify --require-signature`
-  pins it.
+[Documentation](https://evarness-ai.github.io/evarness/) ·
+[Live demos](https://evarness-ai.github.io/evarness/demos/) ·
+[Tutorials](https://evarness-ai.github.io/evarness/tutorial-custom-node/) ·
+[Blog](https://evarness-ai.github.io/evarness/blog/) ·
+[Discussions](https://github.com/evarness-ai/evarness/discussions) ·
+[Studio](https://github.com/evarness-ai/evarness-studio)
 
-All execution is **simulation-first**: every model and tool response comes from a
-scripted fixture, so scenarios — including the hostile ones — are exact,
-repeatable, and safe to run. Real providers and real tool execution are
-recognized and *refused* with an actionable error: this package makes no network
-calls.
+An agent is a harness plus a model. The model reasons — but the **harness**,
+the deterministic scaffolding that routes, gates, and audits every turn, is
+what decides whether the system is safe to run. Evarness turns a harness's
+safety story into **evidence anyone can check**: run it in simulation, prove
+its declared rules held, and hand anyone a bundle they can verify offline.
 
-## Install
+## Why Evarness
+
+- **Canonical traces** — same graph, fixture, and seed ⇒ the same digest
+  (`c1:sha256:…`), on any machine, any OS, any Python. Reproduced, not asserted.
+- **Invariant contracts** — "a blocked run never reaches the model",
+  "approval precedes send": declared in YAML, checked on every run.
+- **Proof bundles** — `evarness prove` runs every scenario twice, evaluates
+  the contracts, and states what was **not** proven, in the bundle itself.
+- **Offline verification** — `evarness verify` re-checks any bundle with no
+  network and no trust in the machine that produced it. Signing optional.
+
+Everything is **simulation-first**: every model and tool response is a
+scripted fixture, so hostile scenarios are exact, repeatable, and safe. Real
+providers and tools are refused with an actionable error — this package makes
+no network calls, by design.
+
+## Try it in sixty seconds
 
 ```bash
-pip install git+https://github.com/evarness-ai/evarness
-# signing support:
-pip install "evarness[sign] @ git+https://github.com/evarness-ai/evarness"
-```
+pip install "evarness @ git+https://github.com/evarness-ai/evarness.git@v0.1.0"
 
-Python ≥ 3.10. Two runtime dependencies (`pydantic`, `pyyaml`).
+# expected: PROOF: PENDING, exit 1 — nothing sends without a human approval
+evarness prove approval_gated_send -o proof.json
 
-## Sixty seconds to a verified proof
-
-```bash
-evarness patterns                          # what's runnable out of the box
-evarness prove approval_gated_send -o proof.json     # → PROOF: PENDING
 evarness prove approval_gated_send --approve n3=approve -o proof.json
-evarness verify proof.json
+evarness verify proof.json          # → VERIFY: OK, offline
 ```
 
-`approval_gated_send` is a harness whose contract is that **nothing sends without
-a human approval** — so the first `prove` pauses at that human gate and says so:
-`PROOF: PENDING`, because a paused scenario's invariants were never evaluated and
-a proof that checked nothing must not claim anything. Supplying the decision with
-`--approve` produces the real thing: the bundle demonstrates the three declared
-invariants held over the scripted scenario, that the run reproduces
-digest-for-digest, and — in its `not_proven` section — exactly what none of this
-establishes.
+Your digest should match the [v0.1.0 release receipt](https://github.com/evarness-ai/evarness/releases/tag/v0.1.0)
+byte for byte. Every command runs headless:
+`validate | run | render | prove | verify | export | patterns`.
 
-Every command works headless: `evarness validate | run | render | prove | verify | export | patterns`.
-`export proof.json` unpacks a **verified** bundle into standard interchange
-files — per-scenario canonical JSONL and OTLP traces, JUnit/SARIF verdicts,
-and a manifest with sha256 receipts — so other frameworks and pipelines can
-consume proofs without adopting our formats; a bundle that fails verification
-is refused with nothing written.
-`run --html run.html` writes the run as a **self-contained HTML artifact** — the
-graph canvas, a playhead over the canonical events, and the invariant verdicts
-in one file with no external requests; the digest travels inside and is
-recomputable from the artifact alone. `evarness render graph.json` draws a
-graph without executing it, and `evarness render proof.json` produces the
-**proof browser**: one viewer per scenario under the bundle's verdict badge,
-with the whole bundle embedded — extract it from the page and `evarness
-verify` re-checks it offline, signature included.
-See [docs/GUIDE.md](docs/GUIDE.md) for the full walkthrough — running graphs,
-reading traces, declaring your own invariants, exporting to JUnit/SARIF/OTLP, and
-wiring `prove` into CI as a merge gate — and [docs/E2E.md](docs/E2E.md) to
-exercise every feature end to end with verified commands, expected outputs, and
-the reference digests your machine should reproduce byte-for-byte.
+## See it before you install it
 
-## Built to be extended
+The [live demos](https://evarness-ai.github.io/evarness/demos/) are generated
+by Evarness itself when the docs site builds — a replay you can scrub, a
+[blocked run](https://evarness-ai.github.io/evarness/demos/blocked.html)
+stopping before the model, and a proof browser carrying a real bundle you can
+extract and verify. The site build **fails** if their digests drift.
 
-The package is layered ([ARCHITECTURE.md](ARCHITECTURE.md)): `evarness.core` is
-a domain-agnostic kernel — graphs, events, digests, contracts, proofs — and
-**agents are its first domain**, contributed entirely through typed extension
-seams: node registries, a provider factory, determinism inspectors, contract
-libraries, config overlays, and pip entry points (`evarness.plugins`). The same
-kernel can govern other domains — an ML pipeline where *"no deploy without a
-passing eval"* is a declared, per-run-verified contract is the same machinery
-as *"a blocked run never reaches the model"*. If you want to build a domain or
-a node set, `evarness.core` never loads agents behind your back, the seams are
-`Protocol`-typed, and the package ships `py.typed`.
+## Learn
 
-## What this does — and does not — establish
+- [Guide](docs/GUIDE.md) — run graphs, read traces, declare invariants, gate CI
+- [End-to-end walkthrough](docs/E2E.md) — every feature, with the digests your machine should reproduce
+- [Build a custom node in five minutes](docs/tutorial-custom-node.md) · [a domain plugin, without touching core](docs/tutorial-domain-plugin.md)
+- [Architecture](ARCHITECTURE.md) · [Decision log](DECISIONS.md) — every rule the engine enforces traces to a reasoned entry
 
-A proof bundle demonstrates that declared invariants held over scripted
-scenarios, deterministically and reproducibly, with the trace as evidence. It
-does **not** establish that an agent is universally safe, and a signature proves
-the bundle is unaltered — not that the runs happened. Every bundle says this
-about itself. See [SECURITY.md](SECURITY.md) for the scope.
+## Build with us
+
+Evarness is a young project with a big thesis: `evarness.core` is a
+domain-agnostic assurance kernel — graphs, events, digests, contracts,
+proofs — and **agents are its first domain**, built entirely through public,
+typed extension seams. The same machinery can govern ML pipelines, data
+flows, any workflow where "we always do X before Y" deserves to be a
+verified contract instead of a wiki page. That future is exactly what we
+want to build with the community:
+
+- **Run it and tell us.** `prove` → `verify` on your machine — did the
+  digest match the release receipt? Either answer helps.
+- **Build a node.** The [five-minute tutorial](docs/tutorial-custom-node.md)
+  is real: three files, no core changes, your event in the canonical trace.
+- **Dream up a domain.** If your pipeline has rules worth proving, [start a
+  discussion](https://github.com/evarness-ai/evarness/discussions) — domain
+  packs are the project's future, and early ideas shape the seams.
+- **Found something wrong?** A graph, a fixture, and a seed make a perfect,
+  deterministic bug report — [open an issue](https://github.com/evarness-ai/evarness/issues).
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the design rules (determinism
+contract, verdicts never touch evidence, refuse-don't-degrade) — they're
+what make the project provable, and they're enforced kindly but firmly.
+
+## What a proof establishes — and what it doesn't
+
+A bundle demonstrates that declared invariants held over scripted scenarios,
+reproducibly, with the trace as evidence. It does **not** establish universal
+safety, and a signature proves integrity — not that the runs happened. Every
+bundle says this about itself. Scope in [SECURITY.md](SECURITY.md).
 
 ## Status
 
-First capability release: the assurance spine (canonical traces, invariant
-contracts, proof bundles, offline verification), simulation-only. Real model
-providers, real tool execution with OS-enforced sandboxing, and adapters for
-foreign agents exist on the roadmap and arrive as separate, individually-proven
-releases. Not yet on PyPI — that happens after this has been evaluated in the
-open.
-
-The optional visual builder and proof browser are available separately as
-[**Evarness Studio**](https://github.com/evarness-ai/evarness-studio), an
-Alpha local development client. It is not required for any CLI or library
-workflow — everything here runs headless.
+**Alpha, evaluated in the open.** This first release is the assurance spine,
+simulation-only. Real providers, sandboxed tools, and adapters for other
+agent frameworks are on the roadmap, each arriving as a separately proven
+release. PyPI comes after community evaluation. The optional visual client
+is [Evarness Studio](https://github.com/evarness-ai/evarness-studio) —
+nothing here requires it.
 
 ## License
 
-[Apache-2.0](LICENSE). Contributions welcome — see
-[CONTRIBUTING.md](CONTRIBUTING.md); the design rules there (determinism contract,
-verdicts never touch evidence, refuse-don't-degrade) are enforced in review.
+[Apache-2.0](LICENSE).
