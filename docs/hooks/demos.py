@@ -108,6 +108,8 @@ _INCLUDE = re.compile(r'^--8<-- "([^"]+)"$', re.M)
 _LINK_MAP = {
     "docs/GUIDE.md": "GUIDE.md",
     "docs/E2E.md": "E2E.md",
+    "docs/tutorial-custom-node.md": "tutorial-custom-node.md",
+    "docs/tutorial-domain-plugin.md": "tutorial-domain-plugin.md",
     "docs/ONBOARDING.md": "ONBOARDING.md",
     "docs/PROVE-VERIFY.md": "PROVE-VERIFY.md",
     "ARCHITECTURE.md": "architecture.md",
