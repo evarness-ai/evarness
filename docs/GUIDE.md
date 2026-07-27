@@ -1,5 +1,7 @@
 # Evarness guide
 
+*Audience: new users · about fifteen minutes · basic CLI familiarity.*
+
 From install to a signed, offline-verifiable proof bundle. Everything here runs
 in simulation — no API keys, no network, no side effects.
 

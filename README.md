@@ -23,7 +23,8 @@ its declared rules held, and hand anyone a bundle they can verify offline.
 ## Why Evarness
 
 - **Canonical traces** — same graph, fixture, and seed ⇒ the same digest
-  (`c1:sha256:…`), on any machine, any OS, any Python. Reproduced, not asserted.
+  (`c1:sha256:…`) — designed and regression-tested to stay identical across
+  supported machines, OSes, and Pythons. Reproduced, not asserted.
 - **Invariant contracts** — "a blocked run never reaches the model",
   "approval precedes send": declared in YAML, checked on every run.
 - **Proof bundles** — `evarness prove` runs every scenario twice, evaluates

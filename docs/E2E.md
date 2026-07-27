@@ -1,5 +1,7 @@
 # End-to-end feature walkthrough
 
+*Audience: users validating the claims · about thirty minutes · Evarness installed.*
+
 Every feature in the package, exercised from a clean checkout with
 copy-paste commands and the output you should see. Written 2026-07-25
 against the render-artifact tree (170/170 tests passing); every command
