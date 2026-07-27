@@ -128,6 +128,98 @@ print("ok")
     assert result.stdout.strip() == "ok"
 
 
+def test_execute_runs_a_from_scratch_domain_without_agents():
+    """A minimal domain — nodes, provider factory, environment — built from
+    nothing, executed twice, digest-stable, with the agents domain never
+    imported. This is E7's claim at its smallest: the kernel executes any
+    domain that fills the seams."""
+    code = """
+import sys
+from pydantic import BaseModel
+from evarness.core.executor import execute
+from evarness.core.graph import GraphModel
+from evarness.core.registry import NODE_TYPES, set_provider_factory
+from evarness.core.trace import canonical_trace, trace_digest
+
+
+class _Provider:
+    name = "toy:fixed"
+    deterministic = True
+
+    def complete(self, prompt, temperature=0.0, max_tokens=256):
+        return {"text": "fixed"}
+
+
+set_provider_factory(lambda spec, env: _Provider())
+
+
+class _Env:
+    scenario = "toy-happy"
+    user_input = "ping"
+
+
+class SourceNode:
+    type_name = "toy_source"
+    inputs = {}
+    outputs = {"out": "text"}
+
+    class Config(BaseModel):
+        pass
+
+    @classmethod
+    def run(cls, node_id, inputs, cfg, ctx):
+        ctx.emit("toy_sourced", node_id, value=ctx.user_input)
+        return ctx.user_input
+
+
+class SinkNode:
+    type_name = "toy_sink"
+    inputs = {"in": "text"}
+    outputs = {}
+
+    class Config(BaseModel):
+        pass
+
+    @classmethod
+    def run(cls, node_id, inputs, cfg, ctx):
+        ctx.output = str(inputs.get("in", "")).upper()
+        return ctx.output
+
+
+NODE_TYPES.register("toy_source", SourceNode)
+NODE_TYPES.register("toy_sink", SinkNode)
+
+graph = GraphModel.model_validate({
+    "ir_version": 1,
+    "id": "toy-domain",
+    "name": "toy domain",
+    "nodes": [
+        {"id": "a", "type": "toy_source", "config": {}},
+        {"id": "b", "type": "toy_sink", "config": {}},
+    ],
+    "edges": [{"from": "a", "to": "b"}],
+})
+
+first = execute(graph, _Env())
+second = execute(graph, _Env())
+assert first.status == "completed", first.reason
+assert first.output == "PING"
+d1 = trace_digest(canonical_trace(first.events))
+d2 = trace_digest(canonical_trace(second.events))
+assert d1 == d2, f"digest not stable: {d1} != {d2}"
+names = [e["type"] for e in first.events]
+assert "toy_sourced" in names, names
+loaded = [m for m in sys.modules if m.startswith("evarness.domains")]
+assert not loaded, f"execute pulled in domain modules: {loaded}"
+print("ok")
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
+
+
 def test_cli_loads_entry_point_plugins(monkeypatch):
     """The CLI is the batteries-included surface: installed plugins must be
     registered before any command parses a graph. The lazy top-level import
