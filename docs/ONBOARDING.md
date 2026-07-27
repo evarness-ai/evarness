@@ -1,5 +1,7 @@
 # Evarness developer onboarding
 
+*Audience: repository contributors · a code-level walkthrough of the whole system.*
+
 New-developer walkthrough of the system, from naming to a hands-on test of the
 first feature (the assurance spine). Every command below was run and verified
 against the tree it documents; the full test suite must pass at all times.
@@ -72,7 +74,7 @@ import time. Extension enters through four typed seams: registries
 
 Read these five files in this order — that is the whole kernel:
 
-### `core/graph.py` (182 lines) — the IR
+### `core/graph.py` — the IR
 `GraphModel` = nodes + edges + `GraphParams` (seed, provider, context budget,
 and crucially `invariants: [ids]` — how a graph opts into contracts).
 `lint()` validates node configs against the registry, rejects free cycles
@@ -82,7 +84,7 @@ output without a validator interceptor is the agents domain's rule
 (`domains/agents/lint.py`), not the kernel's (E18). `topological_order()`
 breaks ties **by node id** — that determinism is the contract.
 
-### `core/executor.py` (217 lines) — event-sourced execution
+### `core/executor.py` — event-sourced execution
 `execute()` lints, builds a `RunContext` (seeded `random.Random(params.seed)`,
 sim provider, approvals dict), then walks nodes in topological order, emitting
 events through `Emitter`. Three exceptions define run outcomes:
@@ -97,7 +99,7 @@ After the run, `check_invariants()` computes verdicts that attach to
 `RunResult.invariants` — **outside** the event stream, so checking a run never
 changes its digest.
 
-### `core/trace.py` (91 lines) — the determinism contract, published
+### `core/trace.py` — the determinism contract, published
 Canonical form keeps `{seq, type, node_id, payload}` per event and drops only
 `ts` (wall clock). Serialization is sorted-keys, compact separators, ASCII —
 byte-stable everywhere. Two digests: `trace_digest` (names the stream,
@@ -105,7 +107,7 @@ byte-stable everywhere. Two digests: `trace_digest` (names the stream,
 bundles verify event by event). Canonicalization is deliberately **not** an
 extension point; the `c1` version bumps on any change to canonical output.
 
-### `core/invariants.py` (266 lines) — contracts
+### `core/invariants.py` — contracts
 Four temporal primitives, exactly one per contract: `never` (optional `after`
 scoping), `eventually`, `every`, `precedes`. Matchers constrain `type`,
 `node_id`, and payload fields (dot-paths; operators `in`/`gt`/`gte`/`lt`/
@@ -114,7 +116,7 @@ scoping), `eventually`, `every`, `precedes`. Matchers constrain `type`,
 > `~/.evarness/invariants.yaml` > packaged library. Honesty rule: unknown ids
 or malformed contracts are **failed verdicts**, never silent skips.
 
-### `core/prove.py` (635 lines) — proof bundles
+### `core/prove.py` — proof bundles
 Runs every fixture **twice** (reproduction demonstrated, not asserted), pins
 the subject (graph hash, tool-manifest hashes, contract-definitions hash,
 engine version, environment), and writes the bundle including `not_proven`.
@@ -201,7 +203,7 @@ pytest -q                                                          # the whole s
 
 ## 7. Path to expert
 
-1. `tests/test_core.py` (1,009 lines) — the executable spec of the determinism
+1. `tests/test_core.py` — the executable spec of the determinism
    contract.
 2. The other two patterns: `single_shot_qa` (minimal graph) and
    `governed_email_assistant` (routing, RAG, budget, plus a failure fixture

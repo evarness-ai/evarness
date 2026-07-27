@@ -17,6 +17,8 @@ exclude_docs: |
   hooks/
 theme:
   name: material
+  logo: assets/logo.svg
+  favicon: assets/logo.svg
   palette:
     scheme: slate
     primary: black
@@ -24,6 +26,7 @@ theme:
   features:
     - content.code.copy
     - navigation.footer
+    - navigation.sections
     - navigation.top
     - toc.follow
 
@@ -43,6 +46,8 @@ plugins:
 # site-context targets before MkDocs validates them
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
   - tables
   - toc:
       permalink: true
@@ -53,17 +58,20 @@ hooks:
 
 nav:
   - Home: index.md
-  - Live demos: demos.md
-  - Guide: GUIDE.md
-  - End-to-end walkthrough: E2E.md
-  - Tutorials:
+  - Get started:
+      - Live demos: demos.md
+      - User guide: GUIDE.md
+      - End-to-end walkthrough: E2E.md
+  - Learn:
+      - Prove & verify: PROVE-VERIFY.md
+      - Architecture: architecture.md
+  - Extend:
       - Your first node: tutorial-custom-node.md
-      - A domain plugin: tutorial-domain-plugin.md
-  - Onboarding: ONBOARDING.md
-  - Prove & verify: PROVE-VERIFY.md
-  - Architecture: architecture.md
-  - Decision log: decisions.md
+      - Build a domain plugin: tutorial-domain-plugin.md
+  - Project:
+      - Contributing: contributing.md
+      - Security: security.md
+      - Developer onboarding: ONBOARDING.md
+      - Decision log: decisions.md
   - Blog:
       - blog/index.md
-  - Security: security.md
-  - Contributing: contributing.md

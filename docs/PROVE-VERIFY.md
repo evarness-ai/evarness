@@ -1,5 +1,7 @@
 # Prove & verify — concepts and internals
 
+*Audience: technical users · about twenty minutes · best read after the guide.*
+
 Companion to [ONBOARDING.md](ONBOARDING.md). Part 1 is the vocabulary — what
 each concept *is*, why it exists, and how Evarness resolves it in code. Part 2
 walks the implementation (`core/prove.py`, `core/attest.py`) and the live
