@@ -1,0 +1,9 @@
+# Every path requests a review from the maintainer. Branch protection
+# requires a code-owner review before merge; the canonicalization and proof
+# surfaces are called out explicitly because changes there are contract
+# events (see DECISIONS.md E3), never routine edits.
+* @sathishksomasundaram
+
+/evarness/core/trace.py @sathishksomasundaram
+/evarness/core/prove.py @sathishksomasundaram
+/tests/test_golden_digests.py @sathishksomasundaram
