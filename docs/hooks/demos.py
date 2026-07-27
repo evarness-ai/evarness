@@ -116,6 +116,7 @@ _LINK_MAP = {
     "DECISIONS.md": "https://github.com/evarness-ai/evarness/blob/main/DECISIONS.md",
     "SECURITY.md": "security.md",
     "CONTRIBUTING.md": "contributing.md",
+    "LICENSE": "https://github.com/evarness-ai/evarness/blob/main/LICENSE",
 }
 
 

@@ -23,7 +23,7 @@ python3 -m pytest tests/ -q            # all tests must pass
 ```
 
 Everything works headless through the CLI:
-`evarness validate|run|trace|prove|verify|patterns`.
+`evarness validate|run|render|prove|verify|export|patterns`.
 
 ## Design rules (enforced by review)
 
