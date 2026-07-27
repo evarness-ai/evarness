@@ -22,8 +22,8 @@ classifiers = [
     "Topic :: Software Development :: Testing",
 ]
 dependencies = [
-    "pydantic>=2.5",
-    "pyyaml>=6.0",
+    "pydantic>=2.5,<3",
+    "pyyaml>=6.0,<7",
 ]
 
 [project.optional-dependencies]

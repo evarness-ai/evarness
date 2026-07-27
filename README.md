@@ -100,10 +100,15 @@ about itself. See [SECURITY.md](SECURITY.md) for the scope.
 
 First capability release: the assurance spine (canonical traces, invariant
 contracts, proof bundles, offline verification), simulation-only. Real model
-providers, real tool execution with OS-enforced sandboxing, adapters for foreign
-agents, and the visual builder exist on the roadmap and arrive as separate,
-individually-proven releases. Not yet on PyPI — that happens after this has been
-evaluated in the open.
+providers, real tool execution with OS-enforced sandboxing, and adapters for
+foreign agents exist on the roadmap and arrive as separate, individually-proven
+releases. Not yet on PyPI — that happens after this has been evaluated in the
+open.
+
+The optional visual builder and proof browser are available separately as
+[**Evarness Studio**](https://github.com/evarness-ai/evarness-studio), an
+Alpha local development client. It is not required for any CLI or library
+workflow — everything here runs headless.
 
 ## License
 

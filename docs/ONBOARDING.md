@@ -1,15 +1,18 @@
-# Evarnesslab developer onboarding
+# Evarness developer onboarding
 
 New-developer walkthrough of the system, from naming to a hands-on test of the
-first feature (the assurance spine). Written 2026-07-18 against the
-first-capability-release tree; all commands below were run and verified on that
-date (107/107 tests passing).
+first feature (the assurance spine). Every command below was run and verified
+against the tree it documents; the full test suite must pass at all times.
 
 ---
 
 ## 0. Naming (this trips everyone up)
 
-- **Evarnesslab** is this repo; the Python package inside is **`evarness`**.
+- **Evarness** is the open-source project, the Python package, and the CLI —
+  one name for all three.
+- **`evarness.core`** is the domain-neutral assurance kernel;
+  **`evarness.domains.agents`** is the first supported domain;
+  **Evarness Studio** (a separate repository) is the optional visual client.
 - It is the public face of a longer private effort: features are proven in a
   private workbench first, then arrive here through the core/domain seams —
   only finished, verified work lands in this repo.
@@ -73,9 +76,11 @@ Read these five files in this order — that is the whole kernel:
 `GraphModel` = nodes + edges + `GraphParams` (seed, provider, context budget,
 and crucially `invariants: [ids]` — how a graph opts into contracts).
 `lint()` validates node configs against the registry, rejects free cycles
-(iteration lives in a `loop_controller` node), and warns on LLMs that reach
-output without a validator interceptor. `topological_order()` breaks ties **by
-node id** — that determinism is the contract.
+(iteration lives in a `loop_controller` node), then runs every rule domains
+registered via `register_lint_rule` — the warning about an LLM reaching
+output without a validator interceptor is the agents domain's rule
+(`domains/agents/lint.py`), not the kernel's (E18). `topological_order()`
+breaks ties **by node id** — that determinism is the contract.
 
 ### `core/executor.py` (217 lines) — event-sourced execution
 `execute()` lints, builds a `RunContext` (seeded `random.Random(params.seed)`,
@@ -191,7 +196,7 @@ evarness run $P/graph.json --fixture $P/fixtures/send.yaml --approve n3=approve
 evarness run $P/graph.json --fixture $P/fixtures/send.yaml --approve n3=reject
 evarness prove approval_gated_send --approve n3=approve -o proof.json
 evarness verify proof.json
-pytest -q                                                          # 107 tests
+pytest -q                                                          # the whole suite must pass
 ```
 
 ## 7. Path to expert
