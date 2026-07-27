@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evarness"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Prove an AI agent harness before it touches real data: canonical traces, invariant contracts, portable proof bundles, offline verification."
 readme = "README.md"
 requires-python = ">=3.10"

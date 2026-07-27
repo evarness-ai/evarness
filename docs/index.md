@@ -88,7 +88,7 @@ from the values the docs cite.
 ## Sixty seconds to your own proof
 
 ```bash
-pip install "evarness @ git+https://github.com/evarness-ai/evarness.git@v0.1.0"
+pip install evarness==0.1.0a1
 
 # expected: PROOF: PENDING, exit 1 — nothing sends without a human approval
 evarness prove approval_gated_send -o proof.json
@@ -116,6 +116,7 @@ bundle says this about itself. Scope in [Security](security.md).
 - **Extending it?** [Your first node in five minutes](tutorial-custom-node.md), then [a domain plugin without touching core](tutorial-domain-plugin.md).
 - **Contributing?** [Contributing](contributing.md) has the design rules; [developer onboarding](ONBOARDING.md) walks the codebase; ideas belong in [Discussions](https://github.com/evarness-ai/evarness/discussions).
 
-**Status: Alpha, evaluated in the open.** Simulation-only by design; real
-providers and tools are refused, never silently substituted. PyPI follows
-community evaluation.
+**Status: Alpha, evaluated in the open** — on PyPI as the pre-release
+`evarness==0.1.0a1`. Simulation-only by design; real providers and tools are
+refused, never silently substituted. The stable release follows community
+evaluation.

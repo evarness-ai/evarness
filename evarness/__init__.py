@@ -44,7 +44,7 @@ if TYPE_CHECKING:  # static types for the lazy surface
     from evarness.domains import agents as agents
     from evarness.domains.agents.sim import Fixture as Fixture, load_fixture as load_fixture
 
-__version__ = "0.1.0"
+__version__ = "0.1.0a1"
 
 __all__ = [
     "EvarnessError",

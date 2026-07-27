@@ -5,14 +5,16 @@ records *why*; this file records *what shipped*.
 
 ## Unreleased
 
+## 0.1.0a1 — 2026-07-27 — Alpha pre-release, first release on PyPI
+
+The assurance spine, simulation-only. A validated Alpha entering community
+evaluation; the stable 0.1.0 follows that evaluation.
+
 - Contributor tutorials: a custom node in five minutes, and a domain plugin
   without touching core.
 - The CLI loads entry-point plugins at startup (restores plugin discovery
   after the top-level import surface became lazy).
-
-## 0.1.0 — Alpha (unreleased on PyPI; install from source)
-
-The assurance spine, simulation-only, first public release:
+- Everything in the assurance spine below:
 
 - **Canonical traces** — versioned digests (`c1:sha256:…`) byte-identical
   across machines, plus a rolling event chain.
