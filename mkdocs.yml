@@ -17,8 +17,6 @@ exclude_docs: |
   hooks/
 theme:
   name: material
-  logo: assets/logo.svg
-  favicon: assets/logo.svg
   palette:
     scheme: slate
     primary: black
