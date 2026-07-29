@@ -13,6 +13,20 @@ Simulation-first · Offline-verifiable · Domain-extensible
 [Explore live proofs](demos.md){ .md-button }
 [View on GitHub](https://github.com/evarness-ai/evarness){ .md-button }
 
+> **New to AI agents?** An AI agent is software that uses an AI model (LLM)
+> not just to chat, but to do things for you — read an inbox, fill a form,
+> send a message. The model does the thinking; a layer of plain, predictable
+> software around it decides what the AI is actually allowed to do. That
+> layer is called the **harness** — the model is the engine, the harness is
+> the car: the brakes, the seatbelts, the steering. Evarness is a crash-test
+> rig for that car. It runs the harness through practice scenarios where
+> everything is staged — no real email, no real money — writes down every
+> step like a plane's flight recorder, checks simple written rules such as
+> "a human must approve before anything is sent" (the way a bank asks for
+> two signatures before moving a large amount), and produces a report anyone
+> can double-check on their own laptop, no internet needed. "We watched it
+> and it seemed fine" is a demo, not proof; the report is the proof.
+
 An agent is a harness plus a model. The model reasons — but the **harness**,
 the deterministic scaffolding that routes, gates, and audits every turn, is
 what decides whether the system is safe to run. Evarness turns a harness's
