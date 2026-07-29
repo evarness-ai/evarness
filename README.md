@@ -17,7 +17,7 @@
 
 > **New to AI agents?** An AI agent is software that uses an AI model (LLM)
 > not just to chat, but to do things for you — read an inbox, fill a form,
-> send a message. The model does the thinking; a layer of plain, predictable
+> send a message. The model thinks; a layer of plain, predictable
 > software around it decides what the AI is actually allowed to do. That
 > layer is called the **harness** — the model is the engine, the harness is
 > the car: the brakes, the seatbelts, the steering. Evarness is a crash-test
@@ -34,11 +34,7 @@ refactor may or may not have kept every path behind it, and when a security
 review asks you to *demonstrate* that nothing sends without a human, a green
 test suite isn't a demonstration. Evarness is **harness assurance**: run the
 harness in simulation, prove its declared rules held, and hand anyone a
-proof bundle they can verify on their own machine.
-
-An agent is a harness plus a model. The model reasons — but the **harness**,
-the deterministic scaffolding that routes, gates, and audits every turn, is
-what decides whether the system is safe to run. Evarness turns its safety
+proof bundle they can verify on their own machine. It turns its safety
 story into **evidence anyone can check**.
 
 ## Why Evarness
@@ -70,7 +66,7 @@ design.
 ```bash
 pip install evarness==0.1.0a1
 
-# expected: PROOF: PENDING, exit 1 — nothing sends without a human approval
+# expected: PROOF: PENDING, exit 1 — nothing sends without human approval
 evarness prove approval_gated_send -o proof.json
 
 evarness prove approval_gated_send --approve n3=approve -o proof.json
