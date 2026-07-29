@@ -15,6 +15,18 @@
 [Discussions](https://github.com/evarness-ai/evarness/discussions) ·
 [Studio](https://github.com/evarness-ai/evarness-studio)
 
+> **New to AI agents?** An AI agent is software that uses an AI model not just
+> to chat, but to act — read an inbox, fill a form, send a message. The model
+> does the thinking; a layer of ordinary software around it decides what it is
+> actually allowed to do. That layer is the **harness** — the model is the
+> engine, the harness is the car: the brakes, the seatbelts, the steering.
+> Evarness is a crash-test rig for the car. It runs a harness through scripted
+> scenarios — no real email, no real money — records every step like a flight
+> recorder, checks written rules such as "approval must come before send" the
+> way a bank requires two signatures before a large transfer clears, and
+> produces a report anyone can verify on their own laptop, offline. "We
+> watched it and it seemed fine" is a demo, not proof; the report is the proof.
+
 Your agent has an approval gate in front of its send tool — but yesterday's
 refactor may or may not have kept every path behind it, and when a security
 review asks you to *demonstrate* that nothing sends without a human, a green
