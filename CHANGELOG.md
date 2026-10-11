@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-11
+
+### Fixed
+
+- Reconnecting an account no longer fails on macOS with `PasswordSetError: Can't store password on keychain: (-25244, 'Unknown Error')`. That error is the keychain refusing to let one program edit an entry another created, which happens after a reinstall under a different Python (`uv tool` after `poetry`, or the reverse). Saving an account token (IMAP and plugin secrets, the Gmail and Google OAuth tokens) now deletes and rewrites the entry on that one error. The vault master key is never touched: its service is refused even when asked. If the delete fails too, the error names the `security delete-generic-password` command that clears the entry. (#261)
+- `IRIS_GOVERNOR_BASE_URL`, which the health check reads, is now declared in the settings catalog and listed in the environment-variable reference. (#262)
+
+### Changed
+
+- `README.md` now says to connect an account (`iris auth imap login` or `iris auth gmail login`) before `iris email setup`, and to pull the email judge's model, which `iris doctor --fix` does not. Without the connect step `iris email setup` stops at "No mailbox is connected yet". (#260)
+- Dependency updates, all minor or patch: `cryptography` 50.0.2, `langchain-openai` 1.6.7, `black` 26.10.0, `ruff` 0.16.10, `trafilatura` 2.3.0, `pypdfium2` 5.14.0, `openinference-instrumentation-langchain` 0.1.78, `markupsafe` 3.0.4 and `platformdirs` 4.12.3; in the web console `vite` 8.3.2, `lucide-react` 1.52.0, `@tanstack/react-query` 5.104.1, `@vitejs/plugin-react` 6.1.2, `postcss` 8.5.29 and `typescript-eslint` 8.71.0. (#241, #243)
+
+### Added
+
+- A contributor quickstart in the README, a setup gotchas guide (`docs/guides/setup-gotchas.md`), and a concept-to-code table that labels the architecture diagram as conceptual. (#257, #258, #259)
+
+## [0.1.0] - 2026-10-11, added after the 2026-10-07 notes below
+
+These changes were merged after the notes in the next section were written and before the
+0.1.0 tag was cut, so they shipped in 0.1.0. They were kept under "Unreleased" until now.
+
 ### Changed
 
 - The sandbox egress proxy (`egress_proxy.py`) now listens on `127.0.0.1` by default, not `0.0.0.0`. The sidecar the harness starts is unaffected: it is started with `IRIS_EGRESS_BIND=0.0.0.0` because the sandbox reaches it from a sibling container. Anyone who runs `egress_proxy.py` by hand or from their own compose file and relied on it listening on every interface must set `IRIS_EGRESS_BIND=0.0.0.0` (or a specific address). A value that is not an IP address is refused, and a non-loopback bind logs one warning.
