@@ -4,9 +4,9 @@ stale and shipped 0.1.1 printing "IRIS 0.1.0"."""
 
 from __future__ import annotations
 
-import tomllib
 from pathlib import Path
 
+import tomllib
 from typer.testing import CliRunner
 
 import iris_harness
