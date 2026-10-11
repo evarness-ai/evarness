@@ -8,6 +8,7 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException, Request
 
+from iris_harness import __version__
 from iris_harness.foundation.observability.logging_setup import configure_logging
 
 # Install the root log handler (IRIS_LOG_LEVEL, default INFO) before anything else imports
@@ -26,7 +27,7 @@ REPO_ROOT = repo_root()
 def create_app(*, governor_service: IRISGovernorService | None = None) -> FastAPI:
     """Create the IRIS governor HTTP wrapper."""
     service = governor_service or _build_governor_service()
-    app = FastAPI(title="IRIS Governor", version="0.1.0")
+    app = FastAPI(title="IRIS Governor", version=__version__)
 
     # Registered before the ingress log so the log stays outermost (Starlette
     # runs the last-registered middleware first) and refused attempts are

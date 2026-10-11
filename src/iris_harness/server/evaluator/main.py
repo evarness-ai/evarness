@@ -27,6 +27,8 @@ from typing import Any
 
 from fastapi import Body, FastAPI, Request
 
+from iris_harness import __version__
+
 # Install the root log handler (IRIS_LOG_LEVEL, default INFO) before anything else imports
 # so every iris.* INFO line — including the ingress/egress audit trail — actually appears
 # in the service log instead of being dropped at the default WARNING level.
@@ -61,7 +63,7 @@ def build_default_registry() -> EvaluatorRegistry:
 
 def create_app(*, registry: EvaluatorRegistry | None = None) -> FastAPI:
     reg = registry or build_default_registry()
-    app = FastAPI(title="IRIS Evaluator", version="0.1.0")
+    app = FastAPI(title="IRIS Evaluator", version=__version__)
 
     # Registered before the ingress log so the log stays outermost (Starlette
     # runs the last-registered middleware first) and refused attempts are

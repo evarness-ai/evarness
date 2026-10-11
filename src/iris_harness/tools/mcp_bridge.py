@@ -19,6 +19,7 @@ import yaml
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from iris_harness import __version__
 from iris_harness.foundation.ids import new_ulid
 from iris_harness.foundation.observability.logging_setup import log_egress
 from iris_harness.kernel.governance.call_context import register_call
@@ -787,7 +788,7 @@ class MCPBridge:
             params={
                 "protocolVersion": "2025-03-26",
                 "capabilities": {},
-                "clientInfo": {"name": "iris", "version": "0.1.0"},
+                "clientInfo": {"name": "iris", "version": __version__},
             },
         )
         initialized_notification = {
@@ -819,7 +820,7 @@ class MCPBridge:
             params={
                 "protocolVersion": "2025-03-26",
                 "capabilities": {},
-                "clientInfo": {"name": "iris", "version": "0.1.0"},
+                "clientInfo": {"name": "iris", "version": __version__},
             },
         )
         initialized_notification = {

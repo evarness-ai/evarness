@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from iris_harness import __version__
 from iris_harness.cli.web_commands import ModelOverrides
 from iris_harness.foundation.paths import config_root, repo_root
 
@@ -410,7 +411,7 @@ def create_app(
                 except Exception:
                     logger.exception("runtime shutdown failed")
 
-    app = FastAPI(title="IRIS API", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="IRIS API", version=__version__, lifespan=lifespan)
     app.state.runtime = runtime
     app.state.observability = None
     # Remembers what `/model` and `/router` were set to, per session. A browser

@@ -30,6 +30,7 @@ import httpx
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query, Request, WebSocket, WebSocketDisconnect, status
 
+from iris_harness import __version__
 from iris_harness.foundation.env import env_flag
 from iris_harness.foundation.paths import repo_root
 
@@ -183,7 +184,7 @@ def create_app(
             if owns_http:
                 await app.state.http.aclose()
 
-    app = FastAPI(title="IRIS Channel Gateway", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="IRIS Channel Gateway", version=__version__, lifespan=lifespan)
     # No bearer middleware here (/ws authenticates itself), but the same Host guard as
     # the other services: DNS rebinding reaches /health like any open route. It covers
     # HTTP only; the /ws handshake checks the Host itself. Registered before the

@@ -29,6 +29,7 @@ from typing import Annotated, Any
 import typer
 from dotenv import load_dotenv
 
+from iris_harness import __version__
 from iris_harness.cli.render import console, print_error, print_sessions
 from iris_harness.cli.session import Session as _Session
 from iris_harness.cli.session import SessionManager
@@ -43,7 +44,7 @@ load_dotenv()
 apply_env_overrides()
 
 _DEFAULT_API = "http://localhost:8003"
-_VERSION = "0.1.0"
+_VERSION = __version__
 
 app = typer.Typer(
     name="iris",
