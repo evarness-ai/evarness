@@ -31,7 +31,8 @@ If `iris` is not found after installing, add `~/.local/bin` to your PATH: run `u
 200-message synthetic mailbox, sorts it, previews and writes labels, prints a first
 digest, and ends with what it did, audit rows included. For your own mail you need
 [Ollama](https://ollama.com/download) and 16 GB of RAM; `iris doctor --fix` pulls the
-starter model. Step by step: [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/).
+starter model. Step by step: [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
+if something does not work, see the [common setup gotchas](https://evarness-ai.github.io/iris-harness/guides/setup-gotchas/).
 
 ## Build on it
 
