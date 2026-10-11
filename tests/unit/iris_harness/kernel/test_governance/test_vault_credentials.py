@@ -46,6 +46,104 @@ def test_save_load_token_roundtrip() -> None:
         assert credentials.load_token("gmail", "user@example.com") == "abc123"
 
 
+def _owner_edit_error() -> keyring.errors.PasswordSetError:
+    return keyring.errors.PasswordSetError(
+        "Can't store password on keychain: (-25244, 'Unknown Error')"
+    )
+
+
+def test_save_token_recreates_an_entry_another_program_owns() -> None:
+    """macOS refuses to edit an item another program made; it is deleted and rewritten."""
+    store: dict[tuple[str, str], str] = {("iris-imap", "imap:me@example.com"): "old"}
+    owned_elsewhere = {("iris-imap", "imap:me@example.com")}
+
+    def fake_set(service: str, account: str, value: str) -> None:
+        if (service, account) in owned_elsewhere:
+            raise _owner_edit_error()
+        store[(service, account)] = value
+
+    def fake_delete(service: str, account: str) -> None:
+        owned_elsewhere.discard((service, account))
+        store.pop((service, account), None)
+
+    with (
+        patch.object(credentials.keyring, "set_password", fake_set),
+        patch.object(credentials.keyring, "delete_password", fake_delete),
+    ):
+        credentials.save_token("imap", "imap:me@example.com", "new", recreate_foreign=True)
+
+    assert store == {("iris-imap", "imap:me@example.com"): "new"}
+
+
+def test_save_token_names_the_fix_when_the_entry_cannot_be_recreated() -> None:
+    def fake_set(service: str, account: str, value: str) -> None:
+        raise _owner_edit_error()
+
+    def fake_delete(service: str, account: str) -> None:
+        raise keyring.errors.PasswordDeleteError("denied")
+
+    with (
+        patch.object(credentials.keyring, "set_password", fake_set),
+        patch.object(credentials.keyring, "delete_password", fake_delete),
+        pytest.raises(credentials.CredentialStoreError) as caught,
+    ):
+        credentials.save_token("imap", "imap:me@example.com", "new", recreate_foreign=True)
+
+    assert 'security delete-generic-password -s iris-imap -a "imap:me@example.com"' in str(
+        caught.value
+    )
+
+
+def test_save_token_does_not_delete_on_other_keychain_errors() -> None:
+    """Only the owner-edit failure deletes anything; a locked or broken keychain does not."""
+    deleted: list[tuple[str, str]] = []
+
+    def fake_set(service: str, account: str, value: str) -> None:
+        raise keyring.errors.PasswordSetError("Can't store password on keychain: (-1, 'other')")
+
+    with (
+        patch.object(credentials.keyring, "set_password", fake_set),
+        patch.object(credentials.keyring, "delete_password", lambda s, a: deleted.append((s, a))),
+        pytest.raises(keyring.errors.PasswordSetError),
+    ):
+        credentials.save_token("gmail", "me@example.com", "new", recreate_foreign=True)
+
+    assert deleted == []
+
+
+def test_save_token_does_not_recreate_unless_asked() -> None:
+    deleted: list[tuple[str, str]] = []
+
+    def fake_set(service: str, account: str, value: str) -> None:
+        raise _owner_edit_error()
+
+    with (
+        patch.object(credentials.keyring, "set_password", fake_set),
+        patch.object(credentials.keyring, "delete_password", lambda s, a: deleted.append((s, a))),
+        pytest.raises(keyring.errors.PasswordSetError),
+    ):
+        credentials.save_token("gmail", "me@example.com", "new")
+
+    assert deleted == []
+
+
+def test_save_token_never_deletes_the_vault_master_key() -> None:
+    """Everything the vault holds is encrypted under it; even an opt-in cannot remove it."""
+    deleted: list[tuple[str, str]] = []
+
+    def fake_set(service: str, account: str, value: str) -> None:
+        raise _owner_edit_error()
+
+    with (
+        patch.object(credentials.keyring, "set_password", fake_set),
+        patch.object(credentials.keyring, "delete_password", lambda s, a: deleted.append((s, a))),
+        pytest.raises(keyring.errors.PasswordSetError),
+    ):
+        credentials.save_token("vault", "master-key", "k", recreate_foreign=True)
+
+    assert deleted == []
+
+
 def test_load_token_missing_returns_none() -> None:
     """load_token returns None when no entry exists."""
     with patch.object(credentials.keyring, "get_password", return_value=None):

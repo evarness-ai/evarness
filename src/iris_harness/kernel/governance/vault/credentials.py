@@ -70,10 +70,52 @@ class CredentialRevokedError(RuntimeError):
 # ─── Keychain token operations ────────────────────────────────────────
 
 
-def save_token(provider: str, account: str, value: str) -> None:
-    """Store an opaque token value in the OS keychain. Replaces any existing."""
+# macOS ``errSecInvalidOwnerEdit``: the item exists, another program created it (an earlier
+# install under a different Python, a ``uv tool`` after a ``poetry`` run), and the keychain
+# will not let this one modify it. The item can still be deleted and written afresh.
+_MACOS_INVALID_OWNER_EDIT = "-25244"
+
+
+class CredentialStoreError(RuntimeError):
+    """The OS keychain would not store a token, and re-creating the entry did not help."""
+
+
+# The service holding the vault's master key. Everything the vault stores is encrypted
+# under it, so an entry here is never deleted to make a write succeed.
+_VAULT_SERVICE = f"{_KEYRING_SERVICE_PREFIX}vault"
+
+
+def save_token(provider: str, account: str, value: str, *, recreate_foreign: bool = False) -> None:
+    """Store an opaque token value in the OS keychain. Replaces any existing.
+
+    ``recreate_foreign`` opts in to recovering from macOS refusing to modify an entry
+    another program created: the entry is deleted and written again. Pass it only for a
+    token the caller is replacing anyway (an account login), never for key material; the
+    vault master key's service is refused even then. Any other keychain failure is raised
+    as it came.
+    """
     service = f"{_KEYRING_SERVICE_PREFIX}{provider}"
-    keyring.set_password(service, account, value)
+    try:
+        keyring.set_password(service, account, value)
+    except keyring.errors.PasswordSetError as exc:
+        if (
+            not recreate_foreign
+            or service == _VAULT_SERVICE
+            or _MACOS_INVALID_OWNER_EDIT not in str(exc)
+        ):
+            raise
+        logger.debug(
+            "keychain: %s/%s is owned by another program; re-creating it", service, account
+        )
+        try:
+            keyring.delete_password(service, account)
+            keyring.set_password(service, account, value)
+        except keyring.errors.KeyringError as retry_exc:
+            raise CredentialStoreError(
+                f"The keychain entry {service!r} for {account} was created by another program "
+                "and macOS will not let IRIS change it. Delete it, then connect again: "
+                f'security delete-generic-password -s {service} -a "{account}"'
+            ) from retry_exc
     logger.debug("keychain: stored token for %s/%s", service, account)
 
 

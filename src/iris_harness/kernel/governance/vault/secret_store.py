@@ -78,7 +78,7 @@ class KeyringSecretStore:
         return credentials.load_token(namespace, key)
 
     def set(self, namespace: str, key: str, value: str) -> None:
-        credentials.save_token(namespace, key, value)
+        credentials.save_token(namespace, key, value, recreate_foreign=True)
 
     def delete(self, namespace: str, key: str) -> None:
         credentials.delete_token(namespace, key)
