@@ -3,6 +3,9 @@
 IRIS is a harness: a small set of primitives around a model loop. The loop and the
 governance kernel are the core; everything else is a plugin on the SDK.
 
+The diagram is a conceptual overview, not a code map. The turn it shows is the pipeline in
+`src/iris_harness/runtime/turn/`, described stage by stage below.
+
 ```text
   CLI · web console · Telegram · MCP clients
                     │
