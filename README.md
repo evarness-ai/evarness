@@ -22,8 +22,20 @@ You need [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/); neit
 uv tool install "iris-harness[email]"   # or: pipx install "iris-harness[email]"
 iris doctor                             # can IRIS run here, and what to fix
 iris email demo                         # a synthetic mailbox, a scripted model, no network
-iris email setup                        # then your own mailbox (IMAP or Gmail), step by step
 ```
+
+Then your own mailbox. Connect an account first, because `iris email setup` only takes one
+that is already connected:
+
+```bash
+iris auth imap login --user you@example.com    # an app password; or: iris auth gmail login --user you@gmail.com
+ollama pull qwen3.5:4b-q4_K_M                  # the email judge's model; iris doctor --fix does not pull it
+iris email setup                               # fetch, classify, preview labels, ask before any write
+```
+
+[Connect your mailbox](https://evarness-ai.github.io/iris-harness/getting-started/connect-your-mailbox/)
+has the provider notes (iCloud, Fastmail, Yahoo, Gmail; Outlook and Microsoft 365 are not
+supported over IMAP) and the Gmail OAuth steps.
 
 If `iris` is not found after installing, add `~/.local/bin` to your PATH: run `uv tool update-shell` (or `pipx ensurepath`) and open a new terminal.
 
