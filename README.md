@@ -134,13 +134,37 @@ shows how to run the API from an install and pair the web console.
 
 ## Contributing
 
-Plugins are the contribution unit. From a clone, with Python 3.12 or 3.13 and
-[Poetry](https://python-poetry.org/) 2.x:
+Plugins are the contribution unit. This is the shortest path from a clone to a change you
+can check. You need Python 3.12 or 3.13 (`.python-version` pins 3.12) and
+[Poetry](https://python-poetry.org/) 2.x.
 
 ```bash
+git clone https://github.com/evarness-ai/iris-harness.git && cd iris-harness
 poetry install --with dev --extras email
-poetry run pytest -q
+poetry run iris email demo               # the whole stack from source: no account, no model server
 ```
+
+Tests need two environment variables, and run on the narrowest path that covers your
+change:
+
+```bash
+export IRIS_AUTH_SECRET="test-secret-for-testing" IRIS_DISABLE_WARMUP=1
+poetry run pytest tests/unit/<the path you changed>
+```
+
+Before you push, run the local gate: `scripts/ci_local.sh --fast` while you iterate (ruff,
+black, mypy, import contracts, the tests for what changed), and `scripts/ci_local.sh`
+before a pull request (the full suite, a playground smoke run, the secret and PII scan).
+
+Where to look first:
+
+| You are changing | Start here |
+|---|---|
+| A plugin | `iris plugins new` (above), [`examples/`](examples/README.md), [stable API](docs/reference/stable-api.md) |
+| The turn pipeline | `src/iris_harness/runtime/turn/` |
+| Governance (classification, egress, approvals, audit) | `src/iris_harness/kernel/governance/` |
+| The email assistant | `src/iris_personal/` |
+| The web console | `webui/` |
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) (the governance rules every change keeps, DCO
 sign-off, the stable-tier rule) and the [code of conduct](CODE_OF_CONDUCT.md). Coding
