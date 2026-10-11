@@ -459,7 +459,9 @@ def save_client(raw: str) -> WebClient:
     """Validate and store the Web client. Only its id and secret are kept."""
     client = parse_client_json(raw)
     blob = json.dumps({"client_id": client.client_id, "client_secret": client.client_secret})
-    _credentials.save_token(CLIENT_KEYRING_PROVIDER, CLIENT_KEYRING_ACCOUNT, blob)
+    _credentials.save_token(
+        CLIENT_KEYRING_PROVIDER, CLIENT_KEYRING_ACCOUNT, blob, recreate_foreign=True
+    )
     return client
 
 
@@ -825,7 +827,7 @@ def _store(
         scopes=list(provider.scopes),
         expiry=expiry,
     )
-    _credentials.save_token(provider.key, email, creds.to_json())  # type: ignore[no-untyped-call]
+    _credentials.save_token(provider.key, email, creds.to_json(), recreate_foreign=True)  # type: ignore[no-untyped-call]
     store = EmailAccountStore()
     store.ensure_schema()
     if store.get_by_address(provider.key, email) is None:

@@ -109,7 +109,9 @@ def login(
             "Re-run with the address matching the Google account you used in the browser."
         )
 
-    _credentials.save_token(KEYRING_PROVIDER, resolved.lower(), creds.to_json())
+    _credentials.save_token(
+        KEYRING_PROVIDER, resolved.lower(), creds.to_json(), recreate_foreign=True
+    )
     logger.debug("gmail oauth: stored token for %s", resolved.lower())
 
     store = EmailAccountStore()
@@ -196,7 +198,7 @@ def force_refresh(email: str) -> bool | None:
         creds.refresh(Request())
     except RefreshError:
         return False
-    _credentials.save_token(KEYRING_PROVIDER, addr, creds.to_json())
+    _credentials.save_token(KEYRING_PROVIDER, addr, creds.to_json(), recreate_foreign=True)
     return True
 
 
@@ -225,7 +227,7 @@ def load_credentials(email: str) -> Credentials | None:
             raise _credentials.CredentialRevokedError(
                 "Gmail", addr, f"iris auth gmail login --user {addr}"
             ) from exc
-        _credentials.save_token(KEYRING_PROVIDER, addr, creds.to_json())
+        _credentials.save_token(KEYRING_PROVIDER, addr, creds.to_json(), recreate_foreign=True)
         logger.debug("gmail oauth: refreshed token for %s", addr)
     return cast("Credentials | None", creds)
 
