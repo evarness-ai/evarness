@@ -42,6 +42,12 @@ configured". Run `ollama pull qwen3.5:4b-q4_K_M`. The demo is unaffected.
 
 ## Connecting a mailbox
 
+**`iris email setup` says "No mailbox is connected yet".** Setup never asks for a password
+and runs no login itself; it takes an account that is already connected. Connect one first
+with `iris auth imap login --user you@example.com` (an app password) or
+`iris auth gmail login --user you@gmail.com`, then run `iris email setup` again. To see the
+flow without an account, run `iris email demo`.
+
 **Outlook.com and Microsoft 365 cannot be connected.** IRIS logs in to IMAP with an app
 password and does not do OAuth over IMAP, and both require OAuth. Provider notes, with the
 server and port for each, are in
