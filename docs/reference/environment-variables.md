@@ -150,6 +150,7 @@ backends' own address variables, read wherever the harness talks to them.
     | `IRIS_GOVERNANCE_TRUSTED_CLOUD_FOR` | list |  | restart | Comma-separated data classes ('personal', 'internal') the egress gate lets reach cloud models; other values are dropped. **Guarded.** |
     | `IRIS_GOVERNANCE_VAULT_DB_PATH` | path |  | restart | Overrides the database path of the vault used for secret redaction. |
     | `IRIS_GOVERNOR_AUDIT_DB` | path |  | restart | Path of the governor service's audit database; unset uses the service's repo default. |
+    | `IRIS_GOVERNOR_BASE_URL` | url |  | restart | Where a deployment that runs the standalone governor service says it is (docker-compose sets it). When set, the health check expects the governor to answer; unset, a desktop install that never started it is not reported as broken. |
     | `IRIS_GOVERNOR_POLICY_PATH` | path |  | restart | Path to the policy file the standalone governor service loads instead of the repository default. **Guarded.** |
     | `IRIS_GOVERNOR_PORT` | url | `8080` | restart | Port the governor service listens on (launcher) and that the health check probes; default 8080. |
     | `IRIS_HEALTH_ENABLED` | bool | `on` | next run | Master switch for the health subsystem; off makes the health heartbeat skip. |

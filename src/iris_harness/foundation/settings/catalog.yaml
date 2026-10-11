@@ -869,6 +869,17 @@ settings:
     tab: none
     editable: false
     not_editable_reason: file path
+  IRIS_GOVERNOR_BASE_URL:
+    kind: url
+    default: null
+    applies: restart
+    label: Governor base URL
+    description: Where a deployment that runs the standalone governor service says it is (docker-compose
+      sets it). When set, the health check expects the governor to answer; unset, a desktop install
+      that never started it is not reported as broken.
+    tab: none
+    editable: false
+    not_editable_reason: URL/host setting
   IRIS_GOVERNOR_POLICY_PATH:
     kind: path
     default: null
