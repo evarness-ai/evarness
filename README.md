@@ -131,6 +131,13 @@ IRIS runs on macOS (Apple Silicon) and Linux; on Windows, use WSL2. It collects 
 telemetry. It is pre-1.0: the stable API changes only after a deprecation cycle, and
 everything else may change in any release.
 
+The MCP bridge is experimental and off by default; it only runs servers you list in
+`mcp-servers.yaml`. Known gaps are tracked in
+[#111](https://github.com/evarness-ai/iris-harness/issues/111),
+[#112](https://github.com/evarness-ai/iris-harness/issues/112),
+[#113](https://github.com/evarness-ai/iris-harness/issues/113) and
+[#114](https://github.com/evarness-ai/iris-harness/issues/114).
+
 ## Run the services
 
 The scheduled jobs (the email sweep and judge) and the web console run in the IRIS API.
