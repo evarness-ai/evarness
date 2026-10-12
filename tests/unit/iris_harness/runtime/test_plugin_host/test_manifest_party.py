@@ -79,7 +79,7 @@ def _every_plugin_manifest() -> list[Path]:
     found = [
         p
         for p in _ROOT.rglob("manifest.yaml")
-        if not {".venv", "node_modules", "skills", ".git", "htmlcov"}
+        if not {".venv", "node_modules", "skills", ".git", ".claude", "htmlcov"}
         & set(p.relative_to(_ROOT).parts)
     ]
     return sorted(found)
