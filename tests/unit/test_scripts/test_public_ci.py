@@ -259,12 +259,14 @@ def test_dependabot_moves_react_with_its_types_and_holds_majors_until_launch() -
 def test_the_webui_job_lints_typechecks_and_builds_on_every_pr() -> None:
     workflow = _load(WORKFLOWS / "ci.yml")
     # A `paths:` filter would leave the required `webui` check pending on a PR that does
-    # not touch webui/, so the workflow carries none and the job has no `if`.
+    # not touch webui/, so the workflow carries none. The job skips itself instead, and a
+    # skipped job is reported as passing; it runs unless `changes` says `false`.
     triggers = _triggers(workflow)
     for event in ("pull_request", "push"):
         assert not {"paths", "paths-ignore"} & set(triggers[event] or {})
     job = workflow["jobs"]["webui"]
-    assert "if" not in job
+    assert job["needs"] == "changes"
+    assert job["if"] == "${{ !cancelled() && needs.changes.outputs.webui != 'false' }}"
     assert job["defaults"]["run"]["working-directory"] == "webui"
     (node,) = [s for s in job["steps"] if str(s.get("uses", "")).startswith("actions/setup-node@")]
     (release_node,) = [
@@ -336,3 +338,17 @@ def test_codeql_runs_only_on_a_public_repository_and_the_secret_scan_always() ->
     assert "if" not in jobs["security"]
     script = "\n".join(step.get("run", "") for step in jobs["security"]["steps"])
     assert "oss_pii_scan.sh --strict" in script and "gitleaks git" in script
+
+
+def test_only_the_webui_and_playground_jobs_skip_themselves() -> None:
+    """Every other required check runs on every PR; the two skippable ones fail open."""
+    jobs = _load(WORKFLOWS / "ci.yml")["jobs"]
+    assert {name for name, job in jobs.items() if "if" in job} == {"webui", "playground"}
+    for name, output in (("webui", "webui"), ("playground", "engine")):
+        assert (
+            jobs[name]["if"]
+            == f"${{{{ !cancelled() && needs.changes.outputs.{output} != 'false' }}}}"
+        )
+    # `test` is a matrix job: skipping it would report a literal `test (${{ matrix... }})`
+    # and leave the required `test (3.12)` pending.
+    assert "if" not in jobs["test"]

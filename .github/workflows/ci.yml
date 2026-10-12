@@ -40,6 +40,28 @@ env:
   POETRY_VERSION: "2.3.3"
 
 jobs:
+  # Which of the two slowest jobs a PR can affect (scripts/ci_scope.sh). Not a required
+  # check. The jobs that use it run unless it says `false`, so if this job fails they still
+  # run; and a job skipped by its own `if:` is reported as passing, which a `paths:` filter
+  # on the workflow would not be.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      webui: ${{ steps.scope.outputs.webui }}
+      engine: ${{ steps.scope.outputs.engine }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash scripts/ci_scope.sh
+
   lint:
     name: lint
     runs-on: ubuntu-latest
@@ -155,6 +177,8 @@ jobs:
 
   playground:
     name: playground
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.engine != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -248,10 +272,13 @@ jobs:
 
   # The web console (webui/): what release.yml builds into the wheel must lint, type-check
   # and build on every change, not first at tag time, and its Playwright specs must pass.
-  # It runs on every PR, webui/ changed or not: a workflow skipped by a `paths:` filter
-  # leaves a required check pending forever, and the job is a few minutes.
+  # A workflow skipped by a `paths:` filter leaves a required check pending forever, so
+  # there is none. Instead the job is skipped by its own `if:` when `changes` finds no
+  # webui/, workflow or bundling change; a skipped job is reported as passing.
   webui:
     name: webui
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.webui != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Playwright's own image carries the browsers and every system library they need, so
