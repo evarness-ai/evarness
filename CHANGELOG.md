@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-11
+
 ### Fixed
 
 - `iris --version`, the web console's version line, the four services' API docs and the MCP `clientInfo` and `serverInfo` now report the installed version. Each held its own hard-coded copy, so 0.1.1 printed `IRIS 0.1.0` (and the MCP server reported `0.2.0`). They all read `iris_harness.__version__` now, and `tests/unit/test_version.py` pins it to `pyproject.toml`.
