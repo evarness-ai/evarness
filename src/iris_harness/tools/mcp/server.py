@@ -29,13 +29,14 @@ from typing import Any, Literal, TextIO
 
 from pydantic import BaseModel
 
+from iris_harness import __version__
 from iris_harness.foundation.paths import config_root
 
 logger = logging.getLogger(__name__)
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "iris"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = __version__
 # JSON-RPC error codes
 _METHOD_NOT_FOUND = -32601
 _INVALID_PARAMS = -32602

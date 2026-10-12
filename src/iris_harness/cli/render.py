@@ -13,6 +13,8 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 
+from iris_harness import __version__
+
 # `console` is the one console object, shared with plugin CLIs through iris_harness.sdk.cli.
 from iris_harness.foundation.console import console as console
 
@@ -63,7 +65,7 @@ _BAR_FILLED = "█"
 _BAR_EMPTY = "░"
 _BAR_WIDTH = 12
 
-IRIS_VERSION = "0.1.0"
+IRIS_VERSION = __version__
 
 err_console = Console(stderr=True)
 
