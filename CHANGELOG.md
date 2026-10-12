@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `README.md` now says the MCP bridge is experimental and off by default, and links the issues that track its known gaps (#111, #112, #113, #114).
+
 ## [0.1.2] - 2026-10-11
 
 ### Fixed
