@@ -37,7 +37,6 @@ FILES = sorted(WORKFLOWS.glob("*.yml"))
 REQUIRED_CHECKS = {
     "lint",
     "test (3.12)",
-    "playground",
     "quickstart",
     "security",
     "codeql (python)",
@@ -340,15 +339,19 @@ def test_codeql_runs_only_on_a_public_repository_and_the_secret_scan_always() ->
     assert "oss_pii_scan.sh --strict" in script and "gitleaks git" in script
 
 
-def test_only_the_webui_and_playground_jobs_skip_themselves() -> None:
-    """Every other required check runs on every PR; the two skippable ones fail open."""
+def test_only_the_webui_job_skips_itself() -> None:
+    """Every other required check runs on every PR; the one skippable job fails open."""
     jobs = _load(WORKFLOWS / "ci.yml")["jobs"]
-    assert {name for name, job in jobs.items() if "if" in job} == {"webui", "playground"}
-    for name, output in (("webui", "webui"), ("playground", "engine")):
-        assert (
-            jobs[name]["if"]
-            == f"${{{{ !cancelled() && needs.changes.outputs.{output} != 'false' }}}}"
-        )
+    assert {name for name, job in jobs.items() if "if" in job} == {"webui"}
+    assert jobs["webui"]["if"] == "${{ !cancelled() && needs.changes.outputs.webui != 'false' }}"
     # `test` is a matrix job: skipping it would report a literal `test (${{ matrix... }})`
     # and leave the required `test (3.12)` pending.
     assert "if" not in jobs["test"]
+
+
+def test_the_smoke_tests_run_in_the_test_job() -> None:
+    """The plain suite deselects `smoke`; no separate job runs them, so `test` must."""
+    jobs = _load(WORKFLOWS / "ci.yml")["jobs"]
+    assert "playground" not in jobs
+    runs = [step.get("run", "") for step in jobs["test"]["steps"]]
+    assert "poetry run pytest --no-cov -n auto -q -m smoke" in runs
