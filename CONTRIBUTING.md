@@ -81,6 +81,11 @@ core file such as `pyproject.toml` changes it runs `-m smoke` plus the mapped te
 so in the job summary). The entire suite on 3.12 and 3.13 runs on demand:
 `gh workflow run ci -f full=true`, or Actions, ci, Run workflow, full.
 
+The `test` job also runs the smoke tests (`-m smoke`, the deterministic playground suite on a
+real in-process runtime). The `webui` job skips itself when a pull request touches nothing
+under `webui/`, `.github/workflows/` or `scripts/bundle_webui.py`; GitHub reports a skipped job
+as passing, so it never blocks a merge. Every other check runs on every pull request.
+
 Tests mirror the source tree under `tests/unit/`. Async tests run with
 `asyncio_mode = "auto"`: never add `@pytest.mark.asyncio`. Tests never reach a model or the
 network; use the scripted fake model in `iris_harness.testing`. New behaviour ships with
