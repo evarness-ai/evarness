@@ -1,4 +1,4 @@
-"""scripts/ci_scope.sh decides which slow CI jobs a change can affect, and fails open."""
+"""scripts/ci_scope.sh decides whether a change can affect the webui CI job, and fails open."""
 
 from __future__ import annotations
 
@@ -22,23 +22,22 @@ def _scope(changed: str | None, **env: str) -> dict[str, str]:
 
 
 @pytest.mark.parametrize(
-    ("changed", "webui", "engine"),
+    ("changed", "webui"),
     [
-        ("README.md\ndocs/guides/a.md\nCHANGELOG.md", "false", "false"),
-        ("webui/src/App.tsx", "true", "true"),
-        ("src/iris_harness/main.py", "false", "true"),
-        ("docs/a.md\nsrc/iris_harness/main.py", "false", "true"),
-        (".github/workflows/ci.yml", "true", "true"),
-        (".github/ISSUE_TEMPLATE/bug.md", "false", "false"),
-        ("scripts/bundle_webui.py", "true", "true"),
-        # pyproject, mkdocs.yml and the scripts are code, not documentation.
-        ("pyproject.toml", "false", "true"),
-        ("mkdocs.yml", "false", "true"),
-        ("scripts/ci_quickstart.sh", "false", "true"),
+        ("README.md\ndocs/guides/a.md\nCHANGELOG.md", "false"),
+        ("webui/src/App.tsx", "true"),
+        ("src/iris_harness/main.py", "false"),
+        ("docs/a.md\nsrc/iris_harness/main.py", "false"),
+        (".github/workflows/ci.yml", "true"),
+        (".github/ISSUE_TEMPLATE/bug.md", "false"),
+        ("scripts/bundle_webui.py", "true"),
+        ("pyproject.toml", "false"),
+        ("mkdocs.yml", "false"),
+        ("scripts/ci_quickstart.sh", "false"),
     ],
 )
-def test_a_change_runs_the_jobs_it_can_affect(changed: str, webui: str, engine: str) -> None:
-    assert _scope(changed) == {"webui": webui, "engine": engine}
+def test_a_change_runs_the_webui_job_only_when_it_can_affect_it(changed: str, webui: str) -> None:
+    assert _scope(changed) == {"webui": webui}
 
 
 @pytest.mark.parametrize(
@@ -53,8 +52,8 @@ def test_a_change_runs_the_jobs_it_can_affect(changed: str, webui: str, engine: 
     ],
 )
 def test_it_fails_open(env: dict[str, str]) -> None:
-    assert _scope(None, **env) == {"webui": "true", "engine": "true"}
+    assert _scope(None, **env) == {"webui": "true"}
 
 
 def test_an_empty_diff_runs_everything() -> None:
-    assert _scope("") == {"webui": "true", "engine": "true"}
+    assert _scope("") == {"webui": "true"}

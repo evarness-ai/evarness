@@ -1,7 +1,7 @@
 name: ci
 
 # The required pull-request checks of OSS plan R11 that run on the tree: lint, test (3.12),
-# playground, quickstart, licenses, docs and webui. security.yml and pr.yml carry the rest.
+# quickstart, licenses, docs and webui. security.yml and pr.yml carry the rest.
 # Contributors run the same steps locally with scripts/ci_local.sh.
 #
 # Test policy (owner's instruction, 2026-10): a pull request or a push to main runs the
@@ -40,8 +40,8 @@ env:
   POETRY_VERSION: "2.3.3"
 
 jobs:
-  # Which of the two slowest jobs a PR can affect (scripts/ci_scope.sh). Not a required
-  # check. The jobs that use it run unless it says `false`, so if this job fails they still
+  # Whether a PR can affect the slowest job, webui (scripts/ci_scope.sh). Not a required
+  # check. The job that uses it runs unless it says `false`, so if this job fails they still
   # run; and a job skipped by its own `if:` is reported as passing, which a `paths:` filter
   # on the workflow would not be.
   changes:
@@ -50,7 +50,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       webui: ${{ steps.scope.outputs.webui }}
-      engine: ${{ steps.scope.outputs.engine }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -175,31 +174,11 @@ jobs:
           fi
           bash scripts/changed_tests.sh
 
-  playground:
-    name: playground
-    needs: changes
-    if: ${{ !cancelled() && needs.changes.outputs.engine != 'false' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.12"
-      - name: Install Poetry and the project (dev + email)
-        run: |
-          pipx install "poetry==${POETRY_VERSION}"
-          poetry config virtualenvs.in-project true
-          poetry env use python3.12
-          poetry install --with dev --extras email --no-interaction --no-ansi
-      # End-to-end runs against a real in-process runtime: the smoke-marked tests
-      # (deselected from the plain suite) and the deterministic playground suite.
+      # End-to-end against a real in-process runtime: the smoke-marked tests, which the plain
+      # suite deselects. They run the deterministic playground suite (config/playground/
+      # core-deterministic.yaml, no model) and take seconds, so they share this job's install.
       - name: Pytest (smoke marker)
         run: poetry run pytest --no-cov -n auto -q -m smoke
-      - name: Playground (core-deterministic)
-        run: poetry run iris playground run core-deterministic
 
   quickstart:
     name: quickstart
