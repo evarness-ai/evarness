@@ -102,6 +102,13 @@ checks `weather_server.py` answers a real MCP client.
   before IRIS may consume a server.
 - The server config lives under `config/coding-agent/mcp-servers.yaml`
   (`IRIS_MCP_SERVERS_CONFIG_PATH` overrides it), for the same reason.
+- **A stdio server starts with a small environment, not IRIS's.** It gets `PATH`, `HOME`,
+  `USER`, `LOGNAME`, `LANG`, `LC_*`, `TERM`, `TMPDIR` and `TZ`, the variables its entry lists
+  under `inherit_env`, and its own `env:`. Everything else stays behind: every `IRIS_*`
+  setting, `IRIS_VAULT_MASTER_KEY`, and any key or token in your shell. `inherit_env` takes
+  plain variable names and refuses `IRIS_*`; put a value under `env:` if a server needs
+  one. This is not an operating-system boundary: a server runs as you and can still read
+  files you can read.
 
 ## Try changing
 
@@ -120,7 +127,8 @@ the list item as it writes it:
 ```
 
 The test still passes: `iris mcp verify` rejects the entry ("signature does not match
-server spec (config or binary changed)"). The same holds for a changed `env`. The
+server spec (config or binary changed)"). The same holds for a changed list of `env` names
+or of `inherit_env` names; the values under `env:` are not signed. The
 signature covers what runs; which persona may call which tool is the allowlist's job,
 checked by `mcp_allowlist` on every call.
 
