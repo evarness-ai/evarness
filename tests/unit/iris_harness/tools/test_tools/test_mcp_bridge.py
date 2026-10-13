@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+import yaml
 
 from iris_harness.kernel.governance.hooks.types import HookContext, HookDecision, HookPoint
 from iris_harness.kernel.governance.plugins.mcp_allowlist import (
@@ -17,7 +19,14 @@ from iris_harness.kernel.governance.plugins.mcp_allowlist import (
 from iris_harness.kernel.governor.audit import GovernorAuditLogger
 from iris_harness.kernel.governor.policy import GovernorPolicyEngine, load_governor_policy
 from iris_harness.kernel.governor.service import IRISGovernorService
-from iris_harness.tools.mcp_bridge import MCPApprovalRequired, MCPBridge, load_mcp_bridge_config
+from iris_harness.tools.mcp_bridge import (
+    MCPApprovalRequired,
+    MCPBridge,
+    MCPServerConfig,
+    build_server_spec,
+    child_environment,
+    load_mcp_bridge_config,
+)
 
 
 def write_governor_policy(repo_root: Path) -> None:
@@ -270,6 +279,138 @@ def write_stdio_server_script(target_path: Path) -> None:
         "    write_message({'jsonrpc': '2.0', 'id': request['id'], 'result': {'content': [{'type': 'text', 'text': message}]}})\n",
         encoding="utf-8",
     )
+
+
+def write_env_server_script(target_path: Path) -> None:
+    """A stdio server whose one tool reports the names of the environment it was started with."""
+    target_path.write_text(
+        "import json, os, sys\n\n"
+        "def read():\n"
+        "    line = sys.stdin.buffer.readline()\n"
+        "    if not line:\n"
+        "        raise SystemExit(0)\n"
+        "    return json.loads(line.decode('utf-8'))\n\n"
+        "def write(payload):\n"
+        "    sys.stdout.buffer.write(json.dumps(payload).encode('utf-8') + b'\\n')\n"
+        "    sys.stdout.buffer.flush()\n\n"
+        "init = read()\n"
+        "write({'jsonrpc': '2.0', 'id': init['id'], 'result': {'capabilities': {}}})\n"
+        "read()\n"
+        "request = read()\n"
+        "write({'jsonrpc': '2.0', 'id': request['id'], 'result': "
+        "{'content': [{'type': 'text', 'text': json.dumps(sorted(os.environ))}]}})\n",
+        encoding="utf-8",
+    )
+
+
+def _env_server_config(
+    repo_root: Path,
+    script: Path,
+    *,
+    env: dict[str, str] | None = None,
+    inherit: list[str] | None = None,
+) -> None:
+    config_dir = repo_root / "config" / "coding-agent"
+    config_dir.mkdir(parents=True, exist_ok=True)
+    (config_dir / "mcp-servers.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "version": "1",
+                "enabled": True,
+                "servers": [
+                    {
+                        "name": "envcheck",
+                        "enabled": True,
+                        "transport": "stdio",
+                        "command": sys.executable,
+                        "args": [str(script)],
+                        "env": env or {},
+                        "inherit_env": inherit or [],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
+def _child_env_names(tmp_path: Path, **config: Any) -> set[str]:
+    write_governor_policy(tmp_path)
+    script = tmp_path / "env_server.py"
+    write_env_server_script(script)
+    _env_server_config(tmp_path, script, **config)
+    bridge = MCPBridge(tmp_path, governor_service=build_governor_service(tmp_path))
+    result = bridge.invoke_external_tool("envcheck", "report", {}, approval_granted=True).result
+    return set(json.loads(result["content"][0]["text"]))
+
+
+def test_a_stdio_server_does_not_inherit_iris_settings_or_the_vault_key(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("IRIS_VAULT_MASTER_KEY", "sentinel-vault-key")
+    monkeypatch.setenv("IRIS_AUTH_SECRET", "sentinel-auth")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "sentinel-aws")
+    monkeypatch.setenv("LC_ALL", "C")
+
+    names = _child_env_names(tmp_path)
+
+    assert not {"IRIS_VAULT_MASTER_KEY", "IRIS_AUTH_SECRET", "AWS_SECRET_ACCESS_KEY"} & names
+    assert {"PATH", "LC_ALL"} <= names  # what any program needs to start
+
+
+def test_a_stdio_server_gets_its_declared_env_and_the_names_it_inherits(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("NODE_PATH", "/opt/node")
+    monkeypatch.setenv("UNLISTED", "x")
+
+    names = _child_env_names(
+        tmp_path, env={"WEATHER_URL": "https://example.test"}, inherit=["NODE_PATH"]
+    )
+
+    assert {"WEATHER_URL", "NODE_PATH"} <= names and "UNLISTED" not in names
+
+
+def _server(**fields: Any) -> MCPServerConfig:
+    return MCPServerConfig(name="s", transport="stdio", command="x", **fields)
+
+
+def test_child_environment_is_an_allow_list_with_the_declared_env_on_top() -> None:
+    host = {"PATH": "/bin", "HOME": "/h", "LC_TIME": "C", "IRIS_X": "1", "SECRET": "s", "KEEP": "k"}
+    server = _server(env={"HOME": "/override", "ADDED": "a"}, inherit_env=("KEEP",))
+
+    assert child_environment(server, host) == {
+        "PATH": "/bin",
+        "HOME": "/override",
+        "LC_TIME": "C",
+        "KEEP": "k",
+        "ADDED": "a",
+    }
+
+
+def test_a_declared_iris_value_is_passed_because_the_owner_typed_it() -> None:
+    assert child_environment(_server(env={"IRIS_FOO": "v"}), {})["IRIS_FOO"] == "v"
+
+
+@pytest.mark.parametrize("name", ["IRIS_VAULT_MASTER_KEY", "iris_auth_secret", "IRIS_ANYTHING"])
+def test_inherit_env_refuses_every_iris_name(name: str) -> None:
+    with pytest.raises(ValueError, match="IRIS setting"):
+        _server(inherit_env=(name,))
+
+
+@pytest.mark.parametrize("name", ["", "A=B", "has space", "1ST"])
+def test_inherit_env_refuses_what_is_not_a_variable_name(name: str) -> None:
+    with pytest.raises(ValueError, match="not an environment variable name"):
+        _server(inherit_env=(name,))
+
+
+def test_inherit_env_is_part_of_the_signed_launch_spec() -> None:
+    plain = build_server_spec(_server())
+    inheriting = build_server_spec(_server(inherit_env=("NODE_PATH",)))
+    assert plain.canonical_bytes() != inheriting.canonical_bytes()
+    assert (
+        b"inherit_env" not in plain.canonical_bytes()
+    )  # an entry that inherits nothing is unchanged
 
 
 def test_load_mcp_bridge_config_defaults_to_disabled_when_absent(tmp_path: Path) -> None:

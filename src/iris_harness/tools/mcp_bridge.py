@@ -6,10 +6,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import select
 import subprocess
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urljoin, urlparse
@@ -17,7 +18,7 @@ from urllib.parse import urljoin, urlparse
 import httpx
 import yaml
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from iris_harness import __version__
 from iris_harness.foundation.ids import new_ulid
@@ -61,6 +62,25 @@ class MCPApprovalRequired(PermissionError):
 _APPROVAL_KEYS = frozenset({"approval_granted", "approved"})
 
 
+# What a stdio server is started with from the host's environment, besides its own ``env:``.
+# Anything else (every ``IRIS_*`` setting, ``IRIS_VAULT_MASTER_KEY``, provider keys, tokens
+# in the owner's shell) stays behind unless the entry names it in ``inherit_env``.
+_CHILD_ENV_BASE = frozenset({"PATH", "HOME", "USER", "LOGNAME", "LANG", "TERM", "TMPDIR", "TZ"})
+_ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+def child_environment(
+    server: MCPServerConfig, host: Mapping[str, str] | None = None
+) -> dict[str, str]:
+    """The environment a stdio server starts with: the base names, the locale (``LC_*``), the
+    variables its entry lists in ``inherit_env``, then its own ``env:`` on top."""
+    host = os.environ if host is None else host
+    allowed = _CHILD_ENV_BASE | set(server.inherit_env)
+    environment = {k: v for k, v in host.items() if k in allowed or k.startswith("LC_")}
+    environment.update(server.env)
+    return environment
+
+
 class MCPServerConfig(BaseModel):
     """Configuration for one external MCP server integration."""
 
@@ -74,6 +94,9 @@ class MCPServerConfig(BaseModel):
     args: tuple[str, ...] = Field(default_factory=tuple)
     url: str | None = Field(default=None)
     env: dict[str, str] = Field(default_factory=dict)
+    # Names of host environment variables this stdio server may see, beyond the base set in
+    # ``child_environment``. Never an ``IRIS_*`` name: pass a value in ``env:`` for that.
+    inherit_env: tuple[str, ...] = Field(default_factory=tuple)
     timeout_seconds: float = Field(default=10.0, gt=0)
     governance: MCPServerGovernance | None = Field(default=None)
     # Phase 6 MCP signing (6b): Ed25519 signature over the canonical launch spec
@@ -81,6 +104,20 @@ class MCPServerConfig(BaseModel):
     # entry is allowed/warned/denied per config/governance/mcp-signing.yaml.
     signature: str | None = Field(default=None)
     signed_by: str | None = Field(default=None)
+
+    @field_validator("inherit_env")
+    @classmethod
+    def validate_inherit_env(cls, names: tuple[str, ...]) -> tuple[str, ...]:
+        """Plain variable names only, and none of IRIS's own settings or vault key."""
+        for name in names:
+            if not _ENV_NAME.match(name):
+                raise ValueError(f"inherit_env: {name!r} is not an environment variable name")
+            if name.upper().startswith("IRIS_"):
+                raise ValueError(
+                    f"inherit_env: {name} is an IRIS setting and is never passed on; "
+                    "set a value for it under env: if the server needs one"
+                )
+        return tuple(dict.fromkeys(names))
 
     @model_validator(mode="after")
     def validate_enabled_transport(self) -> MCPServerConfig:
@@ -177,6 +214,7 @@ def build_server_spec(server: MCPServerConfig) -> ServerSpec:
         args=server.args,
         url=server.url,
         env_keys=tuple(server.env.keys()),
+        inherit_env=server.inherit_env,
         package_sha256=package_sha256,
     )
 
@@ -979,8 +1017,7 @@ def _run_stdio_exchange(
     if server.command is None:
         raise ValueError(f"MCP server '{server.name}' is missing a stdio command")
 
-    environment = os.environ.copy()
-    environment.update(server.env)
+    environment = child_environment(server)
     process = subprocess.Popen(
         [server.command, *server.args],
         stdin=subprocess.PIPE,

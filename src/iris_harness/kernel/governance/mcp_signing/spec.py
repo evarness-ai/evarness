@@ -1,8 +1,8 @@
 """Canonical signable spec for an MCP server (Phase 6, sub-phase 6b.1).
 
 The signed payload is a deterministic projection of the security-relevant config
-— command/args/url/declared env-key *names* and (for local-path stdio) a hash of
-the binary. Secret ``env`` *values* are never included (they live in the vault).
+— command/args/url/declared env-key *names*, the host variables it may inherit
+(``inherit_env``, names only) and (for local-path stdio) a hash of the binary. Secret ``env`` *values* are never included (they live in the vault).
 See ``docs/architecture/mcp-server-signing.md`` §1.
 """
 
@@ -25,6 +25,7 @@ class ServerSpec:
     url: str | None = None
     env_keys: tuple[str, ...] = ()
     package_sha256: str | None = None
+    inherit_env: tuple[str, ...] = ()
 
     def canonical_bytes(self) -> bytes:
         """Deterministic UTF-8 serialization signed/verified by Ed25519.
@@ -41,6 +42,9 @@ class ServerSpec:
             "env_keys": sorted(self.env_keys),
             "package_sha256": self.package_sha256,
         }
+        if self.inherit_env:
+            # Only when set, so the signature of an entry that inherits nothing is unchanged.
+            payload["inherit_env"] = sorted(self.inherit_env)
         return json.dumps(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")
