@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from iris_harness.llm.client import LLMModelMissing
 from iris_harness.sdk.llm import JsonReply, LLMBadReply, LLMUnreachable
 from iris_harness.services.heartbeat.models import HeartbeatStatus
 from iris_personal.email.contracts import EmailMessage
@@ -371,6 +372,20 @@ def test_unreachable_stops_the_run_and_leaves_the_rest_waiting(
     assert len(llm.calls) == 2  # stopped at once: no retry, no other model
     assert [j.message_id for j in store.waiting()] == ["m1", "m2", "m3"]
     assert report.waiting == 3
+
+
+def test_a_model_that_is_not_pulled_stops_the_run_before_any_email_is_recorded(
+    config: JudgeConfig, emails: EmailStore, store: JudgmentStore
+) -> None:
+    """Every email would fail the same way: none may become an Unsure verdict that is never retried."""
+    _queue(emails, store, 4)
+    llm = _llm(LLMModelMissing("model 'judge:4b' is not pulled: run `ollama pull judge:4b`"))
+    report = run_judge(store, emails, config, llm=llm, fetch_body=_body(), now=NOW)
+
+    assert report.unreachable and report.judged == 0 and report.errors == 0
+    assert "ollama pull judge:4b" in report.unreachable_error
+    assert len(llm.calls) == 1
+    assert [j.message_id for j in store.waiting()] == ["m0", "m1", "m2", "m3"]
 
 
 def test_one_failure_is_unsure_with_the_error_and_the_run_goes_on(

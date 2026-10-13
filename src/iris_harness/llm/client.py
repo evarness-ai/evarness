@@ -93,6 +93,18 @@ def _is_connection_error(exc: BaseException) -> bool:
     return False
 
 
+def _is_model_missing(exc: BaseException) -> bool:
+    """True if ``exc`` (or its cause chain) is a server's 404 for a model it has not pulled."""
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        if getattr(cur, "status_code", None) == 404 and "not found" in str(cur).lower():
+            return True
+        cur = cur.__cause__ or cur.__context__
+    return False
+
+
 # Some models (e.g. Llama variants via GitHub Models) emit tool calls as XML text
 # instead of using native function-calling.  Format:
 #   <function=tool_name><parameter=key>value</parameter>...</function>
@@ -122,6 +134,14 @@ class LLMUnreachable(RuntimeError):
     Raised by :meth:`CodingLLMClient.invoke_json` so a batch caller (a classifier
     working through a queue) can stop at once and try later, instead of waiting out a
     timeout per item. Nothing retries another endpoint.
+    """
+
+
+class LLMModelMissing(LLMUnreachable):
+    """The server is up but has not pulled the model (Ollama answers 404, model not found).
+
+    An :class:`LLMUnreachable`, so a batch caller stops at once: every later item would
+    fail the same way, and recording each one as a verdict would bury the cause.
     """
 
 
@@ -878,7 +898,8 @@ class CodingLLMClient:
 
         One retry when the reply is not a JSON object; a second miss raises
         :class:`LLMBadReply`. A connection failure, a timeout or an open breaker raises
-        :class:`LLMUnreachable`. A governance refusal is the usual
+        :class:`LLMUnreachable`, and so does a model the server has not pulled
+        (:class:`LLMModelMissing`, naming the ``ollama pull`` to run). A governance refusal is the usual
         :class:`CodingLLMInvocationError`. ``latency_ms`` covers every attempt.
         Ollama or the scripted fake only (``ValueError`` otherwise).
         """
@@ -894,6 +915,11 @@ class CodingLLMClient:
                 if _is_connection_error(exc):
                     raise LLMUnreachable(
                         f"{self.config.base_url}: {type(exc).__name__}: {exc}"
+                    ) from exc
+                if _is_model_missing(exc):
+                    raise LLMModelMissing(
+                        f"model '{self.config.model}' is not pulled: run "
+                        f"`ollama pull {self.config.model}` on the Ollama host"
                     ) from exc
                 raise
             last_content = response.content

@@ -1245,8 +1245,8 @@ class Onboarding:
             )
         if report.unreachable and not report.judged:
             raise RuntimeError(
-                f"the email_judge model is unreachable ({report.unreachable_error[:120]}): "
-                "start it, then run setup again"
+                f"the email_judge model is unavailable ({report.unreachable_error[:160]}): "
+                "start it or pull it, then run setup again"
             )
         rows = JudgmentStore(db_path=self.deps.email_db).judged_in_run(run)
         # Judged before a crash but never released to the readers: release it now.
