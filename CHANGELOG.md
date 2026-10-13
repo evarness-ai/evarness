@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `README.md` and the setup gotchas guide now say what to do when the install picks an unsupported Python (`uv tool install --python 3.13`), that `uv sync` installs nothing because IRIS is a Poetry project, and how to recover when the email judge's model was not pulled (`ollama pull`, then `iris email setup --restart` on 0.1.3 or later).
+
 ## [0.1.3] - 2026-10-13
 
 ### Fixed

@@ -14,10 +14,21 @@ only to shells started afterwards. See [Install](../getting-started/install.md#p
 **`uv` or `pipx` is not installed.** Neither ships with Python. If you have `pip`,
 `pip install uv` is the shortest route.
 
-**The wrong Python.** IRIS needs Python 3.12 or 3.13. On 3.14 or later, Poetry says
+**The wrong Python.** IRIS needs Python 3.12 or 3.13. A plain `uv tool install` fetches
+one for you, so it works whatever Python the machine has. If it stops with
+`No solution found ... iris-harness depends on Python>=3.12,<3.14`, uv is pinned to another
+Python: a `--python` flag, the `UV_PYTHON` variable, or a `python` setting in your uv
+config. Pass a supported one: `uv tool install --python 3.13 "iris-harness[email]"`, or
+`pipx install --python python3.13 "iris-harness[email]"` (pipx uses the Python it runs
+under, so it fails on 3.11 until you pass one). On 3.14 or later from a clone, Poetry says
 "The currently activated Python version is not supported by the project" and looks for a
-compatible interpreter; `uv tool install` fetches one for you. From a clone, install 3.12
-or 3.13 first (`.python-version` pins 3.12).
+compatible interpreter; install 3.12 or 3.13 first (`.python-version` pins 3.12).
+
+**`uv sync` installed nothing.** `uv sync` is for projects that declare themselves under
+`[project]`. IRIS declares itself under `[tool.poetry]`, so in a clone uv finds no
+dependencies and no `requires-python`, guesses `>=3.13` and builds an empty environment.
+To run IRIS, install the package: `uv tool install "iris-harness[email]"`. To work on the
+code, use `poetry install --with dev --extras email`.
 
 **Windows.** Native Windows is not supported; `iris doctor` reports "Not ready". Use
 WSL2.
@@ -37,8 +48,20 @@ because the vault cannot be read without the key.
 
 **`--fix` did not pull the email judge's model.** It pulls only the general starter model.
 The email judge is pinned to a smaller one that `iris doctor` does not check. Without it,
-the "Classify" step of `iris email setup` stops with "no local email_judge model tier is
-configured". Run `ollama pull qwen3.5:4b-q4_K_M`. The demo is unaffected.
+the "Classify" step of `iris email setup` stops with
+`the email_judge model is unavailable (model 'qwen3.5:4b-q4_K_M' is not pulled: run
+'ollama pull ...')`. Run `ollama pull qwen3.5:4b-q4_K_M` and run `iris email setup` again.
+The demo is unaffected.
+
+**Setup on 0.1.0 to 0.1.2 marked every email Unsure.** Those releases did not stop at a
+missing judge model. Ollama answered `404 model not found` for each email, setup printed a
+traceback for each, saved every email as an Unsure verdict that carried the 404, and still
+asked to change the mailbox. Nothing was written to the mailbox, and answering no at that
+prompt keeps it that way. Pull the model, upgrade with
+`uv tool install --refresh --force "iris-harness[email]"` (0.1.3 or later), then run
+`iris email setup --restart`. It judges those emails again. `iris email judge
+--retry-failed` does the same outside setup, for every email whose last verdict was an
+error.
 
 ## Connecting a mailbox
 
