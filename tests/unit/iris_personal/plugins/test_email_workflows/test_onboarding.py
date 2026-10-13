@@ -302,6 +302,24 @@ def test_defaults_run_to_the_label_approval_and_stop_there(world: World) -> None
     assert all(g.samples for g in preview.groups)
 
 
+def test_setup_judges_again_what_a_missing_model_left_as_a_failed_verdict(world: World) -> None:
+    """0.1.0-0.1.2 recorded the 404 of an unpulled model as an Unsure verdict per email, and
+    nothing re-judged it: a restart after `ollama pull` must."""
+    _stop_at_approval(world)
+    store = JudgmentStore(db_path=world.deps.email_db)
+    done = store.judged_in_run(world.machine().state(DEMO_ACCOUNT).run_id)
+    assert done
+    broken = "ResponseError: model 'judge:4b' not found (status code: 404)"
+    for row in done:
+        store.record(row.message_id, row.account_id, bucket="unsure", confidence=None, error=broken)
+    assert len(store.failed(missing_model_only=True)) == len(done)
+
+    world.machine().restart(DEMO_ACCOUNT)
+    _stop_at_approval(world)
+
+    assert store.failed() == []
+
+
 def test_the_provider_refuses_a_write_before_the_grant(world: World) -> None:
     _stop_at_approval(world)
     with pytest.raises(PermissionError):

@@ -1237,6 +1237,9 @@ class Onboarding:
             # judged, written with the verdict, so a resumed step counts it too.
             run_id=run,
             progress=progress,
+            # A run against a model that was not pulled (0.1.0-0.1.2) left Unsure rows
+            # with the 404; the owner has pulled it since, so judge them again.
+            retry_failed="missing_model",
         )
         if report.enabled and report.no_model:
             raise RuntimeError(

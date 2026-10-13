@@ -34,7 +34,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
 from email.utils import parseaddr
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from iris_harness.sdk.llm import (
     CodingLLMClient,
@@ -80,6 +80,8 @@ LLMCall = Callable[[str, str, Mapping[str, Any]], JsonReply]
 # (message, max_chars) -> the body text, read live.
 BodyFetcher = Callable[["EmailMessage", int], str]
 Emit = Callable[[str, Any], None]
+# Which failed verdicts a run judges again: those from a model that was not pulled, or all.
+RetryFailed = Literal["missing_model", "all"]
 
 
 # -- the call -----------------------------------------------------------------------
@@ -478,11 +480,18 @@ def _candidates(
     config: JudgeConfig,
     cap: int,
     backfill: int,
+    retry_failed: RetryFailed | None = None,
 ) -> list[tuple[str, str, bool]]:
     """``(message_id, account_id, was_waiting)`` to judge: waiting rows first (oldest
-    first), then — only when asked (the CLI) — the newest emails that have no row yet
-    (already visible, so never released again)."""
+    first), then — only when asked — rows whose last verdict was a failure, then — only
+    when asked (the CLI) — the newest emails that have no row yet. The last two are
+    already visible, so never released again."""
     picked = [(j.message_id, j.account_id, True) for j in store.waiting(limit=cap)]
+    if retry_failed is not None and len(picked) < cap:
+        failed = store.failed(
+            missing_model_only=retry_failed == "missing_model", limit=cap - len(picked)
+        )
+        picked.extend((j.message_id, j.account_id, False) for j in failed)
     room = min(cap - len(picked), backfill)
     if room <= 0:
         return picked
@@ -511,6 +520,7 @@ def run_judge(
     emit: Emit | None = None,
     limit: int | None = None,
     backfill: int = 0,
+    retry_failed: RetryFailed | None = None,
     dry_run: bool = False,
     now: datetime | None = None,
     tz: tzinfo | None = None,
@@ -521,6 +531,8 @@ def run_judge(
 
     ``dry_run`` writes nothing (no rows, no events): the verdicts are only in the
     report. ``backfill`` also takes up to that many recent emails that have no row yet.
+    ``retry_failed`` judges again rows whose last verdict was a failure: ``"missing_model"``
+    only those from a model that was not pulled, ``"all"`` every one.
     ``progress``, when given, is called before each candidate is judged.
     """
     report = JudgeRunReport(run_id=run_id or uuid.uuid4().hex[:12], dry_run=dry_run)
@@ -544,7 +556,7 @@ def run_judge(
         if was_waiting and not dry_run:
             released.setdefault(account, []).append(mid)
 
-    candidates = _candidates(store, email_store, config, cap, backfill)
+    candidates = _candidates(store, email_store, config, cap, backfill, retry_failed)
     total = len(candidates)
     for i, (message_id, account_id, was_waiting) in enumerate(candidates, start=1):
         if progress is not None:
