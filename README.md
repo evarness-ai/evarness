@@ -39,6 +39,26 @@ supported over IMAP) and the Gmail OAuth steps.
 
 If `iris` is not found after installing, add `~/.local/bin` to your PATH: run `uv tool update-shell` (or `pipx ensurepath`) and open a new terminal.
 
+If an install or setup stops:
+
+- **Python.** IRIS needs Python 3.12 or 3.13. A plain `uv tool install` fetches one for you.
+  If it stops with `No solution found ... Python>=3.12,<3.14`, uv is pinned to another
+  Python (a `--python` flag, `UV_PYTHON`, or a `python` setting in your uv config). Pass a
+  supported one: `uv tool install --python 3.13 "iris-harness[email]"`, or
+  `pipx install --python python3.13 "iris-harness[email]"`.
+- **Do not use `uv sync` to install IRIS.** It is for uv projects, and IRIS is a Poetry
+  project, so in a clone it builds an empty environment and installs nothing. Install the
+  package with the commands above; to work on the code, use Poetry (see below).
+- **The email judge's model.** If `iris email setup` stops with `model 'qwen3.5:4b-q4_K_M' is
+  not pulled`, run `ollama pull qwen3.5:4b-q4_K_M` and run setup again. On 0.1.0 to 0.1.2 a
+  missing model instead printed a 404 traceback per email and marked every email Unsure.
+  Upgrade, then judge them again:
+
+  ```bash
+  uv tool install --refresh --force "iris-harness[email]"   # 0.1.3 or later
+  iris email setup --restart                                # or: iris email judge --retry-failed
+  ```
+
 `iris email demo` needs no account, no credentials and no model server. It fetches a
 200-message synthetic mailbox, sorts it, previews and writes labels, prints a first
 digest, and ends with what it did, audit rows included. For your own mail you need
