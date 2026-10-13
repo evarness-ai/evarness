@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-13
+
 ### Fixed
 
 - `iris email setup` no longer judges every email against a model Ollama has not pulled. Ollama answers `404 model not found` for each call; the judge took that for a per-email failure, printed a traceback and recorded an Unsure verdict for every email, then asked to change the mailbox. It now stops at the first 404 and says `model 'qwen3.5:4b-q4_K_M' is not pulled: run `ollama pull qwen3.5:4b-q4_K_M` on the Ollama host`, with no verdicts recorded, so the next run judges the same mail.

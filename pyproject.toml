@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "iris-harness"
-version = "0.1.2"
+version = "0.1.3"
 description = "IRIS - Intelligent Reasoning & Integration System: Privacy-first agentic AI assistant with local-first LLM orchestration"
 authors = ["IRIS Development Team"]
 readme = "README.md"
