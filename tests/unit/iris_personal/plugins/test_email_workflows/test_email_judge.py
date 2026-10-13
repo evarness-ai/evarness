@@ -388,6 +388,94 @@ def test_a_model_that_is_not_pulled_stops_the_run_before_any_email_is_recorded(
     assert [j.message_id for j in store.waiting()] == ["m0", "m1", "m2", "m3"]
 
 
+_NOT_PULLED = "ResponseError: model 'judge:4b' not found (status code: 404)"
+
+
+def _failed(emails: EmailStore, store: JudgmentStore, *errors: str, start: int = 0) -> list[str]:
+    """One email per error, recorded as a failed verdict the way 0.1.0-0.1.2 recorded it."""
+    ids = _queue(emails, store, len(errors), start=start)
+    for mid, error in zip(ids, errors, strict=True):
+        store.record(mid, ACCOUNT, bucket="unsure", confidence=None, error=error)
+    return ids
+
+
+def test_failed_lists_error_rows_and_not_an_honest_unsure_or_a_skip(
+    emails: EmailStore, store: JudgmentStore
+) -> None:
+    _failed(emails, store, _NOT_PULLED, "LLMBadReply: no JSON", "skipped: promo sender")
+    (honest,) = _queue(emails, store, 1, start=10)
+    store.record(honest, ACCOUNT, bucket="unsure", confidence=0.2)
+
+    assert [j.message_id for j in store.failed()] == ["m0", "m1"]
+    assert [j.message_id for j in store.failed(missing_model_only=True)] == ["m0"]
+    assert [j.message_id for j in store.failed(limit=1)] == ["m0"]
+
+
+def test_a_failed_verdict_is_left_alone_unless_a_retry_is_asked_for(
+    config: JudgeConfig, emails: EmailStore, store: JudgmentStore
+) -> None:
+    _failed(emails, store, _NOT_PULLED)
+    report = run_judge(store, emails, config, llm=_llm(_bill()), fetch_body=_body(), now=NOW)
+
+    assert report.judged == 0
+    assert store.get("m0").error == _NOT_PULLED  # type: ignore[union-attr]
+
+
+def test_retry_judges_a_failed_row_again_without_hiding_or_releasing_it(
+    config: JudgeConfig, emails: EmailStore, store: JudgmentStore
+) -> None:
+    _failed(emails, store, _NOT_PULLED)
+    report = run_judge(
+        store,
+        emails,
+        config,
+        llm=_llm(_bill()),
+        fetch_body=_body(),
+        now=NOW,
+        retry_failed="missing_model",
+    )
+
+    row = store.get("m0")
+    assert row is not None and row.bucket == "bill" and row.error == ""
+    assert row.status == "judged" and store.waiting() == []  # never held again
+    assert report.released == {}  # it was released when it first failed: not twice
+
+
+def test_retry_missing_model_leaves_other_failures_and_all_takes_every_one(
+    config: JudgeConfig, emails: EmailStore, store: JudgmentStore
+) -> None:
+    _failed(emails, store, _NOT_PULLED, "LLMBadReply: no JSON")
+    run_judge(
+        store,
+        emails,
+        config,
+        llm=_llm(_bill()),
+        fetch_body=_body(),
+        now=NOW,
+        retry_failed="missing_model",
+    )
+    assert [j.message_id for j in store.failed()] == ["m1"]
+
+    run_judge(
+        store, emails, config, llm=_llm(_bill()), fetch_body=_body(), now=NOW, retry_failed="all"
+    )
+    assert store.failed() == []
+
+
+def test_a_retry_that_fails_again_keeps_the_error_and_waiting_mail_goes_first(
+    config: JudgeConfig, emails: EmailStore, store: JudgmentStore
+) -> None:
+    _failed(emails, store, _NOT_PULLED)
+    _queue(emails, store, 1, start=10)  # m10 is waiting
+    llm = _llm(_bill(), LLMBadReply("no JSON"))
+    report = run_judge(
+        store, emails, config, llm=llm, fetch_body=_body(), now=NOW, retry_failed="all"
+    )
+
+    assert [i.message_id for i in report.items] == ["m10", "m0"]  # waiting first
+    assert "no JSON" in store.get("m0").error  # type: ignore[union-attr]
+
+
 def test_one_failure_is_unsure_with_the_error_and_the_run_goes_on(
     config: JudgeConfig, emails: EmailStore, store: JudgmentStore
 ) -> None:

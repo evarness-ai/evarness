@@ -38,6 +38,10 @@ CORRECTION_SOURCES = ("gmail", "card", "chat", "web", "cli")
 # mail is not judged again (the promo track owns it).
 PROMO = "promo"
 
+# What 0.1.0-0.1.2 recorded for every email judged against a model Ollama had not pulled:
+# the ollama client's ResponseError text. Later releases stop the run instead (LLMModelMissing).
+MISSING_MODEL_ERROR = "%not found (status code: 404)%"
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS email_judgments (
     message_id     TEXT PRIMARY KEY,
@@ -242,6 +246,26 @@ class JudgmentStore:
         """Rows still to judge, oldest first (waiting rows drain before new mail)."""
         sql = "SELECT * FROM email_judgments WHERE status = ? ORDER BY created_at, message_id"
         params: list[Any] = [WAITING]
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+        with self._connect() as conn:
+            return [Judgment.from_row(r) for r in conn.execute(sql, params)]
+
+    def failed(
+        self, *, missing_model_only: bool = False, limit: int | None = None
+    ) -> list[Judgment]:
+        """Judged rows whose verdict is a failure (``error`` set, not a ``skipped:`` close),
+        oldest first. A low-confidence Unsure has no error and is not one of these.
+
+        ``missing_model_only`` keeps those the server answered with 404 for a model it had
+        not pulled: the one failure the owner fixes outside IRIS (``ollama pull``)."""
+        sql = "SELECT * FROM email_judgments WHERE status = ? AND error != '' AND error NOT LIKE ?"
+        params: list[Any] = [JUDGED, "skipped:%"]
+        if missing_model_only:
+            sql += " AND error LIKE ?"
+            params.append(MISSING_MODEL_ERROR)
+        sql += " ORDER BY judged_at, message_id"
         if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)

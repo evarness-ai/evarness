@@ -1514,6 +1514,14 @@ def cmd_email_judge(
             help="Only the queued emails; by default the newest unjudged mail fills the rest.",
         ),
     ] = False,
+    retry_failed: Annotated[
+        bool,
+        typer.Option(
+            "--retry-failed",
+            help="Judge again the emails whose last verdict was an error (the model was "
+            "missing or the reply unusable), before any new mail.",
+        ),
+    ] = False,
     email_db_path: Annotated[
         Path | None,
         typer.Option(
@@ -1552,6 +1560,7 @@ def cmd_email_judge(
         db_path=email_db_path or data_path("email.db"),
         limit=limit,
         backfill=0 if waiting_only else limit,
+        retry_failed="all" if retry_failed else None,
         dry_run=dry_run,
     )
     if not report.enabled:
