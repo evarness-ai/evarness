@@ -28,6 +28,7 @@ from iris_harness.llm.client import (
     CodingLLMConfig,
     CodingLLMInvocationError,
     LLMBadReply,
+    LLMModelMissing,
     LLMUnreachable,
     _default_model_factory,
 )
@@ -157,6 +158,28 @@ def test_a_connection_failure_is_unreachable_and_not_retried(error: Exception) -
     with pytest.raises(LLMUnreachable):
         _ask(_client(model))
     assert len(model.answers) == 1  # never retried, never another endpoint
+
+
+class _ResponseError(Exception):
+    """What the ollama client raises for an HTTP error status: the text and the code."""
+
+    def __init__(self, text: str, status_code: int) -> None:
+        super().__init__(f"{text} (status code: {status_code})")
+        self.status_code = status_code
+
+
+def test_a_model_the_server_has_not_pulled_stops_the_batch_and_says_what_to_run() -> None:
+    model = _Model([_ResponseError("model 'judge:4b' not found", 404), '{"label": "x"}'], [])
+    with pytest.raises(LLMModelMissing, match="ollama pull judge:4b") as caught:
+        _ask(_client(model))
+    assert isinstance(caught.value, LLMUnreachable)  # the batch callers already stop on this
+    assert len(model.answers) == 1  # not retried
+
+
+def test_another_error_status_is_not_taken_for_a_missing_model() -> None:
+    model = _Model([_ResponseError("server error", 500)], [])
+    with pytest.raises(_ResponseError):
+        _ask(_client(model))
 
 
 def test_an_open_breaker_is_unreachable_without_a_call(monkeypatch: pytest.MonkeyPatch) -> None:
