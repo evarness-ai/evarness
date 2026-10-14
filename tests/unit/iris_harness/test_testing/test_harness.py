@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -411,3 +412,102 @@ def test_a_second_run_does_not_inherit_the_first_runs_process_state() -> None:
 
     # Every declared piece of process state is exactly what it was before either run.
     assert _state_differences(before, snapshot_process_state().values) == []
+
+
+# --- trust: mcp ------------------------------------------------------------------------
+
+_WEATHER = Path(__file__).resolve().parents[4] / "examples" / "08-mcp" / "weather_server.py"
+_MCP_MANIFEST = {
+    "name": "weather",
+    "tools": {"forecast": {"effect": "read", "description": "Today's forecast for a city."}},
+}
+_MCP_SCRIPT: dict[str, Any] = {
+    "rules": [
+        {
+            "name": "route",
+            "match": {"system": "request router"},
+            "reply": {"json": {"intent": "general"}},
+        },
+        {
+            "name": "answer",
+            "match": {"user": r"(?s)Observation:.*Light rain"},
+            "reply": {"content": "Thought: Got it.\nFinal Answer: Oslo has light rain, 11 C."},
+        },
+        {
+            "name": "call",
+            "match": {"user": r"User: Weather in Oslo"},
+            "reply": {
+                "content": "Thought: Look it up.\nAction: forecast\n"
+                'Action Input: {"city": "oslo"}'
+            },
+        },
+    ]
+}
+
+
+def _weather() -> Any:
+    return plugin(manifest=_MCP_MANIFEST, server=[sys.executable, str(_WEATHER)])
+
+
+def test_a_trust_mcp_plugin_mounts_without_a_setup() -> None:
+    with harness(plugins=[_weather()], fake_model=_MCP_SCRIPT) as h:
+        assert h.plugin_loaded("weather"), h.plugins()["weather"]
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_a_scripted_turn_calls_the_mcp_tool_with_one_governed_set_of_rows(stream: bool) -> None:
+    with harness(plugins=[_weather()], fake_model=_MCP_SCRIPT) as h:
+        result = (h.chat_stream if stream else h.chat)("Weather in Oslo?")
+
+        assert result.text == "Oslo has light rain, 11 C."
+        before = h.audit_rows(hook_point="pre_tool_use", session_id=result.session_id)
+        after = h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)
+        assert [r.tool for r in before if r.tool == "forecast"] and {r.tool for r in before} == {
+            "forecast"
+        }
+        # One governed call: a second pass by the bridge would add rows under mcp/<server>/<tool>.
+        assert len({r.call_id for r in before}) == 1
+        assert {r.tool_plugin for r in before} == {"weather"}
+        assert all(r.caller and r.caller.startswith("model:") for r in before)
+        assert all(r.decision == "allow" for r in before)
+        assert {r.tool for r in after} == {"forecast"}
+        assert h.audit_gaps() == []
+
+
+def test_the_server_form_needs_the_tools_declared_and_no_setup() -> None:
+    with pytest.raises(ValueError, match="takes no setup"):
+        plugin(lambda api: None, manifest=_MCP_MANIFEST, server=["x"])
+    with pytest.raises(Exception, match="at least one tool"):
+        plugin(name="bare", server=["x"])
+    with pytest.raises(ValueError, match="already declares"):
+        plugin(manifest={**_MCP_MANIFEST, "trust": "mcp", "server": {"command": "x"}}, server=["y"])
+
+
+def test_an_mcp_tool_the_manifest_does_not_declare_is_not_reachable() -> None:
+    script = {
+        "rules": [
+            {
+                "name": "route",
+                "match": {"system": "request router"},
+                "reply": {"json": {"intent": "general"}},
+            },
+            {
+                "name": "other",
+                "match": {"user": r"User: Weather in Oslo"},
+                "reply": {"content": "Thought: x.\nAction: delete_everything\nAction Input: {}"},
+            },
+        ]
+    }
+    with harness(plugins=[_weather()], fake_model=script) as h:
+        h.chat("Weather in Oslo?")
+        rows = h.audit_rows(hook_point="pre_tool_use")
+        assert "delete_everything" not in {r.tool for r in rows if r.decision == "allow"}
+
+
+def test_seed_writes_files_under_the_home_and_refuses_a_path_that_leaves_it() -> None:
+    with harness(seed={"plugins/notes.txt": "hello", "a/b.bin": b"\x00"}) as h:
+        assert (h.home / "plugins" / "notes.txt").read_text() == "hello"
+        assert (h.home / "a" / "b.bin").read_bytes() == b"\x00"
+    with pytest.raises(ValueError, match="outside the harness home"):
+        with harness(seed={"../escape.txt": "x"}):
+            pass
