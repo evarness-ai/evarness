@@ -687,7 +687,7 @@ tools:
   governed runner (`PRE_TOOL_USE`, approvals, `POST_TOOL_USE`, audit) and the fault
   boundary apply as for a python plugin's.
 - Refused at load (the plugin is `FAILED` with the reason): a tool without `description`
-  or `impl`; `entrypoint`, `cli`, a non-`tool` `provides` or `trust: mcp`; an `impl` that
+  or `impl`; `entrypoint`, `cli`, a non-`tool` `provides` or `trust: mcp` (an MCP plugin is declared as above, not declaratively); an `impl` that
   does not import or cannot take the declared args. A python plugin may not carry
   `description`/`impl`/`args` (it says them in code).
 - Installed, the entry point names the package (`my-units = "my_units"`); in a test,
@@ -695,6 +695,42 @@ tools:
   (`$IRIS_HOME/plugins/<name>/manifest.yaml`) works when its `impl` module is importable.
 - Not the `config/skills/` skill system (code-first skills, the semantic router): that
   is a separate, older mechanism and is unchanged.
+
+## Out-of-process plugins (`trust: mcp`)
+
+A plugin whose code is an MCP server runs outside the harness. Its manifest names the
+server and declares the tools it offers; there is no `plugin.py` and no `setup`:
+
+```yaml
+name: weather
+trust: mcp
+provides: [tool]
+server:
+  command: /usr/bin/python3
+  args: [server.py]        # a relative script is read from the plugin's directory
+  inherit_env: []          # host variables the server may see, beyond PATH, HOME and locale
+  signature: ...           # from `iris mcp sign`; signed_by names the trust-store key
+  signed_by: ...
+tools:
+  forecast:
+    effect: read
+    description: Today's forecast for a city.
+```
+
+- Each declared tool registers through `register_tool`, so the declaration's effect and gate,
+  the governed runner (one `PRE_TOOL_USE`/`POST_TOOL_USE` pair, the stamped caller,
+  approvals) and the fault boundary apply as for an in-process tool. A tool the manifest
+  does not declare is never registered, so the loop cannot reach it.
+- A server's output is third-party text: every tool is `content: external`, and a manifest
+  that says `internal` is refused. A tool declares no `impl` or `args`; the server defines
+  its arguments.
+- The server is not started at mount. Each call starts a one-shot stdio session after the
+  launch signature is checked under `config/governance/mcp-signing.yaml`, with an
+  allow-listed environment. The transport adds no governance of its own, so a call is governed
+  once.
+- A profile cannot change how a plugin runs: mounting an MCP manifest as `in-process` (or the
+  reverse) fails the plugin with the reason.
+- Signing helpers for authors: `iris_harness.sdk.mcp`.
 
 ## Starting a plugin: `iris plugin new`
 

@@ -195,7 +195,7 @@ def _refusal(decision: GovernorGuardDecision, *, approval_granted: bool) -> Perm
     return PermissionError(decision.reason)
 
 
-def _entrypoint_script(args: tuple[str, ...]) -> Path | None:
+def _entrypoint_script(args: tuple[str, ...], base_dir: Path | None = None) -> Path | None:
     """The first argument that names a local file: the script an interpreter is asked to run.
 
     ``python server.py`` and ``node server.js`` have the interpreter as ``command``, so hashing
@@ -205,12 +205,14 @@ def _entrypoint_script(args: tuple[str, ...]) -> Path | None:
         if arg.startswith("-"):
             continue
         candidate = Path(arg)
+        if base_dir is not None and not candidate.is_absolute():
+            candidate = base_dir / candidate
         if candidate.is_file():
             return candidate
     return None
 
 
-def build_server_spec(server: MCPServerConfig) -> ServerSpec:
+def build_server_spec(server: MCPServerConfig, *, base_dir: Path | None = None) -> ServerSpec:
     """Build the canonical signable spec for ``server``.
 
     The single source of truth shared by the bridge gate and the ``iris mcp
@@ -223,7 +225,7 @@ def build_server_spec(server: MCPServerConfig) -> ServerSpec:
         candidate = Path(server.command)
         if candidate.is_file():
             package_sha256 = file_sha256(candidate)
-        script = _entrypoint_script(server.args)
+        script = _entrypoint_script(server.args, base_dir)
         if script is not None:
             entrypoint_sha256 = file_sha256(script)
     return ServerSpec(
@@ -289,6 +291,177 @@ def undeclared_tool_names(server: MCPServerConfig, tool_names: Iterable[str]) ->
     return [name for name in tool_names if declared_effect(server, name) is None]
 
 
+class MCPTransport:
+    """One MCP call over a server's transport, behind the launch-signature gate.
+
+    The wire half of the bridge, with no governance of its own: a caller that already runs
+    inside the governance kernel (the plugin host, whose tools the governed runner wraps in
+    one PRE/POST pair) calls this, so a call is governed once. ``MCPBridge`` keeps its own
+    governor and kernel around the same transport for the coding agent's route.
+    """
+
+    def __init__(
+        self,
+        working_dir: Path,
+        *,
+        signing_config: MCPSigningConfig,
+        trust_store: TrustStore,
+        http_requester: Callable[[MCPServerConfig, dict[str, Any]], Any] | None = None,
+        sse_exchange_runner: (
+            Callable[
+                [MCPServerConfig, tuple[dict[str, Any], ...], tuple[str, ...]],
+                dict[str, Any],
+            ]
+            | None
+        ) = None,
+    ) -> None:
+        self.working_dir = working_dir
+        self._signing_config = signing_config
+        self._trust_store = trust_store
+        self._http_requester = http_requester or _default_http_requester
+        self._sse_exchange_runner = sse_exchange_runner or _default_sse_exchange_runner
+
+    @classmethod
+    def from_repo_root(cls, repo_root: Path) -> MCPTransport:
+        """A transport under the repository's MCP-signing policy and trust store."""
+        signing = _load_signing_config(repo_root)
+        return cls(
+            repo_root, signing_config=signing, trust_store=_load_trust_store(repo_root, signing)
+        )
+
+    def invoke(
+        self,
+        server: MCPServerConfig,
+        *,
+        method: str,
+        params: dict[str, Any],
+        working_dir: Path | None = None,
+    ) -> Any:
+        """Invoke one MCP method over the configured transport."""
+        # Phase 6 G (signing): verify the server's signature before any process
+        # is launched or any endpoint is contacted. Shadow → warn + proceed;
+        # enforce + deny → raise (refuse) before the request is built.
+        self.enforce_signature(server, working_dir)
+        request_payload = _build_jsonrpc_request(
+            request_id=f"iris-{server.name}-{method.replace('/', '-')}",
+            method=method,
+            params=params,
+        )
+        if server.transport == "http":
+            response_payload = self._http_requester(server, request_payload)
+            return _extract_mcp_result(response_payload)
+        if server.transport == "stdio":
+            return self._invoke_stdio_transport(server, request_payload, working_dir)
+        if server.transport == "sse":
+            return self._invoke_sse_transport(server, request_payload)
+
+        raise ValueError(
+            f"MCP transport '{server.transport}' is not implemented yet; supported transports: http, stdio, sse"
+        )
+
+    def verify_signature(
+        self, server: MCPServerConfig, base_dir: Path | None = None
+    ) -> SignatureVerdict:
+        return verify_server_signature(
+            spec=build_server_spec(server, base_dir=base_dir),
+            signature=server.signature,
+            signed_by=server.signed_by,
+            trust_store=self._trust_store,
+        )
+
+    def enforce_signature(self, server: MCPServerConfig, base_dir: Path | None = None) -> None:
+        """Verify the server signature and apply the configured policy.
+
+        No-op when signing is disabled. In ``shadow`` mode every non-verified
+        verdict logs a warning but proceeds; in ``enforce`` mode the configured
+        ``unsigned_policy`` applies and ``deny`` raises ``MCPSignatureError``."""
+        if not self._signing_config.enabled:
+            return
+        verdict = self.verify_signature(server, base_dir)
+        action = resolve_signing_action(verdict, self._signing_config)
+        if action == "deny":
+            logger.warning(
+                "mcp-signing[enforce] DENY server=%s status=%s reason=%s",
+                server.name,
+                verdict.status,
+                verdict.reason,
+            )
+            raise MCPSignatureError(
+                f"MCP server {server.name!r} failed signature verification: "
+                f"{verdict.status} ({verdict.reason})"
+            )
+        if not verdict.is_trusted:
+            logger.warning(
+                "mcp-signing[%s] server=%s status=%s reason=%s key_id=%s (proceeding)",
+                self._signing_config.mode,
+                server.name,
+                verdict.status,
+                verdict.reason,
+                verdict.key_id,
+            )
+
+    def _invoke_stdio_transport(
+        self,
+        server: MCPServerConfig,
+        request_payload: dict[str, Any],
+        working_dir: Path | None = None,
+    ) -> Any:
+        """Invoke one MCP method over a one-shot stdio session with initialize handshake."""
+        initialize_payload = _build_jsonrpc_request(
+            request_id=f"iris-{server.name}-initialize",
+            method="initialize",
+            params={
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "iris", "version": __version__},
+            },
+        )
+        initialized_notification = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {},
+        }
+        responses = _run_stdio_exchange(
+            repo_root=working_dir or self.working_dir,
+            server=server,
+            outgoing_messages=(initialize_payload, initialized_notification, request_payload),
+            expected_response_ids=(
+                str(initialize_payload["id"]),
+                str(request_payload["id"]),
+            ),
+        )
+        _extract_mcp_result(responses[str(initialize_payload["id"])])
+        return _extract_mcp_result(responses[str(request_payload["id"])])
+
+    def _invoke_sse_transport(
+        self,
+        server: MCPServerConfig,
+        request_payload: dict[str, Any],
+    ) -> Any:
+        """Invoke one MCP method over an SSE session with initialize handshake."""
+        initialize_payload = _build_jsonrpc_request(
+            request_id=f"iris-{server.name}-initialize",
+            method="initialize",
+            params={
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "iris", "version": __version__},
+            },
+        )
+        initialized_notification = {
+            "jsonrpc": "2.0",
+            "method": "notifications/initialized",
+            "params": {},
+        }
+        responses = self._sse_exchange_runner(
+            server,
+            (initialize_payload, initialized_notification, request_payload),
+            (str(initialize_payload["id"]), str(request_payload["id"])),
+        )
+        _extract_mcp_result(responses[str(initialize_payload["id"])])
+        return _extract_mcp_result(responses[str(request_payload["id"])])
+
+
 class MCPBridge:
     """Bridge local skill tools into MCP definitions and guard external tool calls."""
 
@@ -317,17 +490,21 @@ class MCPBridge:
         self.governor_service = governor_service or IRISGovernorService.from_repo_root(
             self.repo_root
         )
-        self._http_requester = http_requester or _default_http_requester
-        self._sse_exchange_runner = sse_exchange_runner or _default_sse_exchange_runner
         self._server_index = {server.name: server for server in self.config.servers}
         self._governance_kernel = governance_kernel
         # Phase 6 MCP signing (6b.2): verify each server's signature before
         # launch/connect. Absent config → disabled (no-op); shadow → warn-only.
-        self._signing_config = signing_config or _load_signing_config(self.repo_root)
-        self._trust_store = (
-            trust_store
-            if trust_store is not None
-            else _load_trust_store(self.repo_root, self._signing_config)
+        resolved_signing = signing_config or _load_signing_config(self.repo_root)
+        self._transport = MCPTransport(
+            self.repo_root,
+            signing_config=resolved_signing,
+            trust_store=(
+                trust_store
+                if trust_store is not None
+                else _load_trust_store(self.repo_root, resolved_signing)
+            ),
+            http_requester=http_requester,
+            sse_exchange_runner=sse_exchange_runner,
         )
 
     @classmethod
@@ -774,125 +951,13 @@ class MCPBridge:
         params: dict[str, Any],
     ) -> Any:
         """Invoke one MCP method over the configured transport."""
-        # Phase 6 G (signing): verify the server's signature before any process
-        # is launched or any endpoint is contacted. Shadow → warn + proceed;
-        # enforce + deny → raise (refuse) before the request is built.
-        self._enforce_signature(server)
-        request_payload = _build_jsonrpc_request(
-            request_id=f"iris-{server.name}-{method.replace('/', '-')}",
-            method=method,
-            params=params,
-        )
-        if server.transport == "http":
-            response_payload = self._http_requester(server, request_payload)
-            return _extract_mcp_result(response_payload)
-        if server.transport == "stdio":
-            return self._invoke_stdio_transport(server, request_payload)
-        if server.transport == "sse":
-            return self._invoke_sse_transport(server, request_payload)
-
-        raise ValueError(
-            f"MCP transport '{server.transport}' is not implemented yet; supported transports: http, stdio, sse"
-        )
+        return self._transport.invoke(server, method=method, params=params)
 
     def _verify_signature(self, server: MCPServerConfig) -> SignatureVerdict:
-        return verify_server_signature(
-            spec=build_server_spec(server),
-            signature=server.signature,
-            signed_by=server.signed_by,
-            trust_store=self._trust_store,
-        )
+        return self._transport.verify_signature(server)
 
     def _enforce_signature(self, server: MCPServerConfig) -> None:
-        """Verify the server signature and apply the configured policy.
-
-        No-op when signing is disabled. In ``shadow`` mode every non-verified
-        verdict logs a warning but proceeds; in ``enforce`` mode the configured
-        ``unsigned_policy`` applies and ``deny`` raises ``MCPSignatureError``."""
-        if not self._signing_config.enabled:
-            return
-        verdict = self._verify_signature(server)
-        action = resolve_signing_action(verdict, self._signing_config)
-        if action == "deny":
-            logger.warning(
-                "mcp-signing[enforce] DENY server=%s status=%s reason=%s",
-                server.name,
-                verdict.status,
-                verdict.reason,
-            )
-            raise MCPSignatureError(
-                f"MCP server {server.name!r} failed signature verification: "
-                f"{verdict.status} ({verdict.reason})"
-            )
-        if not verdict.is_trusted:
-            logger.warning(
-                "mcp-signing[%s] server=%s status=%s reason=%s key_id=%s (proceeding)",
-                self._signing_config.mode,
-                server.name,
-                verdict.status,
-                verdict.reason,
-                verdict.key_id,
-            )
-
-    def _invoke_stdio_transport(
-        self,
-        server: MCPServerConfig,
-        request_payload: dict[str, Any],
-    ) -> Any:
-        """Invoke one MCP method over a one-shot stdio session with initialize handshake."""
-        initialize_payload = _build_jsonrpc_request(
-            request_id=f"iris-{server.name}-initialize",
-            method="initialize",
-            params={
-                "protocolVersion": "2025-03-26",
-                "capabilities": {},
-                "clientInfo": {"name": "iris", "version": __version__},
-            },
-        )
-        initialized_notification = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-            "params": {},
-        }
-        responses = _run_stdio_exchange(
-            repo_root=self.repo_root,
-            server=server,
-            outgoing_messages=(initialize_payload, initialized_notification, request_payload),
-            expected_response_ids=(
-                str(initialize_payload["id"]),
-                str(request_payload["id"]),
-            ),
-        )
-        _extract_mcp_result(responses[str(initialize_payload["id"])])
-        return _extract_mcp_result(responses[str(request_payload["id"])])
-
-    def _invoke_sse_transport(
-        self,
-        server: MCPServerConfig,
-        request_payload: dict[str, Any],
-    ) -> Any:
-        """Invoke one MCP method over an SSE session with initialize handshake."""
-        initialize_payload = _build_jsonrpc_request(
-            request_id=f"iris-{server.name}-initialize",
-            method="initialize",
-            params={
-                "protocolVersion": "2025-03-26",
-                "capabilities": {},
-                "clientInfo": {"name": "iris", "version": __version__},
-            },
-        )
-        initialized_notification = {
-            "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-            "params": {},
-        }
-        responses = self._sse_exchange_runner(
-            server,
-            (initialize_payload, initialized_notification, request_payload),
-            (str(initialize_payload["id"]), str(request_payload["id"])),
-        )
-        _extract_mcp_result(responses[str(initialize_payload["id"])])
-        return _extract_mcp_result(responses[str(request_payload["id"])])
+        self._transport.enforce_signature(server)
 
 
 def _build_jsonrpc_request(
@@ -1045,6 +1110,10 @@ def _run_stdio_exchange(
         stderr=subprocess.PIPE,
         cwd=str(repo_root),
         env=environment,
+        # Unbuffered, so ``select`` on stdout sees what a read would: a buffered reader takes
+        # both replies of a fast server in its first read, and ``select`` then waits for a
+        # byte that is already in the buffer, until the timeout.
+        bufsize=0,
     )
 
     try:
@@ -1052,8 +1121,7 @@ def _run_stdio_exchange(
             raise ValueError(f"unable to open stdio pipes for MCP server '{server.name}'")
 
         for message in outgoing_messages:
-            process.stdin.write(_encode_stdio_message(message))
-        process.stdin.flush()
+            _write_all(process.stdin, _encode_stdio_message(message))
 
         deadline = time.monotonic() + server.timeout_seconds
         responses: dict[str, Any] = {}
@@ -1086,6 +1154,16 @@ def _run_stdio_exchange(
         raise ValueError(timeout_message) from None
     finally:
         _terminate_process(process)
+
+
+def _write_all(stream: Any, data: bytes) -> None:
+    """Write every byte of ``data``: an unbuffered pipe may take only part of it."""
+    view = memoryview(data)
+    while view:
+        written = stream.write(view)
+        if written is None:
+            raise ValueError("MCP stdio server did not accept the request")
+        view = view[written:]
 
 
 def _encode_stdio_message(payload: dict[str, Any]) -> bytes:
