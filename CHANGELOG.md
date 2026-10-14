@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-10-14
+
 ### Security
 
 - An MCP stdio server no longer starts with IRIS's whole environment. The bridge copied `os.environ` into the child, so a server you configured held every `IRIS_*` setting, `IRIS_VAULT_MASTER_KEY` when it was set as a variable, and every key or token in your shell. It now starts with `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_*`, `TERM`, `TMPDIR`, `TZ`, the names its entry lists under the new `inherit_env`, and its own `env:`. `inherit_env` refuses `IRIS_*` names, and its names are part of the signed launch spec (an entry that lists none keeps its signature). A server that relied on an inherited variable stops seeing it until you list it. This closes the environment part of #113 only; the bridge is off by default and this is not an operating-system boundary. (#113)
