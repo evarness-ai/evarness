@@ -1101,3 +1101,50 @@ def test_the_bridge_stamps_the_alias_beside_the_call_id() -> None:
     )
     meta = kernel.fire_sync.call_args[0][1].metadata
     assert (meta["call_id"], meta["tool_call_id"]) == ("C1", "C1")
+
+
+def test_the_entry_script_is_part_of_the_signed_launch_spec(tmp_path: Path) -> None:
+    script = tmp_path / "server.py"
+    script.write_text("print('v1')\n", encoding="utf-8")
+    server = MCPServerConfig(
+        name="s", transport="stdio", command="python3", args=("-u", str(script))
+    )
+
+    before = build_server_spec(server)
+    script.write_text("print('v2')\n", encoding="utf-8")
+    after = build_server_spec(server)
+
+    assert before.entrypoint_sha256 and after.entrypoint_sha256
+    assert before.canonical_bytes() != after.canonical_bytes()
+
+
+def test_an_edited_entry_script_no_longer_verifies(tmp_path: Path) -> None:
+    from iris_harness.sdk.mcp import (
+        TrustedKey,
+        TrustStore,
+        generate_keypair,
+        sign_server_spec,
+        verify_server_signature,
+    )
+
+    script = tmp_path / "server.py"
+    script.write_text("print('v1')\n", encoding="utf-8")
+    server = MCPServerConfig(name="s", transport="stdio", command="python3", args=(str(script),))
+    private, public = generate_keypair()
+    store = TrustStore(keys={"k": TrustedKey(key_id="k", public_key=public)})
+    signature = sign_server_spec(private, build_server_spec(server))
+
+    def verdict() -> str:
+        return verify_server_signature(
+            spec=build_server_spec(server), signature=signature, signed_by="k", trust_store=store
+        ).status
+
+    assert verdict() == "verified"
+    script.write_text("print('evil')\n", encoding="utf-8")
+    assert verdict() == "invalid"
+
+
+def test_a_server_with_no_script_argument_keeps_its_signature() -> None:
+    spec = build_server_spec(_server(args=("-m", "pkg")))
+    assert spec.entrypoint_sha256 is None
+    assert b"entrypoint_sha256" not in spec.canonical_bytes()

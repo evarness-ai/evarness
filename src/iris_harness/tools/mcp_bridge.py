@@ -195,18 +195,37 @@ def _refusal(decision: GovernorGuardDecision, *, approval_granted: bool) -> Perm
     return PermissionError(decision.reason)
 
 
+def _entrypoint_script(args: tuple[str, ...]) -> Path | None:
+    """The first argument that names a local file: the script an interpreter is asked to run.
+
+    ``python server.py`` and ``node server.js`` have the interpreter as ``command``, so hashing
+    ``command`` alone leaves the server's own code outside the signature. ``-m pkg`` and a
+    launcher like ``npx pkg`` name no file and return ``None``."""
+    for arg in args:
+        if arg.startswith("-"):
+            continue
+        candidate = Path(arg)
+        if candidate.is_file():
+            return candidate
+    return None
+
+
 def build_server_spec(server: MCPServerConfig) -> ServerSpec:
     """Build the canonical signable spec for ``server``.
 
     The single source of truth shared by the bridge gate and the ``iris mcp
     sign``/``verify`` CLI, so the CLI signs exactly what the gate checks. Hashes
-    the binary only for a local-path ``stdio`` command (a launcher like
-    ``npx <pkg>`` is not a file — see the doc's scope boundary)."""
+    the binary of a local-path ``stdio`` command and the script it is asked to run (a
+    launcher like ``npx <pkg>`` is not a file — see the doc's scope boundary)."""
     package_sha256: str | None = None
+    entrypoint_sha256: str | None = None
     if server.transport == "stdio" and server.command:
         candidate = Path(server.command)
         if candidate.is_file():
             package_sha256 = file_sha256(candidate)
+        script = _entrypoint_script(server.args)
+        if script is not None:
+            entrypoint_sha256 = file_sha256(script)
     return ServerSpec(
         name=server.name,
         transport=server.transport,
@@ -216,6 +235,7 @@ def build_server_spec(server: MCPServerConfig) -> ServerSpec:
         env_keys=tuple(server.env.keys()),
         inherit_env=server.inherit_env,
         package_sha256=package_sha256,
+        entrypoint_sha256=entrypoint_sha256,
     )
 
 

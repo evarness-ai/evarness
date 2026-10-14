@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- An MCP server's own script is now part of its signed launch spec. For `python server.py` or `node server.js` the signature hashed only the interpreter, so editing `server.py` after `iris mcp sign` still verified and ran under `enforce`. The first argument that names a local file is hashed into `entrypoint_sha256`; an entry with no such argument keeps its signature. `iris mcp sign` now prints what it covers, and says when the server's code is not covered (`-m pkg`, `npx pkg`). Closes M4a of #113.
+
+### Added
+
+- `iris_harness.sdk.mcp` puts MCP server signing in the stable tier: `build_server_spec`, `sign_server_spec`, `verify_server_signature`, `TrustStore` and the types they use. A plugin author can sign and verify a `trust: mcp` server with `iris_harness.sdk` alone. This is the stable-tier part of M1 in #111; the plugin host for `trust: mcp` (M2, M3) is not built.
+
 ## [0.1.4] - 2026-10-14
 
 ### Security

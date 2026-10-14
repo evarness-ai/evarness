@@ -121,6 +121,17 @@ iris_harness.sdk.logging:log_egress
 iris_harness.sdk.logging:log_ingress
 iris_harness.sdk.logging:log_safe
 iris_harness.sdk.logging:log_tool_run
+iris_harness.sdk.mcp:MCPServerConfig
+iris_harness.sdk.mcp:ServerSpec
+iris_harness.sdk.mcp:SignatureVerdict
+iris_harness.sdk.mcp:TrustStore
+iris_harness.sdk.mcp:TrustedKey
+iris_harness.sdk.mcp:build_server_spec
+iris_harness.sdk.mcp:file_sha256
+iris_harness.sdk.mcp:generate_keypair
+iris_harness.sdk.mcp:public_key_for
+iris_harness.sdk.mcp:sign_server_spec
+iris_harness.sdk.mcp:verify_server_signature
 iris_harness.sdk.memory:WIKI_INGEST_REQUESTED
 iris_harness.sdk.memory:WikiEngine
 iris_harness.sdk.memory:WikiIngestEvent
