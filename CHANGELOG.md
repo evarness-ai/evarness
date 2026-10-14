@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `trust: mcp` plugins are mounted. A manifest with a `server:` block (command, args, env, `inherit_env`, `signature`) and declared `tools:` registers each tool into the governed tool pool, so a call gets one `PRE_TOOL_USE`/`POST_TOOL_USE` pair, the stamped caller and the manifest's effect and approval rules; its output is `content: external`. The server starts per call after the launch-signature check, and a profile cannot flip how a plugin runs. Before, such a plugin was marked unsupported and never started. M2 of #111; `testing.plugin(server=...)` (M3) follows.
+
+### Fixed
+
+- A stdio MCP call no longer waits out its timeout when the server answers fast. The reader was buffered, so both replies arrived in one read and `select` then waited for a byte already in the buffer. Part of #112.
+
 ### Security
 
 - An MCP server's own script is now part of its signed launch spec. For `python server.py` or `node server.js` the signature hashed only the interpreter, so editing `server.py` after `iris mcp sign` still verified and ran under `enforce`. The first argument that names a local file is hashed into `entrypoint_sha256`; an entry with no such argument keeps its signature. `iris mcp sign` now prints what it covers, and says when the server's code is not covered (`-m pkg`, `npx pkg`). Closes M4a of #113.

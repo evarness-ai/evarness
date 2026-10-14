@@ -604,6 +604,26 @@ class PluginWebUI(BaseModel):
         return self
 
 
+class PluginServer(BaseModel):
+    """How to launch the out-of-process MCP server of a ``trust: mcp`` plugin.
+
+    Mirrors the bridge's server entry, for one stdio server the plugin owns. ``signature`` and
+    ``signed_by`` are what ``iris mcp sign`` writes; the launch policy in
+    ``config/governance/mcp-signing.yaml`` decides what an unsigned or changed server does.
+    A relative script among ``args`` is read from the plugin's directory.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    command: str = Field(..., min_length=1)
+    args: tuple[str, ...] = Field(default_factory=tuple)
+    env: dict[str, str] = Field(default_factory=dict)
+    inherit_env: tuple[str, ...] = Field(default_factory=tuple)
+    timeout_seconds: float = Field(default=10.0, gt=0)
+    signature: str | None = None
+    signed_by: str | None = None
+
+
 class PluginManifest(BaseModel):
     """Declared identity + surface of one plugin."""
 
@@ -628,6 +648,8 @@ class PluginManifest(BaseModel):
     # Default trust: in-process behind the fault boundary (decision 8). ``mcp``
     # runs the plugin out of process over the signed MCP bridge (M2+).
     trust: TrustLevel = "in-process"
+    # The server a ``trust: mcp`` plugin runs as; absent for an in-process plugin.
+    server: PluginServer | None = None
     # Provenance, independent of ``trust`` (how the plugin runs): who wrote it and how far
     # the operator trusts them. Declaration only; nothing enforces it yet. Fail-closed
     # default (ADR-0134): a manifest that says nothing is ``untrusted``; a plugin the
@@ -729,6 +751,36 @@ class PluginManifest(BaseModel):
         return value
 
     @model_validator(mode="after")
+    def _mcp_plugin_shape(self) -> PluginManifest:
+        """A ``trust: mcp`` plugin is its server and its declared tools; nothing runs in-process."""
+        if self.trust != "mcp":
+            if self.server is not None:
+                raise ValueError("'server' is for a 'trust: mcp' plugin")
+            return self
+        if self.server is None:
+            raise ValueError("a 'trust: mcp' plugin declares the 'server' it runs")
+        for key in ("entrypoint", "cli"):
+            if key in self.model_fields_set:
+                raise ValueError(f"a 'trust: mcp' plugin runs out of process and has no '{key}'")
+        if not self.tools:
+            raise ValueError("a 'trust: mcp' plugin declares at least one tool")
+        others = [kind.value for kind in self.provides if kind is not RegistrationKind.TOOL]
+        if others or self.search_providers:
+            raise ValueError("a 'trust: mcp' plugin provides only tools")
+        for name, decl in self.tools.items():
+            if decl.impl is not None or decl.args:
+                raise ValueError(
+                    f"tools: {name!r} of a 'trust: mcp' plugin takes no 'impl' or 'args'; "
+                    "the server defines its arguments"
+                )
+            if "content" not in decl.model_fields_set:
+                # A server's output is text a third party wrote: the untrusted-content floor.
+                decl.content = "external"
+            elif decl.content != "external":
+                raise ValueError(f"tools: {name!r} of a 'trust: mcp' plugin is content: external")
+        return self
+
+    @model_validator(mode="after")
     def _tools_need_the_kind(self) -> PluginManifest:
         if self.tools and RegistrationKind.TOOL not in self.provides:
             raise ValueError("tools are declared but 'provides' does not list 'tool'")
@@ -751,7 +803,13 @@ class PluginManifest(BaseModel):
     def _flavor_shape(self) -> PluginManifest:
         """A declarative plugin is its manifest; a python plugin's tools are its code's."""
         if self.flavor == "python":
-            bound = sorted(name for name, decl in self.tools.items() if decl.declares_binding)
+            # An MCP plugin's tools are the server's; its manifest still gives the model a
+            # description of each (``_mcp_plugin_shape`` refuses ``impl`` and ``args``).
+            bound = sorted(
+                name
+                for name, decl in self.tools.items()
+                if decl.declares_binding and self.trust != "mcp"
+            )
             if bound:
                 raise ValueError(
                     f"tools: {', '.join(bound)} declare description/impl/args, which only a "

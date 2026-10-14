@@ -192,15 +192,13 @@ def test_a_plugin_supplied_from_code_is_not_noticed(
     assert not [m for m in _notices(caplog) if "from_code" in m]
 
 
-def test_not_found_and_disabled_and_mcp(tmp_path: Path, services: HarnessServices) -> None:
+def test_not_found_and_disabled(tmp_path: Path, services: HarnessServices) -> None:
     home = tmp_path / "home"
-    _home_plugin(home, "remote", "def setup(api):\n    pass\n", "trust: mcp\n")
     registry = PluginRegistry()
     prof = load_profile(tmp_path / "config", "x", home_dir=home, env={})
     prof.plugins = [
         PluginRef(name="ghost"),
         PluginRef(name="system", enabled=False),
-        PluginRef(name="remote"),
     ]
     records = {
         r.name: r for r in load_plugins(prof, services=services, registry=registry, home_dir=home)
@@ -208,7 +206,6 @@ def test_not_found_and_disabled_and_mcp(tmp_path: Path, services: HarnessService
     assert records["ghost"].status is PluginStatus.FAILED
     assert "not found" in (records["ghost"].load_error or "")
     assert records["system"].status is PluginStatus.DISABLED
-    assert records["remote"].status is PluginStatus.UNSUPPORTED
     assert registry.tools() == []
 
 

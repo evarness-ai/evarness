@@ -83,7 +83,7 @@ class PluginStatus(StrEnum):
     DEGRADED = "degraded"  # setup ran; at least one guarded call failed
     FAILED = "failed"  # setup raised, requirements unmet, or not found
     DISABLED = "disabled"  # in the profile but enabled: false
-    UNSUPPORTED = "unsupported"  # e.g. trust: mcp before the MCP host lands
+    UNSUPPORTED = "unsupported"  # a trust level the host cannot run
 
 
 @dataclass(frozen=True)

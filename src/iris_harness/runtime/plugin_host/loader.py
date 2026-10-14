@@ -52,6 +52,7 @@ from typing import Any
 from .api import HarnessServices, PluginAPI
 from .declarative import declarative_setup
 from .manifest import PluginManifest, load_manifest
+from .mcp_host import mcp_setup
 from .profile import EffectiveProfile, PluginRef, iris_home
 from .registry import PluginRecord, PluginRegistry, PluginStatus
 
@@ -326,6 +327,17 @@ def _requirements_problem(manifest: PluginManifest) -> str | None:
 def _import_setup(source: PluginSource) -> Callable[[PluginAPI], None]:
     manifest = source.manifest
     module: ModuleType
+    if manifest.trust == "mcp":
+        # No setup() of the plugin's: it runs as its server, which the host launches per call.
+        from iris_harness.foundation.paths import repo_root
+        from iris_harness.tools.mcp_bridge import MCPTransport
+
+        root = repo_root()
+        return mcp_setup(
+            manifest,
+            directory=source.directory or root,
+            transport=MCPTransport.from_repo_root(root),
+        )
     if manifest.flavor == "declarative":
         # No setup() of the plugin's: the loader binds the manifest's tools (decision 5).
         return declarative_setup(manifest)
@@ -514,9 +526,14 @@ def _mount(
         trust=trust,
         directory=source.directory,
     )
-    if trust == "mcp":
-        record.status = PluginStatus.UNSUPPORTED
-        record.load_error = "trust: mcp (out-of-process host) is not available yet; not loaded"
+    if trust != source.manifest.trust:
+        # The manifest says how the plugin runs (an MCP plugin has a server and no code to
+        # import; an in-process one the reverse), so a profile cannot flip it.
+        record.status = PluginStatus.FAILED
+        record.load_error = (
+            f"the profile mounts it as trust: {trust} but its manifest says "
+            f"trust: {source.manifest.trust}"
+        )
         return registry.add_plugin(record)
     problem = _requirements_problem(source.manifest) or _capability_problem(
         source.manifest, registry
