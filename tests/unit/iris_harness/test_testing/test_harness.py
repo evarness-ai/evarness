@@ -511,3 +511,12 @@ def test_seed_writes_files_under_the_home_and_refuses_a_path_that_leaves_it() ->
     with pytest.raises(ValueError, match="outside the harness home"):
         with harness(seed={"../escape.txt": "x"}):
             pass
+
+
+def test_a_declared_mcp_tool_is_described_by_the_tool_service() -> None:
+    with harness(plugins=[_weather()], fake_model=_MCP_SCRIPT) as h:
+        [info] = h._runtime.tool_service.describe("forecast")
+
+        assert (info.name, info.effect) == ("forecast", "read")
+        assert "Today's forecast" in info.description
+        assert h._runtime.tool_service.describe("delete_everything") == []
