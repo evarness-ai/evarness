@@ -121,6 +121,7 @@ def in_process_plugin(
     *,
     name: str | None = None,
     manifest: PluginManifest | Mapping[str, Any] | Path | str | None = None,
+    server: Sequence[str] | None = None,
 ) -> InProcessPlugin:
     """An :class:`InProcessPlugin` from ``setup`` and a manifest.
 
@@ -128,7 +129,14 @@ def in_process_plugin(
     or the path of a ``manifest.yaml``; ``None`` is the minimal manifest (``name`` only),
     as for an entry point that ships none. ``name`` fills a manifest that has none and
     must agree with one that has. ``setup`` is None for a ``flavor: declarative`` manifest
-    (the loader binds its tools) and required for any other.
+    (the loader binds its tools) and for a ``trust: mcp`` one (the host launches its server),
+    and required for any other.
+
+    ``server`` is the command that starts an MCP server (``[command, *args]``): the
+    manifest becomes ``trust: mcp`` with that ``server:`` block, so a test mounts the
+    plugin without writing the block out. It needs a manifest that declares the tools
+    (``manifest`` as a mapping, a path or a :class:`PluginManifest`) and refuses one that
+    already carries a ``server:`` block.
     """
     if setup is not None and not callable(setup):
         raise TypeError(f"in-process plugin setup must be callable, got {type(setup).__name__}")
@@ -139,6 +147,9 @@ def in_process_plugin(
         raw = dict(manifest)
         if name is not None:
             raw.setdefault("name", name)
+        if server is not None:
+            raw = _mcp_raw(raw, server)
+            server = None
         resolved = PluginManifest.model_validate(raw)
     elif isinstance(manifest, (Path, str)):
         resolved = load_manifest(Path(manifest))
@@ -148,7 +159,16 @@ def in_process_plugin(
         resolved = PluginManifest(name=name, description="in-process plugin")
     if name is not None and name != resolved.name:
         raise ValueError(f"in-process plugin name {name!r} disagrees with its manifest's")
+    if server is not None:
+        resolved = _with_server(resolved, server)
     declarative = resolved.flavor == "declarative"
+    if resolved.trust == "mcp":
+        if setup is not None:
+            raise ValueError(
+                f"in-process plugin {resolved.name!r} is 'trust: mcp': it runs as its server, "
+                "so it takes no setup"
+            )
+        return InProcessPlugin(setup=None, manifest=resolved)
     if setup is None and not declarative:
         raise TypeError(f"in-process plugin {resolved.name!r} needs a setup callable")
     if setup is not None and declarative:
@@ -157,6 +177,30 @@ def in_process_plugin(
             "plugin, so it takes no setup"
         )
     return InProcessPlugin(setup=setup, manifest=resolved)
+
+
+def _mcp_raw(raw: dict[str, Any], server: Sequence[str]) -> dict[str, Any]:
+    """The manifest mapping ``raw`` made ``trust: mcp`` with ``server`` as the command it runs."""
+    if not server:
+        raise ValueError("server= is the command to run: [command, *args]")
+    if raw.get("server") is not None:
+        raise ValueError(
+            f"plugin {raw.get('name')!r} already declares a 'server:'; pass one or the other"
+        )
+    command, *args = server
+    return {
+        **raw,
+        "trust": "mcp",
+        "server": {"command": command, "args": args},
+        "provides": raw.get("provides") or ["tool"],
+    }
+
+
+def _with_server(manifest: PluginManifest, server: Sequence[str]) -> PluginManifest:
+    """``manifest`` made ``trust: mcp`` with ``server`` as the command it runs."""
+    return PluginManifest.model_validate(
+        _mcp_raw(manifest.model_dump(exclude_unset=True, mode="json"), server)
+    )
 
 
 def add_in_process(

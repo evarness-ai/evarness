@@ -65,6 +65,7 @@ def plugin(
     *,
     name: str | None = None,
     manifest: PluginManifest | Mapping[str, Any] | Path | str | None = None,
+    server: Sequence[str] | None = None,
 ) -> InProcessPlugin:
     """A plugin for :func:`harness`, supplied as its ``setup`` callable.
 
@@ -73,9 +74,13 @@ def plugin(
     registers must be declared under ``tools:``. ``None`` is the minimal manifest (just
     ``name``), enough for a plugin that registers no tool. A ``flavor: declarative``
     plugin is its manifest alone: pass ``manifest`` and no ``setup``, and the harness binds
-    its tools as the loader does for an installed one.
+    its tools as the loader does for an installed one. A ``trust: mcp`` plugin is its
+    server: pass ``server=[command, *args]`` with a ``manifest`` that declares the tools
+    (and no ``setup``), and the harness mounts it as the plugin host does -- the server
+    starts per call, each declared tool is governed like any other, and nothing else the
+    server offers is reachable. Use an absolute path for a script among the args.
     """
-    return in_process_plugin(setup, name=name, manifest=manifest)
+    return in_process_plugin(setup, name=name, manifest=manifest, server=server)
 
 
 @dataclass(frozen=True)
@@ -544,6 +549,7 @@ def harness(
     home: Path | None = None,
     config_dir: Path | None = None,
     embeddings: bool = False,
+    seed: Mapping[str, str | bytes] | None = None,
 ) -> Iterator[Harness]:
     """Build a governed IRIS in a throwaway home and yield it; tear it down on exit.
 
@@ -553,7 +559,9 @@ def harness(
     ``env`` sets ``IRIS_*`` flags for the run -- applied after the scrub, so they are the
     only ones set. ``home`` is an empty directory to use (a fresh temporary one, removed
     on exit, by default). ``embeddings=False`` stubs the embedding model, as the suite
-    does, so the build loads no ~80 MB model.
+    does, so the build loads no ~80 MB model. ``seed`` maps paths relative to the home to
+    the content written there before the runtime is built (a file a plugin reads, a trust
+    store); a path that leaves the home is refused.
     """
     from iris_harness.runtime import build_runtime
     from iris_harness.testing import no_network, use_fake_model
@@ -565,6 +573,7 @@ def harness(
         if home.exists() and any(home.iterdir()):
             raise ValueError(f"harness home {home} is not empty")
         (home / "data").mkdir(parents=True, exist_ok=True)
+        _seed_home(home, seed or {})
         values = {
             "IRIS_HOME": str(home),
             "IRIS_DATA_DIR": str(home / "data"),
@@ -602,6 +611,19 @@ def harness(
         stack.callback(runtime.shutdown)
         runtime.startup()
         yield Harness(runtime, home, started)
+
+
+def _seed_home(home: Path, files: Mapping[str, str | bytes]) -> None:
+    """Write each ``files`` entry under ``home``; a path that escapes it is refused."""
+    for relative, content in files.items():
+        target = (home / relative).resolve()
+        if not target.is_relative_to(home):
+            raise ValueError(f"seed path {relative!r} is outside the harness home")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(content, str):
+            target.write_text(content, encoding="utf-8")
+        else:
+            target.write_bytes(content)
 
 
 __all__ = [

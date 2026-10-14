@@ -85,6 +85,12 @@ owner's `IRIS_*` settings and credentials out of the environment, a throwaway va
 master key, a keyring that refuses every call, no network. See
 `iris_harness/testing/harness.py`.
 
+A `trust: mcp` plugin is tested the same way: `plugin(manifest={...}, server=[command, *args])`
+with the tools declared in the manifest and no `setup`. Its tools are governed like any
+other (`audit_rows(hook_point="pre_tool_use")` shows the call, its caller and its owner).
+`harness(seed={"relative/path": "content"})` writes files into the home before the runtime
+is built.
+
 `chat` and `chat_stream` return a `TurnResult`: `text`, `agent`, `intent`, `sources`,
 `answered` (false only when a streamed turn ended in an error), `error`, `session_id`,
 `audit_refs` (the ids of the ledger rows the turn wrote) and, for `chat_stream`,
