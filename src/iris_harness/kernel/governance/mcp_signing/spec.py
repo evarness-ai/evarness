@@ -3,7 +3,8 @@
 The signed payload is a deterministic projection of the security-relevant config
 — command/args/url/declared env-key *names*, the host variables it may inherit
 (``inherit_env``, names only) and (for local-path stdio) a hash of the binary and of the
-script it is asked to run (``entrypoint_sha256``). Secret ``env`` *values* are never included (they live in the vault).
+script it is asked to run (``entrypoint_sha256``), and the values of the ``env:`` entries the
+entry pins (``pinned_env``: non-secret values such as an upstream URL). Secret ``env`` *values* are never included (they live in the vault).
 See ``docs/architecture/mcp-server-signing.md`` §1.
 """
 
@@ -13,6 +14,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,8 @@ class ServerSpec:
     package_sha256: str | None = None
     inherit_env: tuple[str, ...] = ()
     entrypoint_sha256: str | None = None
+    # ``(name, value)`` of the declared non-secret ``env:`` entries the operator pinned.
+    pinned_env: tuple[tuple[str, str], ...] = ()
 
     def canonical_bytes(self) -> bytes:
         """Deterministic UTF-8 serialization signed/verified by Ed25519.
@@ -35,7 +39,7 @@ class ServerSpec:
         Stable across runs: fixed key set, sorted keys, sorted env-key names,
         compact separators. Any change to a signed field flips the signature.
         """
-        payload = {
+        payload: dict[str, Any] = {
             "name": self.name,
             "transport": self.transport,
             "command": self.command,
@@ -50,6 +54,9 @@ class ServerSpec:
         if self.entrypoint_sha256:
             # Only when set, so the signature of an entry with no script argument is unchanged.
             payload["entrypoint_sha256"] = self.entrypoint_sha256
+        if self.pinned_env:
+            # Only when set, so the signature of an entry that pins nothing is unchanged.
+            payload["pinned_env"] = dict(sorted(self.pinned_env))
         return json.dumps(
             payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
         ).encode("utf-8")

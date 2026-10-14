@@ -67,6 +67,19 @@ _APPROVAL_KEYS = frozenset({"approval_granted", "approved"})
 # in the owner's shell) stays behind unless the entry names it in ``inherit_env``.
 _CHILD_ENV_BASE = frozenset({"PATH", "HOME", "USER", "LOGNAME", "LANG", "TERM", "TMPDIR", "TZ"})
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+_CREDENTIAL_WORDS = (
+    "KEY",
+    "TOKEN",
+    "SECRET",
+    "PASSWORD",
+    "PASSWD",
+    "CREDENTIAL",
+    "AUTH",
+    "DSN",
+    "BEARER",
+    "COOKIE",
+    "PRIVATE",
+)
 
 
 def child_environment(
@@ -97,6 +110,10 @@ class MCPServerConfig(BaseModel):
     # Names of host environment variables this stdio server may see, beyond the base set in
     # ``child_environment``. Never an ``IRIS_*`` name: pass a value in ``env:`` for that.
     inherit_env: tuple[str, ...] = Field(default_factory=tuple)
+    # Names under ``env`` whose *values* are signed with the entry, for a non-secret value
+    # such as an upstream URL: re-pointing it after signing no longer verifies. Never a
+    # credential (those belong in the vault); the other ``env`` values stay unsigned.
+    pinned_env: tuple[str, ...] = Field(default_factory=tuple)
     timeout_seconds: float = Field(default=10.0, gt=0)
     governance: MCPServerGovernance | None = Field(default=None)
     # Phase 6 MCP signing (6b): Ed25519 signature over the canonical launch spec
@@ -118,6 +135,30 @@ class MCPServerConfig(BaseModel):
                     "set a value for it under env: if the server needs one"
                 )
         return tuple(dict.fromkeys(names))
+
+    @field_validator("pinned_env")
+    @classmethod
+    def validate_pinned_env(cls, names: tuple[str, ...]) -> tuple[str, ...]:
+        """Plain variable names, none that reads as a credential."""
+        for name in names:
+            if not _ENV_NAME.match(name):
+                raise ValueError(f"pinned_env: {name!r} is not an environment variable name")
+            if any(word in name.upper() for word in _CREDENTIAL_WORDS):
+                raise ValueError(
+                    f"pinned_env: refusing to pin {name!r}: it looks like a credential. "
+                    "pinned_env is for non-secret runtime invariants (an upstream URL, a log "
+                    "level); its values are hashed into the signed spec. Move credentials to "
+                    "the vault (a vault:// handle under env:)."
+                )
+        return tuple(dict.fromkeys(names))
+
+    @model_validator(mode="after")
+    def validate_pinned_env_is_set(self) -> MCPServerConfig:
+        """A pinned name has a value under ``env`` to pin."""
+        missing = [name for name in self.pinned_env if name not in self.env]
+        if missing:
+            raise ValueError(f"pinned_env: {', '.join(missing)} not set under env:")
+        return self
 
     @model_validator(mode="after")
     def validate_enabled_transport(self) -> MCPServerConfig:
@@ -238,6 +279,7 @@ def build_server_spec(server: MCPServerConfig, *, base_dir: Path | None = None) 
         inherit_env=server.inherit_env,
         package_sha256=package_sha256,
         entrypoint_sha256=entrypoint_sha256,
+        pinned_env=tuple(sorted((name, server.env[name]) for name in server.pinned_env)),
     )
 
 

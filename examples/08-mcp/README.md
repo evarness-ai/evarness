@@ -128,7 +128,9 @@ the list item as it writes it:
 
 The test still passes: `iris mcp verify` rejects the entry ("signature does not match
 server spec (config or binary changed)"). The same holds for a changed list of `env` names
-or of `inherit_env` names; the values under `env:` are not signed. The
+or of `inherit_env` names; the values under `env:` are not signed unless the entry lists the
+name under `pinned_env` (for a non-secret value such as an upstream URL; a name that reads
+like a credential is refused). The
 signature covers what runs; which persona may call which tool is the allowlist's job,
 checked by `mcp_allowlist` on every call.
 

@@ -112,6 +112,11 @@ def cmd_sign(
         "  covers: command, args, url, env key names"
         + (", command binary hash" if spec.package_sha256 else "")
         + (", entry script hash" if spec.entrypoint_sha256 else "")
+        + (
+            f", pinned env values ({', '.join(n for n, _ in spec.pinned_env)})"
+            if spec.pinned_env
+            else ""
+        )
     )
     if spec.transport == "stdio" and not spec.entrypoint_sha256:
         console.print(
