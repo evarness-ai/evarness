@@ -1,6 +1,7 @@
 """MCP bridge signature gate — Phase 6 sub-phase 6b.2.
 
-The gate runs in ``MCPBridge._invoke_transport`` before any transport dispatch.
+The gate runs in ``MCPBridge._invoke_transport`` before any transport dispatch, and before an
+``executor=`` that stands in for the transport.
 Shadow verifies + warns but proceeds; enforce + deny refuses the launch.
 """
 
@@ -153,3 +154,58 @@ def test_enforce_warn_policy_proceeds(tmp_path: Path) -> None:
     bridge = _bridge(server, mode="enforce", unsigned_policy="warn", tmp_path=tmp_path)
     result = bridge._invoke_transport(server, method="tools/list", params={})
     assert result == {"ok": True}  # warn proceeds even under enforce
+
+
+def _call_with_executor(bridge: MCPBridge, server: MCPServerConfig) -> list[str]:
+    ran: list[str] = []
+    bridge.invoke_external_tool(
+        server.name,
+        "echo",
+        {},
+        approval_granted=True,
+        executor=lambda _server, tool, _args: ran.append(tool) or {"ok": True},
+    )
+    return ran
+
+
+def test_the_executor_path_does_not_run_an_unsigned_server_under_enforce(tmp_path: Path) -> None:
+    server = _http_server()
+    bridge = _bridge(server, mode="enforce", unsigned_policy="deny", tmp_path=tmp_path)
+    ran: list[str] = []
+    with pytest.raises(MCPSignatureError):
+        bridge.invoke_external_tool(
+            server.name,
+            "echo",
+            {},
+            approval_granted=True,
+            executor=lambda _s, tool, _a: ran.append(tool) or {},
+        )
+    assert ran == []
+
+
+def test_the_executor_path_does_not_run_a_tampered_server_under_enforce(tmp_path: Path) -> None:
+    signed, store = _sign_server(_http_server())
+    tampered = signed.model_copy(update={"url": "http://evil.test/mcp"})
+    bridge = _bridge(
+        tampered, mode="enforce", unsigned_policy="deny", trust_store=store, tmp_path=tmp_path
+    )
+    with pytest.raises(MCPSignatureError):
+        _call_with_executor(bridge, tampered)
+
+
+def test_the_executor_path_runs_a_verified_server_under_enforce(tmp_path: Path) -> None:
+    signed, store = _sign_server(_http_server())
+    bridge = _bridge(
+        signed, mode="enforce", unsigned_policy="deny", trust_store=store, tmp_path=tmp_path
+    )
+    assert _call_with_executor(bridge, signed) == ["echo"]
+
+
+def test_the_executor_path_warns_in_shadow_like_the_transport_path(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    server = _http_server()
+    bridge = _bridge(server, mode="shadow", tmp_path=tmp_path)
+    with caplog.at_level("WARNING", logger="iris_harness.tools.mcp_bridge"):
+        assert _call_with_executor(bridge, server) == ["echo"]
+    assert sum("mcp-signing[shadow]" in r.message for r in caplog.records) == 1
