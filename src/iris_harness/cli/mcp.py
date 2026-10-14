@@ -97,7 +97,8 @@ def cmd_sign(
         console.print(f"[red]server {server_name!r} not found in {servers}[/red]")
         raise typer.Exit(1)
 
-    signature = sign(private_b64, build_server_spec(server).canonical_bytes())
+    spec = build_server_spec(server)
+    signature = sign(private_b64, spec.canonical_bytes())
 
     doc = _load_yaml(servers)
     for entry in cast(list[dict[str, Any]], doc.get("servers") or []):
@@ -107,6 +108,16 @@ def cmd_sign(
             break
     _dump_yaml(servers, doc)
     console.print(f"[green]Signed {server_name!r} with {key_id!r}[/green] → {servers}")
+    console.print(
+        "  covers: command, args, url, env key names"
+        + (", command binary hash" if spec.package_sha256 else "")
+        + (", entry script hash" if spec.entrypoint_sha256 else "")
+    )
+    if spec.transport == "stdio" and not spec.entrypoint_sha256:
+        console.print(
+            "[yellow]  not covered: the server's own code (no script file among the args; "
+            "a module or package launcher is not hashed)[/yellow]"
+        )
     console.print("[yellow]note: comments in the YAML are not preserved on write[/yellow]")
 
 
