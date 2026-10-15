@@ -10,6 +10,7 @@ import os
 import re
 import select
 import subprocess
+import threading
 import time
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
@@ -1344,6 +1345,52 @@ def _iter_sse_events(lines: Any) -> Any:
         yield event_name, "\n".join(data_lines)
 
 
+class MCPTransportError(ValueError):
+    """A stdio session failed on the wire: no answer in time, the server exited, or it sent
+    something the exchange cannot use. A ``ValueError`` so existing callers keep catching it."""
+
+
+#: The newest this many bytes of a server's stderr are kept for an error message.
+_STDERR_TAIL_BYTES = 16_384
+#: A server that sends this much without a newline is not speaking the protocol.
+_MAX_STDOUT_BUFFER = 32 * 1024 * 1024
+_READ_CHUNK = 65_536
+
+
+class _StderrTail:
+    """Drains a child's stderr on a thread so a chatty server never blocks on a full pipe,
+    keeping only the newest bytes for the error message of a failed call."""
+
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+        self._tail = bytearray()
+        self._lock = threading.Lock()
+        self._thread = threading.Thread(target=self._drain, name="mcp-stderr", daemon=True)
+        self._thread.start()
+
+    def _drain(self) -> None:
+        try:
+            while chunk := self._stream.read(4096):
+                with self._lock:
+                    self._tail += chunk
+                    del self._tail[:-_STDERR_TAIL_BYTES]
+        except (OSError, ValueError):  # closed under us when the call ends
+            return
+
+    def text(self, wait: float = 0.2) -> str:
+        """The stderr seen so far; waits briefly for a process that just exited to flush."""
+        self._thread.join(timeout=wait)
+        with self._lock:
+            return bytes(self._tail).decode("utf-8", errors="replace").strip()
+
+
+def _describe_failure(server: MCPServerConfig, what: str, stderr: str, code: int | None) -> str:
+    message = f"MCP stdio server '{server.name}' {what}"
+    if code is not None:
+        message = f"{message} (exit code {code})"
+    return f"{message}: {stderr[-2000:]}" if stderr else message
+
+
 def _run_stdio_exchange(
     *,
     repo_root: Path,
@@ -1351,7 +1398,14 @@ def _run_stdio_exchange(
     outgoing_messages: tuple[dict[str, Any], ...],
     expected_response_ids: tuple[str, ...],
 ) -> dict[str, Any]:
-    """Run a one-shot stdio MCP session and collect the expected JSON-RPC responses."""
+    """Run a one-shot stdio MCP session and collect the expected JSON-RPC responses.
+
+    The whole session is bounded by ``server.timeout_seconds``: every wait, including the
+    wait for the rest of a half-written line, runs against one deadline. Bytes are read into
+    the exchange's own buffer, so nothing sits in a reader the deadline cannot see. A line that
+    is not a JSON-RPC message (a banner on stdout) is skipped; stderr is drained as the server
+    writes it. A failure says why: timeout, exit code and the end of stderr, or the id that
+    arrived when another was expected."""
     if server.command is None:
         raise ValueError(f"MCP server '{server.name}' is missing a stdio command")
 
@@ -1363,11 +1417,9 @@ def _run_stdio_exchange(
         stderr=subprocess.PIPE,
         cwd=str(repo_root),
         env=environment,
-        # Unbuffered, so ``select`` on stdout sees what a read would: a buffered reader takes
-        # both replies of a fast server in its first read, and ``select`` then waits for a
-        # byte that is already in the buffer, until the timeout.
         bufsize=0,
     )
+    stderr = _StderrTail(process.stderr) if process.stderr is not None else None
 
     try:
         if process.stdin is None or process.stdout is None:
@@ -1377,36 +1429,152 @@ def _run_stdio_exchange(
             _write_all(process.stdin, _encode_stdio_message(message))
 
         deadline = time.monotonic() + server.timeout_seconds
+        expected = set(expected_response_ids)
         responses: dict[str, Any] = {}
-        while len(responses) < len(expected_response_ids):
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError(
-                    f"timed out waiting for MCP stdio responses from server '{server.name}'"
-                )
-
-            ready, _, _ = select.select([process.stdout], [], [], remaining)
-            if not ready:
-                raise TimeoutError(
-                    f"timed out waiting for MCP stdio responses from server '{server.name}'"
-                )
-
-            payload = _read_stdio_message(process.stdout)
-            payload_id = payload.get("id")
-            if payload_id is None:
+        buffer = bytearray()
+        stdout_fd = process.stdout.fileno()
+        while not expected <= responses.keys():
+            payload = _next_stdio_message(buffer)
+            if payload is not None:
+                _accept_stdio_message(server, payload, expected, responses, process.stdin)
                 continue
-            responses[str(payload_id)] = payload
+
+            remaining = deadline - time.monotonic()
+            ready = select.select([stdout_fd], [], [], remaining)[0] if remaining > 0 else []
+            if not ready:
+                raise MCPTransportError(
+                    _describe_failure(
+                        server,
+                        f"gave no answer within {server.timeout_seconds:g}s",
+                        stderr.text(0) if stderr else "",
+                        None,
+                    )
+                )
+            chunk = os.read(stdout_fd, _READ_CHUNK)
+            if not chunk:
+                code = _exit_code(process)
+                raise MCPTransportError(
+                    _describe_failure(
+                        server,
+                        "closed its output before answering",
+                        stderr.text() if stderr else "",
+                        code,
+                    )
+                )
+            buffer += chunk
+            if len(buffer) > _MAX_STDOUT_BUFFER:
+                raise MCPTransportError(
+                    f"MCP stdio server '{server.name}' sent more than "
+                    f"{_MAX_STDOUT_BUFFER // (1024 * 1024)} MiB without a complete message"
+                )
 
         return responses
-    except TimeoutError:
-        _terminate_process(process)
-        stderr_output = _read_process_stderr(process)
-        timeout_message = f"timed out waiting for MCP stdio responses from server '{server.name}'"
-        if stderr_output:
-            timeout_message = f"{timeout_message}: {stderr_output}"
-        raise ValueError(timeout_message) from None
     finally:
         _terminate_process(process)
+
+
+def _exit_code(process: subprocess.Popen[bytes]) -> int | None:
+    try:
+        return process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        return None
+
+
+def _accept_stdio_message(
+    server: MCPServerConfig,
+    payload: dict[str, Any],
+    expected: set[str],
+    responses: dict[str, Any],
+    stdin: Any,
+) -> None:
+    """File one message from the server: an expected response, a request to answer, or noise."""
+    message_id = payload.get("id")
+    if "method" in payload:
+        # A server-initiated request or notification. A request is answered so the server is
+        # not left waiting; nothing here acts on it.
+        if message_id is not None:
+            if payload["method"] == "ping":
+                reply: dict[str, Any] = {"jsonrpc": "2.0", "id": message_id, "result": {}}
+            else:
+                reply = {
+                    "jsonrpc": "2.0",
+                    "id": message_id,
+                    "error": {"code": -32601, "message": "method not supported by this client"},
+                }
+            try:
+                _write_all(stdin, _encode_stdio_message(reply))
+            except (OSError, ValueError):
+                pass  # the server went away; the read side reports it
+        return
+    if message_id is None:
+        return
+    if str(message_id) not in expected:
+        raise MCPTransportError(
+            f"MCP stdio server '{server.name}' answered request id {message_id!r}, "
+            f"which this session did not send (expected {', '.join(sorted(expected))})"
+        )
+    responses[str(message_id)] = payload
+
+
+def _next_stdio_message(buffer: bytearray) -> dict[str, Any] | None:
+    """Take one complete JSON-RPC message off the front of ``buffer``, or return ``None``.
+
+    ``None`` means more bytes are needed. Newline-delimited JSON is the format; a legacy
+    ``Content-Length`` framed message is read too. Any other complete line (a startup banner,
+    a log line) is dropped, and so is a line that looks like JSON and is not."""
+    while True:
+        newline = buffer.find(b"\n")
+        if newline < 0:
+            return None
+        line = bytes(buffer[:newline]).decode("utf-8", errors="replace").strip()
+
+        if line.lower().startswith("content-length:"):
+            framed = _take_framed_message(buffer)
+            if framed is None:
+                return None
+            if framed:
+                return framed
+            continue
+
+        del buffer[: newline + 1]
+        if not line.startswith("{"):
+            if line:
+                logger.debug("mcp stdio: skipped a %d byte non-JSON line", len(line))
+            continue
+        try:
+            payload = json.loads(line)
+        except ValueError:
+            logger.debug("mcp stdio: skipped a %d byte line that is not JSON", len(line))
+            continue
+        if isinstance(payload, dict):
+            return payload
+        logger.debug("mcp stdio: skipped a JSON line that is not an object")
+
+
+def _take_framed_message(buffer: bytearray) -> dict[str, Any] | None:
+    """Take a ``Content-Length`` framed message, ``None`` if incomplete, ``{}`` if unusable."""
+    for separator in (b"\r\n\r\n", b"\n\n"):
+        end = buffer.find(separator)
+        if end >= 0:
+            break
+    else:
+        return None
+    header_text = bytes(buffer[:end]).decode("ascii", errors="ignore")
+    body_start = end + len(separator)
+    try:
+        length = _parse_content_length(header_text.splitlines())
+    except ValueError:
+        del buffer[:body_start]
+        return {}
+    if len(buffer) < body_start + length:
+        return None
+    body = bytes(buffer[body_start : body_start + length])
+    del buffer[: body_start + length]
+    try:
+        payload = json.loads(body.decode("utf-8"))
+    except ValueError:
+        return {}
+    return payload if isinstance(payload, dict) else {}
 
 
 def _write_all(stream: Any, data: bytes) -> None:
@@ -1422,39 +1590,6 @@ def _write_all(stream: Any, data: bytes) -> None:
 def _encode_stdio_message(payload: dict[str, Any]) -> bytes:
     """Encode one MCP stdio message using the current SDK newline-delimited format."""
     return (json.dumps(payload, separators=(",", ":"), ensure_ascii=False) + "\n").encode("utf-8")
-
-
-def _read_stdio_message(stream: Any) -> dict[str, Any]:
-    """Read one MCP stdio message from either newline-delimited or legacy framed output."""
-    raw_line = stream.readline()
-    if not raw_line:
-        raise ValueError("unexpected EOF while reading MCP stdio message")
-
-    stripped_line = raw_line.decode("utf-8", errors="ignore").strip()
-    if stripped_line.startswith("{"):
-        payload = json.loads(stripped_line)
-        if not isinstance(payload, dict):
-            raise ValueError("MCP stdio response must decode to a JSON object")
-        return payload
-
-    headers = [raw_line.decode("ascii", errors="ignore").strip()]
-    while True:
-        raw_line = stream.readline()
-        if not raw_line:
-            raise ValueError("unexpected EOF while reading MCP stdio headers")
-        if raw_line in {b"\r\n", b"\n"}:
-            break
-        headers.append(raw_line.decode("ascii", errors="ignore").strip())
-
-    content_length = _parse_content_length(headers)
-    body = stream.read(content_length)
-    if len(body) != content_length:
-        raise ValueError("unexpected EOF while reading MCP stdio body")
-
-    payload = json.loads(body.decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise ValueError("MCP stdio response must decode to a JSON object")
-    return payload
 
 
 def _parse_content_length(headers: list[str]) -> int:
@@ -1476,16 +1611,6 @@ def _terminate_process(process: subprocess.Popen[bytes]) -> None:
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait(timeout=1)
-
-
-def _read_process_stderr(process: subprocess.Popen[bytes]) -> str:
-    """Collect stderr output from a subprocess without raising."""
-    if process.stderr is None:
-        return ""
-    try:
-        return process.stderr.read().decode("utf-8", errors="ignore").strip()
-    except Exception:  # noqa: BLE001 — stderr is diagnostic only
-        return ""
 
 
 def _extract_mcp_result(payload: Any) -> Any:

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The stdio MCP transport no longer hangs on servers that behave like ordinary ones. It read through a buffered line reader the deadline could not see, so a server that wrote half a line blocked well past `timeout_seconds`, and one stdout banner line made it read the next JSON line as a header. It also read stderr only after a timeout, so a server writing 400 KB to stderr filled the pipe and stalled, and it counted id-bearing messages instead of checking ids, so a stray message ended the wait and a later lookup raised a bare `KeyError`. Reads now go through the exchange's own buffer under one deadline; a line that is not JSON-RPC (a banner) is skipped; stderr is drained on a thread and its tail kept; a server `ping` is answered and other server requests are declined; a response to an id the session never sent raises `MCPTransportError` naming it; and a server that exits or times out reports its exit code and the end of its stderr (a `ValueError` subclass, so existing callers still catch it). `Content-Length` framing is still read, under the same deadline. Part of #112 (M6, M7, M8, M9, M10).
 - A stdio MCP call no longer waits out its timeout when the server answers fast. The reader was buffered, so both replies arrived in one read and `select` then waited for a byte already in the buffer. Part of #112.
 
 ### Security
