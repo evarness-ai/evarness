@@ -20,6 +20,11 @@ import logging
 import re
 from typing import Any
 
+from iris_harness.kernel.governance.hooks.result_text import (
+    RESULT_TEXT_KEYS,
+    text_parts,
+    with_text_parts,
+)
 from iris_harness.kernel.governance.hooks.tool_payload import (
     RESULT,
     is_external,
@@ -154,8 +159,9 @@ class PromptGuardRetrievedHook:
     hook_point: HookPoint = HookPoint.POST_TOOL_USE
     priority: int = 45  # after PostToolUseLedgerHook (40)
 
-    #: Keys searched (in order) for the scannable text inside a dict result.
-    _RESULT_TEXT_KEYS: tuple[str, ...] = ("output", "content", "text", "result", "body")
+    #: Keys searched (in order) for the scannable text inside a dict result; a list of MCP
+    #: content blocks under one of them is read block by block (``hooks/result_text.py``).
+    _RESULT_TEXT_KEYS: tuple[str, ...] = RESULT_TEXT_KEYS
     #: Cap on segments scored per result; beyond this the whole text is one scan.
     _MAX_SEGMENTS: int = 32
 
@@ -180,15 +186,18 @@ class PromptGuardRetrievedHook:
         # A capability result arrives as a field map (``payload["fields"]``) beside its joined
         # text; the map is what reaches the consumer, so it is what gets scanned and redacted,
         # field by field -- rewriting only ``result`` would be dropped (plugin-capabilities §4).
+        # Any other result is scanned piece by piece: a string, the string under a known key,
+        # or each text block of an MCP ``tools/call`` result, each redacted where it sits.
         fields = ctx.payload.get("fields")
         by_field = isinstance(fields, dict) and bool(fields)
-        text_key: str | None = None
+        result = result_of(ctx.payload)
+        pieces: list[str] = []
         if by_field:
             assert isinstance(fields, dict)
             sources = {str(path): str(text) for path, text in fields.items()}
         else:
-            text, text_key = self._extract_result_text(result_of(ctx.payload))
-            sources = {"": text}
+            pieces = text_parts(result, self._RESULT_TEXT_KEYS)
+            sources = {str(i): piece for i, piece in enumerate(pieces)}
         if not any(text.strip() for text in sources.values()):
             return HookDecision(outcome="allow", reason="prompt_guard_retrieved: no scannable text")
 
@@ -275,7 +284,8 @@ class PromptGuardRetrievedHook:
                 RESULT: "\n".join(new_fields.values()),
             }
         else:
-            new_result = self._replace_result_text(result_of(ctx.payload), redacted[""], text_key)
+            new_parts = [redacted.get(str(i), piece) for i, piece in enumerate(pieces)]
+            new_result = with_text_parts(result, new_parts, self._RESULT_TEXT_KEYS)
             payload = {**ctx.payload, RESULT: new_result}
         return HookDecision(
             outcome="transform",
@@ -284,27 +294,6 @@ class PromptGuardRetrievedHook:
             severity="critical",
             audit_metadata=audit,
         )
-
-    @classmethod
-    def _extract_result_text(cls, result: object) -> tuple[str, str | None]:
-        """Return ``(text, key)`` — ``key`` is the dict field the text came from
-        (``None`` when the result is a bare string)."""
-        if isinstance(result, str):
-            return result, None
-        if isinstance(result, dict):
-            for key in cls._RESULT_TEXT_KEYS:
-                value = result.get(key)
-                if isinstance(value, str) and value.strip():
-                    return value, key
-        return "", None
-
-    @staticmethod
-    def _replace_result_text(result: object, redacted: str, text_key: str | None) -> object:
-        if text_key is None:
-            return redacted
-        if isinstance(result, dict):
-            return {**result, text_key: redacted}
-        return redacted
 
     @classmethod
     def _segment(cls, text: str) -> list[str]:

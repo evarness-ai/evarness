@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from iris_harness.kernel.governance.hooks.result_text import result_text
 from iris_harness.kernel.governance.hooks.types import (
     DataClassification,
     HookContext,
@@ -56,6 +57,8 @@ class OutputClassifierHook:
     # off seeing the label this derives than the stale one the turn came in with.
     priority: int = 10
 
+    #: Payload keys searched, in order, for the result. The value is a string or a structured
+    #: result (an MCP ``tools/call`` result's text blocks, joined; ``hooks/result_text.py``).
     _RESULT_KEYS: tuple[str, ...] = ("result", "observation", "output", "text")
 
     def __init__(self, classifier: DataClassifier | None = None) -> None:
@@ -110,9 +113,9 @@ class OutputClassifierHook:
     @classmethod
     def _extract_text(cls, payload: dict[str, Any]) -> str:
         for key in cls._RESULT_KEYS:
-            value = payload.get(key)
-            if isinstance(value, str) and value.strip():
-                return value
+            text = result_text(payload.get(key))
+            if text.strip():
+                return text
         return ""
 
 
