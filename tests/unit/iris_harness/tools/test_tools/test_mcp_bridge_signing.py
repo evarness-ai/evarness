@@ -7,6 +7,7 @@ Shadow verifies + warns but proceeds; enforce + deny refuses the launch.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -283,3 +284,95 @@ def test_pinned_env_refuses_a_credential_a_bad_name_and_an_unset_name(
     }
     with pytest.raises(ValueError, match=message):
         _http_server(env=env, pinned_env=pinned)
+
+
+# --- a refusal is a PermissionError with one deny row -----------------------------------
+
+
+def _kernel_bridge(tmp_path: Path, server: MCPServerConfig, *, store: TrustStore | None = None):  # type: ignore[no-untyped-def]
+    from iris_harness.kernel.governance import build_default_kernel
+    from iris_harness.kernel.governance.approvals import ApprovalQueue
+    from iris_harness.kernel.governance.audit import AuditLog
+
+    _write_governor_policy(tmp_path)
+    audit = AuditLog(tmp_path / "audit.db")
+    kernel = build_default_kernel(
+        audit_log=audit,
+        approval_queue=ApprovalQueue(db_path=tmp_path / "approvals.db"),
+        side_effect_ledger_db_path=tmp_path / "ledger.db",
+    )
+    bridge = MCPBridge(
+        tmp_path,
+        config=MCPBridgeConfig(enabled=True, servers=(server,)),
+        governance_kernel=kernel,
+        signing_config=MCPSigningConfig(enabled=True, mode="enforce", unsigned_policy="deny"),
+        trust_store=store or TrustStore.empty(),
+        http_requester=lambda _s, _p: {"result": {"ok": True}},
+    )
+    return bridge, audit
+
+
+def _read_server(**overrides: object) -> MCPServerConfig:
+    from iris_harness.kernel.governance.plugins.mcp_allowlist import MCPServerGovernance
+
+    return _http_server(governance=MCPServerGovernance(undeclared_tools="read"), **overrides)
+
+
+def test_a_signature_refusal_is_a_permission_error() -> None:
+    assert issubclass(MCPSignatureError, PermissionError)
+
+
+def test_a_refused_call_leaves_one_deny_row_and_no_allow_rows(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, audit = _kernel_bridge(tmp_path, server)
+
+    with pytest.raises(PermissionError, match="failed signature verification"):
+        bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+
+    rows = audit.query()
+    assert [(r.hook_point, r.plugin, r.decision) for r in rows] == [
+        ("pre_tool_use", "mcp_signature", "deny")
+    ]
+    payload = json.loads(rows[0].payload_json)
+    assert payload["signature_status"] == "unsigned"
+    assert payload["mcp_server"] == "remote" and payload["mcp_tool"] == "read_x"
+
+
+def test_a_refused_call_does_not_reach_the_transport_or_the_governor(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, _audit = _kernel_bridge(tmp_path, server)
+
+    with pytest.raises(MCPSignatureError):
+        bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+
+    assert not (tmp_path / "data" / "audit.db").exists()  # the governor never saw the call
+
+
+def test_a_verified_call_still_runs_through_every_hook(tmp_path: Path) -> None:
+    signed, store = _sign_server(_read_server())
+    bridge, audit = _kernel_bridge(tmp_path, signed, store=store)
+
+    result = bridge.invoke_external_tool(signed.name, "read_x", {}, approval_granted=True)
+
+    assert result.result == {"ok": True}
+    plugins = [r.plugin for r in audit.query() if r.hook_point == "pre_tool_use"]
+    assert "mcp_signature" not in plugins and len(plugins) > 1
+    assert all(r.decision == "allow" for r in audit.query() if r.hook_point == "pre_tool_use")
+
+
+def test_a_refused_tools_list_raises_before_the_governor_records_an_allow(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, _audit = _kernel_bridge(tmp_path, server)
+
+    with pytest.raises(PermissionError, match="failed signature verification"):
+        bridge.list_external_tools(server.name, approval_granted=True)
+
+    assert not (tmp_path / "data" / "audit.db").exists()
+
+
+def test_the_http_route_answers_403_for_a_signature_refusal() -> None:
+    from iris_harness.server.iris_api.mcp_server import _as_http_exception
+
+    error = _as_http_exception(MCPSignatureError("MCP server 'x' failed signature verification"))
+
+    assert error.status_code == 403 and "signature" in str(error.detail)
