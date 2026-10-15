@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -376,3 +377,75 @@ def test_the_http_route_answers_403_for_a_signature_refusal() -> None:
     error = _as_http_exception(MCPSignatureError("MCP server 'x' failed signature verification"))
 
     assert error.status_code == 403 and "signature" in str(error.detail)
+
+
+# --- the verdict is on the row of an allowed call ----------------------------------------
+
+
+def _row_payloads(audit: Any, hook_point: str) -> list[dict[str, Any]]:
+    return [json.loads(r.payload_json) for r in audit.query() if r.hook_point == hook_point]
+
+
+def test_a_verified_call_carries_the_verdict_signer_and_spec_hash_on_every_row(
+    tmp_path: Path,
+) -> None:
+    signed, store = _sign_server(_read_server())
+    bridge, audit = _kernel_bridge(tmp_path, signed, store=store)
+
+    bridge.invoke_external_tool(signed.name, "read_x", {}, approval_granted=True)
+
+    for hook_point in ("pre_tool_use", "post_tool_use"):
+        payloads = _row_payloads(audit, hook_point)
+        assert payloads, hook_point
+        for payload in payloads:
+            assert payload["signature_status"] == "verified"
+            assert payload["signature_key_id"] == "ops"
+            assert len(payload["signature_spec_sha256"]) == 64
+
+
+def test_the_spec_hash_on_the_row_is_the_hash_of_the_signed_spec(tmp_path: Path) -> None:
+    import hashlib
+
+    signed, store = _sign_server(_read_server())
+    bridge, audit = _kernel_bridge(tmp_path, signed, store=store)
+
+    bridge.invoke_external_tool(signed.name, "read_x", {}, approval_granted=True)
+
+    expected = hashlib.sha256(build_server_spec(signed).canonical_bytes()).hexdigest()
+    assert {p["signature_spec_sha256"] for p in _row_payloads(audit, "pre_tool_use")} == {expected}
+
+
+def test_a_shadow_call_to_an_unsigned_server_records_the_unsigned_verdict(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, audit = _kernel_bridge(tmp_path, server)
+    bridge._transport._signing_config = MCPSigningConfig(enabled=True, mode="shadow")
+
+    bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+
+    payloads = _row_payloads(audit, "pre_tool_use")
+    assert {p["signature_status"] for p in payloads} == {"unsigned"}
+    assert not any("signature_key_id" in p for p in payloads)
+
+
+def test_a_call_with_signing_off_says_it_was_not_checked(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, audit = _kernel_bridge(tmp_path, server)
+    bridge._transport._signing_config = MCPSigningConfig.disabled()
+
+    bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+
+    payloads = _row_payloads(audit, "pre_tool_use")
+    assert {p["signature_status"] for p in payloads} == {"not_checked"}
+    assert not any("signature_spec_sha256" in p for p in payloads)
+
+
+def test_the_deny_row_carries_the_verdict_too(tmp_path: Path) -> None:
+    server = _read_server()
+    bridge, audit = _kernel_bridge(tmp_path, server)
+
+    with pytest.raises(MCPSignatureError):
+        bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+
+    (payload,) = _row_payloads(audit, "pre_tool_use")
+    assert payload["signature_status"] == "unsigned"
+    assert len(payload["signature_spec_sha256"]) == 64

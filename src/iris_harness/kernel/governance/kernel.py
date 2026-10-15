@@ -62,6 +62,12 @@ _AUDITED_PAYLOAD_KEYS: tuple[str, ...] = (
     "target_tier",
     "context_tokens",
     "evicted_tokens",
+    # An MCP call's launch-signature verdict (``tools/mcp_bridge.py``): ``verified`` |
+    # ``unsigned`` | ``untrusted`` | ``invalid``, or ``not_checked`` when no policy is in
+    # force; the signer's key id and a hash of the signed spec. No key, value or path.
+    "signature_status",
+    "signature_key_id",
+    "signature_spec_sha256",
     # PRE_RESPONSE: whether a model wrote the answer, and which deterministic handler
     # did when none did (deterministic-path parity, step c).
     "deterministic",
