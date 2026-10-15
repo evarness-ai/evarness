@@ -154,7 +154,7 @@ def run_research(args: dict[str, Any], *, embed: EmbedFn | None = None) -> str:
         result = get_engine(embed=embed).research(inp)
     except Exception as exc:  # noqa: BLE001 - the tool must always return a string
         logger.warning("research failed for %r: %s", inp.query, exc)
-        return f"Research unavailable: {exc}"
+        return FailedResult(f"Research unavailable: {exc}")
     return format_result(result)
 
 

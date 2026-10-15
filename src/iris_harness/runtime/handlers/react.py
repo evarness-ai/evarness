@@ -13,6 +13,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from iris_harness.foundation.process_state import track_globals
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.runtime.handlers.general_support import _normalize_handler_result
 
 if TYPE_CHECKING:
@@ -247,7 +248,7 @@ def _self_management_tools(runtime_holder: list[Any], session_id: str | None) ->
     def _context_health(_args: dict[str, Any]) -> str:
         rt = _rt()
         if rt is None:
-            return "Context health unavailable."
+            return FailedResult("Context health unavailable.")
         h = rt.sessions.context_health(sid)
         w, b, s = h["window"], h["budgets"], h["suppression"]
         lc = w.get("last_compaction")
@@ -267,7 +268,7 @@ def _self_management_tools(runtime_holder: list[Any], session_id: str | None) ->
     def _compact_context(_args: dict[str, Any]) -> str:
         rt = _rt()
         if rt is None:
-            return "Cannot compact right now."
+            return FailedResult("Cannot compact right now.")
         r = rt.sessions.compact_now(sid)
         if not r.get("compacted"):
             return f"Nothing to compact ({r.get('reason', 'conversation is short')})."
@@ -280,7 +281,7 @@ def _self_management_tools(runtime_holder: list[Any], session_id: str | None) ->
     def _learning_status(_args: dict[str, Any]) -> str:
         rt = _rt()
         if rt is None:
-            return "Learning status unavailable."
+            return FailedResult("Learning status unavailable.")
         from iris_harness.services.learning.proposal_quality import (
             build_proposal_quality,
         )

@@ -330,7 +330,7 @@ def graph_context(store: MemoryStore) -> GraphContext:
 def memory_graph_tool(store: MemoryStore | None, args: dict[str, Any]) -> str:
     """The ``memory_graph`` tool body, shared by the ReAct loop and native tool calling."""
     if store is None:
-        return "memory_graph unavailable (memory store not configured)."
+        return FailedResult("memory_graph unavailable (memory store not configured).")
     try:
         hops = int(args.get("hops") or 1)
     except (TypeError, ValueError):
@@ -345,7 +345,7 @@ def memory_graph_tool(store: MemoryStore | None, args: dict[str, Any]) -> str:
         )
     except Exception as exc:
         logger.exception("memory_graph failed")
-        return f"memory_graph failed: {exc}"
+        return FailedResult(f"memory_graph failed: {exc}")
 
 
 def memory_graph_description(store: MemoryStore | None) -> str:

@@ -93,23 +93,23 @@ def stock_quote(symbol: str, *, run_shell: Callable[[str], Any] | None = None) -
         res = runner(cmd)
     except Exception as exc:
         logger.exception("stock_quote sandbox run failed")
-        return f"Stock quote unavailable: {exc}"
+        return FailedResult(f"Stock quote unavailable: {exc}")
 
     stdout = str(getattr(res, "stdout", "") or "").strip()
     exit_code = int(getattr(res, "exit_code", 1) or 0)
     if not stdout:
         stderr = str(getattr(res, "stderr", "") or "").strip()
-        return f"Stock quote unavailable: {stderr or 'sandbox returned no output'}"
+        return FailedResult(f"Stock quote unavailable: {stderr or 'sandbox returned no output'}")
 
     data = _parse_last_json(stdout)
     if data is None:
-        return f"Stock quote unavailable: could not parse result ({stdout[:120]})"
+        return FailedResult(f"Stock quote unavailable: could not parse result ({stdout[:120]})")
     if data.get("error"):
-        return f"Stock quote unavailable for {sym}: {data['error']}"
+        return FailedResult(f"Stock quote unavailable for {sym}: {data['error']}")
 
     price = data.get("price")
     if price is None:
-        return f"No quote found for {sym}. Check the ticker symbol."
+        return FailedResult(f"No quote found for {sym}. Check the ticker symbol.")
     if exit_code != 0:
         logger.warning("stock_quote nonzero exit (%s) but parsed a price", exit_code)
 
