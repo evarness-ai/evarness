@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `iris mcp list`, `iris mcp revoke` and `iris mcp remove`. Revoking a key was a hand edit of the trust store, and removing a server left its key trusted with nothing saying so. `list` shows each server's verdict and the trust store's keys; `revoke <key_id>` (or `--signature <sig>`) distrusts a key, keeps it on record and names the servers it now refuses; `remove <server>` deletes the entry, says when its key signs nothing else, and with `--revoke-signature` stops the same signed entry being pasted back. Closes the CLI item of #113.
+
 - `iris_harness.testing.plugin(manifest=..., server=[command, *args])` mounts a `trust: mcp` plugin under the governed harness with no `setup`, so a plugin author's own CI can run a scripted turn against it and assert on the audit rows. `harness(seed={...})` writes files into the home before the runtime is built. M3 of #111.
 - `trust: mcp` plugins are mounted. A manifest with a `server:` block (command, args, env, `inherit_env`, `signature`) and declared `tools:` registers each tool into the governed tool pool, so a call gets one `PRE_TOOL_USE`/`POST_TOOL_USE` pair, the stamped caller and the manifest's effect and approval rules; its output is `content: external`. The server starts per call after the launch-signature check, and a profile cannot flip how a plugin runs. Before, such a plugin was marked unsupported and never started. M2 of #111; 
 

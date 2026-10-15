@@ -1,4 +1,4 @@
-"""CLI for MCP server signing (``iris mcp keygen|sign|verify``) — sub-phase 6b.3.
+"""CLI for MCP server signing (``iris mcp keygen|sign|verify|list|revoke|remove``) — sub-phase 6b.3.
 
 Operator tooling to produce + manage the signatures the bridge gate verifies.
 These commands are attached to the existing ``iris mcp`` group (which already
@@ -10,6 +10,9 @@ is a standalone app used only for isolated testing.
 - ``iris mcp sign <server> --key <key_id>``  write signature/signed_by into
   mcp-servers.yaml.
 - ``iris mcp verify [server]``  print verdicts; non-zero exit if any unverified.
+- ``iris mcp list``  the servers with their verdicts and the trust store's keys.
+- ``iris mcp revoke <key_id>``  distrust a key (or one signature) in the trust store.
+- ``iris mcp remove <server>``  delete a server's entry from mcp-servers.yaml.
 
 See ``docs/architecture/mcp-server-signing.md``.
 """
@@ -175,11 +178,191 @@ def cmd_verify(
         raise typer.Exit(1)
 
 
+def cmd_list(
+    servers: Annotated[Path, typer.Option("--servers", help="mcp-servers.yaml path.")] = (
+        _DEFAULT_SERVERS
+    ),
+    trust_store: Annotated[Path, typer.Option("--trust-store", help="Trust store path.")] = (
+        _DEFAULT_TRUST
+    ),
+) -> None:
+    """List the servers with their signature verdicts, and the trust store's keys."""
+    from iris_harness.kernel.governance.mcp_signing import TrustStore, verify_server_signature
+    from iris_harness.tools.mcp_bridge import build_server_spec, load_mcp_bridge_config
+
+    config = load_mcp_bridge_config(Path.cwd(), config_path=servers)
+    store = TrustStore.from_yaml(trust_store)
+
+    signed_by: dict[str, list[str]] = {}
+    server_table = Table(title="MCP servers")
+    for column in ("server", "transport", "enabled", "signature", "signer"):
+        server_table.add_column(column)
+    for server in config.servers:
+        verdict = verify_server_signature(
+            spec=build_server_spec(server),
+            signature=server.signature,
+            signed_by=server.signed_by,
+            trust_store=store,
+        )
+        if server.signed_by:
+            signed_by.setdefault(server.signed_by, []).append(server.name)
+        color = "green" if verdict.is_trusted else "red"
+        server_table.add_row(
+            server.name,
+            server.transport,
+            "yes" if server.enabled else "no",
+            f"[{color}]{verdict.status}[/{color}]",
+            verdict.key_id or server.signed_by or "-",
+        )
+    console.print(server_table)
+
+    key_table = Table(title=f"Trust store ({trust_store})")
+    for column in ("key", "state", "signs", "comment"):
+        key_table.add_column(column)
+    for key_id, key in sorted(store.keys.items()):
+        revoked = key_id in store.revoked_key_ids
+        key_table.add_row(
+            key_id,
+            "[red]revoked[/red]" if revoked else "[green]trusted[/green]",
+            ", ".join(signed_by.get(key_id, [])) or "-",
+            key.comment or "-",
+        )
+    for key_id in sorted(store.revoked_key_ids - store.keys.keys()):
+        key_table.add_row(
+            key_id, "[red]revoked[/red]", ", ".join(signed_by.get(key_id, [])) or "-", "-"
+        )
+    console.print(key_table)
+    if store.revoked_signatures:
+        console.print(f"{len(store.revoked_signatures)} signature(s) revoked individually")
+
+
+def cmd_revoke(
+    key_id: Annotated[
+        str | None, typer.Argument(help="Trust-store key id to distrust (all it signed).")
+    ] = None,
+    signature: Annotated[
+        str | None, typer.Option("--signature", help="Revoke one signature, keep its key.")
+    ] = None,
+    trust_store: Annotated[Path, typer.Option("--trust-store", help="Trust store path.")] = (
+        _DEFAULT_TRUST
+    ),
+    servers: Annotated[Path, typer.Option("--servers", help="mcp-servers.yaml path.")] = (
+        _DEFAULT_SERVERS
+    ),
+) -> None:
+    """Revoke a key, or one signature, in the trust store.
+
+    A revoked key stays listed so the revocation is on record. Every server it signed is
+    refused from the next call under ``enforce``.
+    """
+    if (key_id is None) == (signature is None):
+        console.print("[red]give a key id, or --signature, not both and not neither[/red]")
+        raise typer.Exit(2)
+    if not trust_store.exists():
+        console.print(f"[red]trust store not found: {trust_store}[/red]")
+        raise typer.Exit(1)
+
+    doc = _load_yaml(trust_store)
+    if key_id is not None:
+        known = {str(k.get("key_id")) for k in cast(list[dict[str, Any]], doc.get("keys") or [])}
+        if key_id not in known:
+            console.print(f"[red]key {key_id!r} is not in {trust_store}[/red]")
+            raise typer.Exit(1)
+        field, value = "revoked_key_ids", key_id
+    else:
+        assert signature is not None
+        field, value = "revoked_signatures", signature
+    revoked = [str(v) for v in doc.get(field) or []]
+    if value in revoked:
+        console.print(f"already revoked: {value if key_id else 'that signature'}")
+        return
+    doc[field] = [*revoked, value]
+    _dump_yaml(trust_store, doc)
+    console.print(f"[green]Revoked {'key ' + repr(key_id) if key_id else 'the signature'}[/green]")
+
+    affected = _servers_signed_by(servers, key_id=key_id, signature=signature)
+    if affected:
+        console.print(f"  now refused under enforce: {', '.join(affected)}")
+    console.print("[yellow]note: comments in the YAML are not preserved on write[/yellow]")
+
+
+def cmd_remove(
+    server_name: Annotated[str, typer.Argument(help="Server name in mcp-servers.yaml.")],
+    revoke_signature: Annotated[
+        bool,
+        typer.Option(
+            "--revoke-signature", help="Also revoke the entry's signature in the trust store."
+        ),
+    ] = False,
+    servers: Annotated[Path, typer.Option("--servers", help="mcp-servers.yaml path.")] = (
+        _DEFAULT_SERVERS
+    ),
+    trust_store: Annotated[Path, typer.Option("--trust-store", help="Trust store path.")] = (
+        _DEFAULT_TRUST
+    ),
+) -> None:
+    """Remove a server's entry from mcp-servers.yaml.
+
+    Its signing key stays trusted; the command says so when no other server uses it.
+    ``--revoke-signature`` also revokes this entry's signature, so the same signed entry
+    cannot be pasted back in.
+    """
+    doc = _load_yaml(servers)
+    entries = cast(list[dict[str, Any]], doc.get("servers") or [])
+    entry = next((e for e in entries if str(e.get("name")) == server_name), None)
+    if entry is None:
+        console.print(f"[red]server {server_name!r} not found in {servers}[/red]")
+        raise typer.Exit(1)
+    signature = str(entry["signature"]) if entry.get("signature") else None
+    signer = str(entry["signed_by"]) if entry.get("signed_by") else None
+    if revoke_signature and signature is None:
+        console.print(f"[red]{server_name!r} is not signed; nothing to revoke[/red]")
+        raise typer.Exit(1)
+
+    doc["servers"] = [e for e in entries if e is not entry]
+    _dump_yaml(servers, doc)
+    console.print(f"[green]Removed {server_name!r}[/green] from {servers}")
+
+    if revoke_signature and signature is not None:
+        if trust_store.exists():
+            trust = _load_yaml(trust_store)
+            trust["revoked_signatures"] = [
+                *(str(v) for v in trust.get("revoked_signatures") or []),
+                signature,
+            ]
+            _dump_yaml(trust_store, trust)
+            console.print("  signature revoked in the trust store")
+        else:
+            console.print(f"[red]trust store not found: {trust_store}; signature not revoked[/red]")
+            raise typer.Exit(1)
+    if signer and not any(str(e.get("signed_by")) == signer for e in doc["servers"]):
+        console.print(
+            f"[yellow]  key {signer!r} signs no other server and is still trusted; "
+            f"`iris mcp revoke {signer}` to distrust it[/yellow]"
+        )
+    console.print("[yellow]note: comments in the YAML are not preserved on write[/yellow]")
+
+
+def _servers_signed_by(servers: Path, *, key_id: str | None, signature: str | None) -> list[str]:
+    if not servers.exists():
+        return []
+    entries = cast(list[dict[str, Any]], _load_yaml(servers).get("servers") or [])
+    return [
+        str(e.get("name"))
+        for e in entries
+        if (key_id is not None and str(e.get("signed_by")) == key_id)
+        or (signature is not None and str(e.get("signature")) == signature)
+    ]
+
+
 def register_signing_commands(app: typer.Typer) -> None:
-    """Attach keygen/sign/verify to an existing ``mcp`` Typer group."""
+    """Attach the signing commands to an existing ``mcp`` Typer group."""
     app.command("keygen")(cmd_keygen)
     app.command("sign")(cmd_sign)
     app.command("verify")(cmd_verify)
+    app.command("list")(cmd_list)
+    app.command("revoke")(cmd_revoke)
+    app.command("remove")(cmd_remove)
 
 
 #: Standalone app for isolated CLI tests (production attaches to the real group).
