@@ -621,6 +621,7 @@ class PluginServer(BaseModel):
     inherit_env: tuple[str, ...] = Field(default_factory=tuple)
     pinned_env: tuple[str, ...] = Field(default_factory=tuple)
     timeout_seconds: float = Field(default=10.0, gt=0)
+    max_result_bytes: int = Field(default=1_048_576, gt=0)
     signature: str | None = None
     signed_by: str | None = None
 

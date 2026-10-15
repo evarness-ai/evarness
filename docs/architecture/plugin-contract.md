@@ -710,6 +710,7 @@ server:
   args: [server.py]        # a relative script is read from the plugin's directory
   inherit_env: []          # host variables the server may see, beyond PATH, HOME and locale
   pinned_env: []           # names under env: whose values the signature covers
+  max_result_bytes: 1048576  # a larger result is refused, not handed to the model
   signature: ...           # from `iris mcp sign`; signed_by names the trust-store key
   signed_by: ...
 tools:
