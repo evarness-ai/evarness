@@ -3,7 +3,8 @@
 The owner's decision:
 
 - enforce on streaming only the signals with **no local equivalent** —
-  classification_violation, cost_budget, goal_drift, semantic loop_detect;
+  classification_violation, cost_budget, goal_drift, semantic loop_detect, and (amended,
+  #300) tool_failure_streak, which no local guard counts;
 - leave runaway-loop containment to `run_stream`'s own `max_iterations` /
   `stall_limit` / malformed-step guards rather than duplicating it in the evaluator;
 - when the harness interrupts a task, **summarise what ran, say why, and stop** —
@@ -50,21 +51,30 @@ def test_the_enforced_set_is_exactly_the_signals_without_a_local_equivalent() ->
         "cost_budget",
         "goal_drift",
         "loop_detect",
+        "tool_failure_streak",
     }
-    # The counting signals stay out: run_stream's own guards already contain these.
-    for local in ("step_cap", "action_repeat", "tool_failure_streak"):
+    # The counting signals stay out: run_stream's own guards already contain these. The failure
+    # streak is not one of them: the stall guard trips only on an identical repeat (#300).
+    for local in ("step_cap", "action_repeat"):
         assert local not in STREAMING_ENFORCED_SIGNALS
 
 
 @pytest.mark.parametrize(
-    "signal", ["classification_violation", "cost_budget", "goal_drift", "loop_detect"]
+    "signal",
+    [
+        "classification_violation",
+        "cost_budget",
+        "goal_drift",
+        "loop_detect",
+        "tool_failure_streak",
+    ],
 )
 def test_an_enforced_signal_is_detected(signal: str) -> None:
     decision = _decision("deny", (signal, "halt"))
     assert _enforced_signal_names(decision, STREAMING_ENFORCED_SIGNALS) == [signal]
 
 
-@pytest.mark.parametrize("signal", ["step_cap", "action_repeat", "tool_failure_streak"])
+@pytest.mark.parametrize("signal", ["step_cap", "action_repeat"])
 def test_a_locally_guarded_signal_does_not_enforce(signal: str) -> None:
     """The duplicate features the owner asked us to reuse rather than re-enforce."""
     decision = _decision("deny", (signal, "halt"))

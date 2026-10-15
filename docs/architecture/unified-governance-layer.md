@@ -554,6 +554,16 @@ Out-of-band evaluator catches in-run failure modes (loops, drift, runaway cost, 
 
 `classification_violation` is your suggestion — added as a first-class signal.
 
+**On the streaming loop** (`run_stream`, which `chat` drains) the evaluator enforces only the
+signals the loop has no guard for: `classification_violation`, `cost_budget`, `goal_drift`,
+the semantic `loop_detect`, and `tool_failure_streak` (ADR-0107, amended in #300).
+`step_cap` and `action_repeat` are left to `max_iterations` and `stall_limit`, so one run is
+not halted by two mechanisms. The streak is enforced because nothing else counts failures:
+`stall_limit` trips only on an identical action and input repeated back to back, so a model
+calling a failing tool with different arguments ran to `max_iterations` before. A failed call
+is read from the call's outcome (`ok` false), not its text (#295). The non-streaming loop
+enforces every signal.
+
 ### 9.1a `goal_drift` — scope, and what approvals teach it
 
 Two rules narrow the signal beyond the table above, because a fixed distance threshold
