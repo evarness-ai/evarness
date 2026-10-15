@@ -200,11 +200,14 @@ class ToolSpec(NamedTuple):
 
 
 class _ToolStep(NamedTuple):
-    """One tool step as the loop continues from it: what the model sees next, and the
-    run's data label after the call (raised by ``POST_TOOL_USE``, never lowered)."""
+    """One tool step as the loop continues from it: what the model sees next, the run's
+    data label after the call (raised by ``POST_TOOL_USE``, never lowered), and whether
+    the call failed: the tool raised or reported a failed result (the runner's ``ok``
+    false), or named no tool. A call governance held or withheld did not fail."""
 
     observation: str
     classification: DataClassification | None
+    failed: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +279,9 @@ class ReactStep:
     observation: str | None = None
     final_answer: str | None = None
     is_terminal: bool = False
+    # The call this step made failed (``_ToolStep.failed``): what the tool-failure streak
+    # counts, read from the call's outcome rather than from its text.
+    failed: bool = False
 
 
 @dataclass
@@ -1707,6 +1713,7 @@ class AgenticCore:
                 observation = executed.observation
                 classification = executed.classification
                 step.observation = observation
+                step.failed = executed.failed
                 if halts:
                     trace.final_answer = self._pause_for_approval(
                         trace=trace,
@@ -2191,6 +2198,7 @@ class AgenticCore:
                 return _ToolStep(
                     f"Error: unknown tool '{name}'.{suggestion} Available: {available}",
                     unchanged,
+                    failed=True,
                 )
 
         # Everything from here is governance, not the loop: the one runner every tool
@@ -2211,7 +2219,11 @@ class AgenticCore:
             effects=effects,
         )
         if outcome.status != "held":
-            return _ToolStep(outcome.text, outcome.classification)
+            # A result POST_TOOL_USE withheld is governance refusing it, like a held call,
+            # not the tool failing: only a call that ran and was not ``ok`` failed.
+            withheld = outcome.post is not None and outcome.post.withheld
+            failed = outcome.status == "ran" and not outcome.ok and not withheld
+            return _ToolStep(outcome.text, outcome.classification, failed=failed)
         governance_decision = outcome.decision
         assert governance_decision is not None
         if (
@@ -2383,7 +2395,12 @@ class AgenticCore:
         tool_error: str | None = None
         # An external result's envelope is the harness's markup, not the tool's text.
         observed = unwrap(step.observation) if step.observation else step.observation
-        if observed and observed.startswith("Error:"):
+        # A failed call is one whose outcome says so (``step.failed``): a tool that raised,
+        # or one that reported a failed result (an MCP ``isError``), whatever its text
+        # reads. A tool that returns a usage error as its ordinary result (``Error: ...``,
+        # ``ok`` true) and the runner's refusal of a destructive call's arguments are
+        # failures only by that text, so the prefix still counts them.
+        if observed and (step.failed or observed.startswith("Error:")):
             tool_error = observed
         ctx = HookContext(
             hook_point=HookPoint.POST_STEP,
@@ -2794,6 +2811,7 @@ class AgenticCore:
                 observation = executed.observation
                 classification = executed.classification
                 step.observation = observation
+                step.failed = executed.failed
                 if halts:
                     pause_trace = ReactTrace(query=query, run_id=run_id)
                     pause_trace.steps.extend(steps)
