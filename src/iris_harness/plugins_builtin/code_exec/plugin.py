@@ -53,7 +53,7 @@ def setup(api: PluginAPI) -> None:
         try:
             result = handler(AgentTask(query=task_str, agent_type="code_exec"))
         except Exception as exc:  # noqa: BLE001 — a tool returns an observation, never raises
-            return f"code_exec failed: {exc}"
+            return FailedResult(f"code_exec failed: {exc}")
         if isinstance(result, tuple):
             return str(result[0])
         return str(result)

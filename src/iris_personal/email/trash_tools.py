@@ -259,11 +259,13 @@ def build_trash_tools(
         ]
         resolved = [(a, r) for a, r in resolved if r.found]
         if not resolved:
-            return f"No category matches '{name}', so nothing was trashed. {category_menu(store)}"
+            return FailedResult(
+                f"No category matches '{name}', so nothing was trashed. {category_menu(store)}"
+            )
         if any(_covers_all(store.category_counts(a), r.filter.paths) for a, r in resolved):
             # "email" or "everything" names all the mail, not a kind of it; with no
             # card in front of this tool, that must not become the newest 200 of all.
-            return (
+            return FailedResult(
                 f"'{name}' covers every category of email, not one kind, so nothing was "
                 f"trashed. Name one kind. {category_menu(store)}"
             )
@@ -309,7 +311,7 @@ def build_trash_tools(
         ids = _ids(args)
         entries = store.trashed(ids or None)
         if not entries:
-            return "Nothing to restore: IRIS has not trashed those emails."
+            return FailedResult("Nothing to restore: IRIS has not trashed those emails.")
         by_account: dict[str, list[str]] = defaultdict(list)
         for mid, account_id, _subject, _sender in entries:
             by_account[account_id].append(mid)
@@ -323,7 +325,7 @@ def build_trash_tools(
                     account_id, mids, labels_before=store.trashed_labels(mids)
                 )
             except PermissionError as exc:
-                return f"Not restored: {exc}"
+                return FailedResult(f"Not restored: {exc}")
             store.restore_from_trashed(messages)
             restored.extend(messages)
         lines = [f"Restored {_plural(len(restored))} from Trash."]

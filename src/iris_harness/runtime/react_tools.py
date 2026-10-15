@@ -236,13 +236,13 @@ def builtin_react_tools(
                 lines += _search_sessions(query, n)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("memory_search", exc)
-            return f"memory_search failed: {exc}"
+            return FailedResult(f"memory_search failed: {exc}")
         return "\n".join(f"- {line}" for line in lines) or "No stored memory matched that query."
 
     def _recall_conversation(args: dict[str, Any]) -> str:
         """Earlier exchanges, word for word — what a summary had to leave out."""
         if memory_store is None:
-            return "recall_conversation unavailable (memory store not configured)."
+            return FailedResult("recall_conversation unavailable (memory store not configured).")
         session_id = str(args.get("session_id") or args.get("session") or "").strip()
         query = str(args.get("query") or args.get("input") or "").strip()
         try:
@@ -294,7 +294,7 @@ def builtin_react_tools(
                 in_order = True
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("recall_conversation", exc)
-            return f"recall_conversation failed: {exc}"
+            return FailedResult(f"recall_conversation failed: {exc}")
         if not rows and query:
             # Cooling a session REPLACES its turns with its summary (see
             # MemoryStore.cool_session), so an older conversation has no raw text left
@@ -353,7 +353,7 @@ def builtin_react_tools(
 
     def _memory_forget(args: dict[str, Any]) -> str:
         if memory_store is None:
-            return "memory_forget unavailable (memory store not configured)."
+            return FailedResult("memory_forget unavailable (memory store not configured).")
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         if not key:
             return FailedResult(
@@ -365,16 +365,18 @@ def builtin_react_tools(
             deleted = FactCoordinator(memory_store, semantic_index).forget(key)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("memory_forget", exc)
-            return f"memory_forget failed: {exc}"
+            return FailedResult(f"memory_forget failed: {exc}")
         if not deleted:
-            return f"No stored fact '{key}' to forget. Use memory_search to find the right key."
+            return FailedResult(
+                f"No stored fact '{key}' to forget. Use memory_search to find the right key."
+            )
         if learning_store is not None:
             learning_store.record_user_behavior_signal("fact_forgotten", subject=key)
         return f"Forgot '{key}'. This is reversible — say 'restore {key}' to bring it back."
 
     def _memory_correct(args: dict[str, Any]) -> str:
         if memory_store is None:
-            return "memory_correct unavailable (memory store not configured)."
+            return FailedResult("memory_correct unavailable (memory store not configured).")
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         value = str(args.get("value") or args.get("new_value") or args.get("to") or "").strip()
         if not key or not value:
@@ -387,7 +389,7 @@ def builtin_react_tools(
             replaced = FactCoordinator(memory_store, semantic_index).correct(key, value)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("memory_correct", exc)
-            return f"memory_correct failed: {exc}"
+            return FailedResult(f"memory_correct failed: {exc}")
         if learning_store is not None:
             learning_store.record_user_behavior_signal("fact_corrected", subject=key, detail=value)
         verb = "Updated" if replaced else "Recorded"
@@ -395,7 +397,7 @@ def builtin_react_tools(
 
     def _memory_restore(args: dict[str, Any]) -> str:
         if memory_store is None:
-            return "memory_restore unavailable (memory store not configured)."
+            return FailedResult("memory_restore unavailable (memory store not configured).")
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         if not key:
             return FailedResult(
@@ -407,14 +409,14 @@ def builtin_react_tools(
             restored = FactCoordinator(memory_store, semantic_index).restore(key)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("memory_restore", exc)
-            return f"memory_restore failed: {exc}"
+            return FailedResult(f"memory_restore failed: {exc}")
         if restored is None:
-            return f"Nothing to restore for '{key}' (no prior value in history)."
+            return FailedResult(f"Nothing to restore for '{key}' (no prior value in history).")
         return f"Restored '{key}' = {restored}."
 
     def _wiki_search(args: dict[str, Any]) -> str:
         if wiki is None:
-            return "Wiki unavailable."
+            return FailedResult("Wiki unavailable.")
         question = str(args.get("query") or args.get("question") or args.get("input") or "").strip()
         if not question:
             return FailedResult("Error: wiki_search requires a 'query' argument.")
@@ -422,7 +424,7 @@ def builtin_react_tools(
             return wiki.query(question)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("wiki_search", exc)
-            return f"wiki_search failed: {exc}"
+            return FailedResult(f"wiki_search failed: {exc}")
 
     # iris_doc: on-demand loader for the workspace + in-repo operational
     # docs (SOUL.md, USER.md, AGENTS.md, iris-harness.md). The model
@@ -464,9 +466,9 @@ def builtin_react_tools(
             body = loader_fn()
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("iris_doc", exc)
-            return f"iris_doc({name}) failed: {exc}"
+            return FailedResult(f"iris_doc({name}) failed: {exc}")
         if body is None:
-            return f"iris_doc({name}): file not present on this install."
+            return FailedResult(f"iris_doc({name}): file not present on this install.")
         return body
 
     # `system_health` moved to the `system` reference plugin (OSS plan M1).
@@ -504,7 +506,7 @@ def builtin_react_tools(
             return render_pending_actions(collect_pending_actions(ts, snapshot))
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("pending_actions", exc)
-            return f"pending_actions failed: {exc}"
+            return FailedResult(f"pending_actions failed: {exc}")
 
     def _invoke_pending_action(args: dict[str, Any]) -> str:
         # Action Center execution over chat: run one SAFE pending action by id so
@@ -515,16 +517,16 @@ def builtin_react_tools(
 
         action_id = str(args.get("id") or args.get("action_id") or "").strip()
         if not action_id:
-            return "invoke_pending_action needs 'id' (the pending action id)."
+            return FailedResult("invoke_pending_action needs 'id' (the pending action id).")
         try:
             dd = data_dir()
             ts = TaskStore(db_path=dd / "tasks.db")
             ts.ensure_schema()
             task = ts.get(action_id)
             if task is None or task.action is None:
-                return f"No pending action {action_id!r}."
+                return FailedResult(f"No pending action {action_id!r}.")
             if not task.action.safe:
-                return "This action is display-only; run its command locally."
+                return FailedResult("This action is display-only; run its command locally.")
             # A review action only shows what the domain already wrote, so answer it
             # here rather than routing to a provider — same as the Web UI Action
             # Center, and it works for a kind whose plugin is not mounted.
@@ -550,15 +552,17 @@ def builtin_react_tools(
                         if task.action.options
                         else ""
                     )
-                    return f"This card needs an answer: choice one of {answers}{picks}."
+                    return FailedResult(
+                        f"This card needs an answer: choice one of {answers}{picks}."
+                    )
                 return invoke_and_reconcile(registered, task, ts, choice=choice, option=option)
-            return (
+            return FailedResult(
                 f"No invoker for source_kind={task.source_kind}. "
                 "The plugin that owns it may not be mounted in this profile."
             )
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("invoke_pending_action", exc)
-            return f"invoke_pending_action failed: {exc}"
+            return FailedResult(f"invoke_pending_action failed: {exc}")
 
     def _record_feedback(args: dict[str, Any]) -> str:
         # Surface-feedback over chat (issue 0028): the user says a proactively
@@ -575,11 +579,11 @@ def builtin_react_tools(
 
         verdict = str(args.get("verdict", NOT_USEFUL) or NOT_USEFUL).strip().lower()
         if verdict not in VERDICTS:
-            return f"verdict must be one of {list(VERDICTS)}."
+            return FailedResult(f"verdict must be one of {list(VERDICTS)}.")
         email_sender = str(args.get("email_sender", "") or "").strip()
         ref = str(args.get("ref", "") or "").strip()
         if not ref and not email_sender:
-            return (
+            return FailedResult(
                 "record_feedback needs a 'ref' (a followup task id or an 'fb:' token) "
                 "or 'email_sender' (a sender to suppress from email search)."
             )
@@ -597,7 +601,7 @@ def builtin_react_tools(
 
                 dims = email_search_dims_from_sender(email_sender)
                 if not dims.get("from_domain"):
-                    return f"Couldn't read a sender domain from {email_sender!r}."
+                    return FailedResult(f"Couldn't read a sender domain from {email_sender!r}.")
                 feedback.record(EMAIL_SEARCH_SUBSYSTEM, EMAIL_SEARCH_SURFACE, dims, verdict)
                 domain = dims["from_domain"]
                 if verdict == NOT_USEFUL:
@@ -618,7 +622,7 @@ def builtin_react_tools(
             ts.ensure_schema()
             task = ts.get(ref)
             if task is None or task.wait_for is None or task.wait_for.kind != "reply_from":
-                return f"No email followup {ref!r} to give feedback on."
+                return FailedResult(f"No email followup {ref!r} to give feedback on.")
             payload = task.wait_for.payload
             dims = email_followup_dims_from(
                 str(payload.get("account_id", "")), str(payload.get("from", ""))
@@ -633,7 +637,7 @@ def builtin_react_tools(
             return f"Noted — keeping follow-ups for {dims['from_domain']}."
         except Exception as exc:
             logger.exception("record_feedback tool failed for ref=%r", ref)
-            return f"record_feedback failed: {exc}"
+            return FailedResult(f"record_feedback failed: {exc}")
 
     def _agents(args: dict[str, Any]) -> str:
         # Per-agent console over chat (ADR-0074): list IRIS's agents + what's pending
@@ -650,7 +654,7 @@ def builtin_react_tools(
             return render_agent_detail(name) if name else render_agents_overview_local()
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("agents", exc)
-            return f"agents failed: {exc}"
+            return FailedResult(f"agents failed: {exc}")
 
     def _learning_intelligence(args: dict[str, Any]) -> str:
         # Harness self-reflection (ADR-0069 #4): measured learning telemetry —
@@ -659,7 +663,9 @@ def builtin_react_tools(
         # Pure read over learning.db; never raises into the loop. Interpretation is
         # the model's job (this tool only measures).
         if learning_store is None:
-            return "learning_intelligence unavailable (learning store not configured)."
+            return FailedResult(
+                "learning_intelligence unavailable (learning store not configured)."
+            )
         from iris_harness.services.learning.intelligence import (
             build_intelligence,
             render_text,
@@ -673,7 +679,7 @@ def builtin_react_tools(
             report = build_intelligence(learning_store, window=timedelta(days=max(1, days)))
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("learning_intelligence", exc)
-            return f"learning_intelligence failed: {exc}"
+            return FailedResult(f"learning_intelligence failed: {exc}")
         return render_text(report)
 
     def _learning_recommendations(args: dict[str, Any]) -> str:
@@ -681,7 +687,9 @@ def builtin_react_tools(
         # Reads the persisted analysis (produced by the opt-in learning_analysis
         # heartbeat); does NOT run the LLM inline. Pure read; never raises.
         if learning_store is None:
-            return "learning_recommendations unavailable (learning store not configured)."
+            return FailedResult(
+                "learning_recommendations unavailable (learning store not configured)."
+            )
         from iris_harness.services.learning.analyst import LearningAnalysis
         from iris_harness.services.learning.analyst import (
             render_text as render_analysis,
@@ -691,7 +699,7 @@ def builtin_react_tools(
             payload = learning_store.latest_analysis()
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("learning_recommendations", exc)
-            return f"learning_recommendations failed: {exc}"
+            return FailedResult(f"learning_recommendations failed: {exc}")
         if not payload:
             return (
                 "No learning recommendations yet. The learning analyst is opt-in "
@@ -700,7 +708,7 @@ def builtin_react_tools(
             )
         analysis = LearningAnalysis.from_dict(payload)
         if analysis is None:
-            return "learning_recommendations: stored analysis could not be read."
+            return FailedResult("learning_recommendations: stored analysis could not be read.")
         return render_analysis(analysis)
 
     def _promote_recommendation(args: dict[str, Any]) -> str:
@@ -708,7 +716,9 @@ def builtin_react_tools(
         # experiment that captures a baseline and re-measures over time. Does NOT
         # apply the change — that stays a human step. Pure store write; never raises.
         if learning_store is None:
-            return "promote_recommendation unavailable (learning store not configured)."
+            return FailedResult(
+                "promote_recommendation unavailable (learning store not configured)."
+            )
         raw = args.get("index") or args.get("number") or args.get("input")
         try:
             index = int(str(raw))
@@ -723,9 +733,9 @@ def builtin_react_tools(
             result = promote_recommendation(learning_store, index=index)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("promote_recommendation", exc)
-            return f"promote_recommendation failed: {exc}"
+            return FailedResult(f"promote_recommendation failed: {exc}")
         if result is None:
-            return (
+            return FailedResult(
                 f"No recommendation #{index} to promote. Use learning_recommendations to see the "
                 "current list (the analyst must have run first)."
             )
@@ -739,7 +749,7 @@ def builtin_react_tools(
 
     def _propose_skill(args: dict[str, Any]) -> str:
         if repo_root is None:
-            return "propose_skill_from_sandbox unavailable (no repo_root)."
+            return FailedResult("propose_skill_from_sandbox unavailable (no repo_root).")
         script = str(args.get("script") or "").strip()
         intent = str(args.get("intent") or args.get("query") or "").strip()
         narrative = str(args.get("narrative") or args.get("description") or "").strip()
@@ -759,7 +769,7 @@ def builtin_react_tools(
             )
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
             _log_tool_failure("propose_skill_from_sandbox", exc)
-            return f"propose_skill_from_sandbox failed: {exc}"
+            return FailedResult(f"propose_skill_from_sandbox failed: {exc}")
         return str(result)
 
     specs: list[Any] = [

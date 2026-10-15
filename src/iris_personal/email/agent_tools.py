@@ -473,7 +473,7 @@ def find_email_attachment(*, data_dir: Path, query: str, since_days: Any = None)
         accounts = store.list_accounts()
     except Exception as exc:  # noqa: BLE001
         _log_degraded("find_attachment account list", exc)
-        return f"find_attachment failed: {exc}"
+        return FailedResult(f"find_attachment failed: {exc}")
 
     seen: set[str] = set()
     out: list[str] = []
@@ -632,7 +632,7 @@ def build_email_tools(
             return narrate_digest(digest, llm_call=llm_call)
         except Exception as exc:  # noqa: BLE001 — tools never raise into the loop
             _log_degraded("inbox_digest", exc)
-            return f"inbox_digest unavailable: {exc}"
+            return FailedResult(f"inbox_digest unavailable: {exc}")
 
     def _inbox_digest(_args: dict[str, Any]) -> str:
         return _digest_text()
@@ -670,7 +670,7 @@ def build_email_tools(
             accounts = store.list_accounts()
         except Exception as exc:  # noqa: BLE001
             _log_degraded("search_inbox account list", exc)
-            return f"search_inbox failed: {exc}"
+            return FailedResult(f"search_inbox failed: {exc}")
 
         # A category name the mail does not use can only return nothing, and "no emails
         # matched" then reads as "you have no such mail": search everything and say so.
@@ -683,7 +683,7 @@ def build_email_tools(
                 }
             except Exception as exc:  # noqa: BLE001
                 _log_degraded("search_inbox category resolve", exc)
-                return f"search_inbox failed: {exc}"
+                return FailedResult(f"search_inbox failed: {exc}")
             if any(r.found for r in resolved.values()):
                 filters = {a: r.filter for a, r in resolved.items()}
             else:
@@ -713,7 +713,7 @@ def build_email_tools(
             hits = _run(query)
         except Exception as exc:  # noqa: BLE001
             _log_degraded("search_inbox", exc)
-            return f"search_inbox failed: {exc}"
+            return FailedResult(f"search_inbox failed: {exc}")
 
         # Hybrid retrieval (ADR-0071 slice 2): when the semantic index is on, fuse the
         # lexical hits with vector recall via RRF so a conceptual ask ("pending
@@ -908,7 +908,7 @@ def build_email_tools(
             ]
             resolved = [(a, r) for a, r in resolved if r.found]
             if not resolved:
-                return f"No category matches '{category}'. {category_menu(store)}"
+                return FailedResult(f"No category matches '{category}'. {category_menu(store)}")
             total = 0
             msgs: list[EmailMessage] = []
             for account_id, r in resolved:
@@ -918,7 +918,7 @@ def build_email_tools(
                 )
         except Exception as exc:  # noqa: BLE001
             _log_degraded("list_by_category", exc)
-            return f"list_by_category failed: {exc}"
+            return FailedResult(f"list_by_category failed: {exc}")
         paths = sorted({p for _, r in resolved for p in r.filter.paths})
         where = f"'{category}' ({', '.join(paths)})" if paths else f"'{category}'"
         window = f" from the last {args.get('since_days')} days" if since else ""
@@ -974,12 +974,12 @@ def build_email_tools(
             try:
                 pick = int(str(pick_raw))
             except (TypeError, ValueError):
-                return "'pick' must be an integer (1 = top result, 2 = second, etc.)."
+                return FailedResult("'pick' must be an integer (1 = top result, 2 = second, etc.).")
             if pick <= 0:
-                return "'pick' must be 1 or greater."
+                return FailedResult("'pick' must be 1 or greater.")
 
         if not query and not message_id:
-            return (
+            return FailedResult(
                 "Tell me which email to read by subject/sender (or a keyword), e.g. "
                 "query='payment reminder' and optionally from='robinhood.com'."
             )
@@ -989,7 +989,7 @@ def build_email_tools(
             if message_id:
                 msg = store.get(message_id)
                 if msg is None:
-                    return f"No email found with message_id '{message_id}'."
+                    return FailedResult(f"No email found with message_id '{message_id}'.")
                 # Synthetic rank 0.0 for explicit-id selection.
                 matches.append(
                     (
@@ -1026,9 +1026,9 @@ def build_email_tools(
                             break
         except Exception as exc:  # noqa: BLE001
             _log_degraded("read_email search", exc)
-            return f"read_email failed: {exc}"
+            return FailedResult(f"read_email failed: {exc}")
         if not matches:
-            return f"No email found matching '{query}'."
+            return FailedResult(f"No email found matching '{query}'.")
 
         # De-duplicate by message-id (a message can appear via multiple candidate queries).
         best_by_id: dict[str, tuple[str, SearchHit]] = {}
@@ -1057,7 +1057,9 @@ def build_email_tools(
             if subject_contains:
                 parts.append(f"subject='{subject_contains}'")
             suffix = f" with {', '.join(parts)}" if parts else ""
-            return f"I found emails for '{query}' but none{suffix}. Try a different sender/subject filter."
+            return FailedResult(
+                f"I found emails for '{query}' but none{suffix}. Try a different sender/subject filter."
+            )
 
         filtered.sort(key=lambda ah: ah[1].rank)  # bm25: smaller = better
         if len(filtered) > 1 and pick is None and not message_id:
@@ -1073,7 +1075,9 @@ def build_email_tools(
 
         if pick is not None:
             if pick > len(filtered):
-                return f"Only {len(filtered)} match(es) found for '{query}'. Choose a number between 1 and {len(filtered)}."
+                return FailedResult(
+                    f"Only {len(filtered)} match(es) found for '{query}'. Choose a number between 1 and {len(filtered)}."
+                )
             account_id, hit = filtered[pick - 1]
         else:
             account_id, hit = filtered[0]
@@ -1084,7 +1088,7 @@ def build_email_tools(
 
         provider = mail_provider_for(account_id)
         if provider is None:
-            return (
+            return FailedResult(
                 f"Found '{hit.subject}' (from {hit.from_address}, {when}) but no mail provider "
                 f"is mounted for this account, so I can't fetch its full content. "
                 f"Preview: {preview}"
@@ -1093,7 +1097,7 @@ def build_email_tools(
             body = provider.fetch_message_body(account_id, hit.id)
         except Exception as exc:  # noqa: BLE001 — most likely a revoked token; degrade gracefully
             _log_degraded("read_email body fetch", exc)
-            return (
+            return FailedResult(
                 f"Found '{hit.subject}' (from {hit.from_address}, {when}) but couldn't fetch its "
                 f"full content — your Gmail connection may need re-authentication "
                 f"(`iris auth gmail login`). Preview: {preview}"
@@ -1143,7 +1147,7 @@ def build_email_tools(
             accounts = store.list_accounts()
         except Exception as exc:  # noqa: BLE001
             _log_degraded("analyze_inbox account list", exc)
-            return f"analyze_inbox failed: {exc}"
+            return FailedResult(f"analyze_inbox failed: {exc}")
 
         def _run(fts_query: str) -> list[SearchHit]:
             found: list[SearchHit] = []

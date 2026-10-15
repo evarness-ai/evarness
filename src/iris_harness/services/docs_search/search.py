@@ -178,7 +178,7 @@ def search_docs_in(args: dict[str, Any], *, base: Path | None = None) -> str:
     try:
         config = load_config()
     except DocsSearchConfigError as exc:
-        return f"search_docs is unavailable: {exc}"
+        return FailedResult(f"search_docs is unavailable: {exc}")
     corpus = build_corpus(config, base)
     if corpus.roots_missing:
         return NOT_PRESENT

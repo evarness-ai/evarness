@@ -264,7 +264,7 @@ def build_send_tools(
                 thread_id=plan["thread_id"],
             )
         except PermissionError as exc:
-            return f"Not sent: {exc}"
+            return FailedResult(f"Not sent: {exc}")
         logger.info("send_email: sent %s from %s", sent_id or "(no id)", plan["account_id"])
         kind = "Reply sent" if plan["original"] is not None else "Sent"
         return f"{kind} to {', '.join(plan['to'])}: {plan['subject']}."
