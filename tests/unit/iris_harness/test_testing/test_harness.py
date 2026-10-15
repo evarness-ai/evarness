@@ -7,7 +7,6 @@ network are replaced.
 
 from __future__ import annotations
 
-import json
 import os
 import socket
 import sys
@@ -540,11 +539,7 @@ def test_an_mcp_tool_that_answers_is_error_is_recorded_as_a_failed_call() -> Non
 
         after = h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)
         assert after and {r.tool for r in after} == {"forecast"}
-        ids = {r.id for r in after}
-        raw = [r for r in AuditLog(db_path=h.audit_db).query() if r.id in ids]
-        assert raw and all(
-            json.loads(r.payload_json).get("tool_error") == "ToolReportedError" for r in raw
-        )
+        assert {r.tool_error for r in after} == {"ToolReportedError"}
         observed = [c for c in h.model_calls() if c.rule == "answer"]
         assert observed and "no forecast for" in observed[-1].user
 
@@ -553,9 +548,66 @@ def test_an_mcp_tool_that_answers_is_recorded_without_a_tool_error() -> None:
     with harness(plugins=[_weather()], fake_model=_MCP_SCRIPT) as h:
         result = h.chat("Weather in Oslo?")
 
-        ids = {r.id for r in h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)}
-        raw = [r for r in AuditLog(db_path=h.audit_db).query() if r.id in ids]
-        assert raw and all("tool_error" not in json.loads(r.payload_json) for r in raw)
+        after = h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)
+        assert after and all(r.tool_error is None for r in after)
+
+
+_FAILING_SERVER = """\
+import json, sys
+
+TOOLS = [{"name": "forecast", "description": "f", "inputSchema": {"type": "object"}}]
+for line in sys.stdin:
+    if not line.strip():
+        continue
+    req = json.loads(line)
+    if req.get("id") is None:
+        continue
+    method = req.get("method")
+    reply = {"jsonrpc": "2.0", "id": req["id"]}
+    if method == "tools/call":
+        city = (req["params"].get("arguments") or {}).get("city")
+        if city == "boom":
+            reply["error"] = {"code": -32603, "message": "the server broke"}
+        else:
+            text = "Sunny" if city == "lisbon" else "no forecast"
+            reply["result"] = {"content": [{"type": "text", "text": text}],
+                               "isError": city != "lisbon"}
+    elif method == "tools/list":
+        reply["result"] = {"tools": TOOLS}
+    else:
+        reply["result"] = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}},
+                           "serverInfo": {"name": "failing", "version": "0"}}
+    sys.stdout.write(json.dumps(reply) + "\\n")
+    sys.stdout.flush()
+"""
+
+
+@pytest.mark.parametrize(
+    ("city", "observed", "expected"),
+    [
+        ("boom", "the server broke", "ValueError"),  # a JSON-RPC error raises
+        ("atlantis", "no forecast", "ToolReportedError"),
+        ("lisbon", "Sunny", None),
+    ],
+)
+def test_turn_audit_row_tool_error_names_how_a_tool_call_failed(
+    tmp_path: Path, city: str, observed: str, expected: str | None
+) -> None:
+    """``TurnAuditRow.tool_error`` (#297): on the ``post_tool_use`` rows of a call that
+    failed, the class of what the call raised or ``ToolReportedError`` for an ``isError``
+    result; ``None`` on a call that succeeded and on every row that is not ``post_tool_use``."""
+    server = tmp_path / "server.py"
+    server.write_text(_FAILING_SERVER, encoding="utf-8")
+    weather = plugin(manifest=_MCP_MANIFEST, server=[sys.executable, str(server)])
+    script = _ask("Weather here", "forecast", observed, city=city)
+    with harness(plugins=[weather], fake_model=script) as h:
+        result = h.chat("Weather here?")
+
+        rows = h.audit_rows(session_id=result.session_id)
+        after = [r for r in rows if r.hook_point == "post_tool_use"]
+        assert after and {r.tool for r in after} == {"forecast"}
+        assert {r.tool_error for r in after} == {expected}
+        assert all(r.tool_error is None for r in rows if r.hook_point != "post_tool_use")
 
 
 _RECORDING_SERVER = """\

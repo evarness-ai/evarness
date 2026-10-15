@@ -725,6 +725,10 @@ tools:
 - A server's output is third-party text: every tool is `content: external`, and a manifest
   that says `internal` is refused. A tool declares no `impl` or `args`; the server defines
   its arguments.
+- A result the server marks `isError: true` still reaches the model as text, but the call is
+  recorded as failed: its `post_tool_use` rows carry `tool_error: ToolReportedError`, as a
+  tool that raised carries the exception's class name. A test reads it as
+  `TurnAuditRow.tool_error` (`Harness.audit_rows(hook_point="post_tool_use")`).
 - A signature binds the server's code only if something names it: a script file among the
   args, a local `-m` package (its `.py` files are hashed), or a launcher that pins its
   release (`npx pkg@1.2.3`, `uvx pkg==1.2.3`, `docker run image@sha256:...`). An unpinned
