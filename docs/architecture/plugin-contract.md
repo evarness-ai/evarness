@@ -252,6 +252,18 @@ plugin's routing prose in the plugin's words; the core renders it and authors no
 menu is capped and ranked by relevance); use it for a tool other tools' guidance names.
 A skill can never shadow a registered tool's name; nothing needs reserving.
 
+### Reporting that a call failed
+
+A tool that ran but did not do what was asked (a missing argument, a service that said no)
+returns `FailedResult("Error: ...")` from `iris_harness.sdk.tools` instead of a plain
+string. `FailedResult` is a `str`, so the model reads the text as before, and the call is
+recorded as failed: `ToolResult.ok` is false, the `post_tool_use` audit rows carry
+`tool_error: ToolReportedError` (`TurnAuditRow.tool_error` in tests), the side-effect
+ledger settles a write as `error`, and the loop's tool-failure streak counts it. Raising an
+exception is for a bug in the plugin: it counts against the plugin as a fault and shows as
+degraded, which a `FailedResult` does not. A plain string that starts with `Error:` is still
+counted by the loop's streak, but the ledger rows do not mark it failed.
+
 A tool that removes or overwrites the user's data is `effect: destructive` (ADR-0118). It
 takes no `confirm`: every call waits for the owner's itemised approval. It names its
 `undo` tool when the service has a reversible form, and must use that form (trash, not

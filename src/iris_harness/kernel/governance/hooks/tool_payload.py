@@ -105,6 +105,22 @@ TOOL_ERROR = "tool_error"
 #: message, the result's text is the tool's own, so it is still third-party text.
 TOOL_REPORTED_ERROR = "ToolReportedError"
 
+
+class FailedResult(str):
+    """The text of a result the tool itself marked as failed, returned instead of raised.
+
+    A tool that ran but did not do what was asked (a bad argument, a service that said no,
+    an MCP server answering ``isError: true``) returns its observation as this ``str``. The
+    governed runner treats the call as failed (``ok`` false) and settles it with
+    ``TOOL_REPORTED_ERROR``; the text is still handed on to the model. Raising is different:
+    an exception counts against the plugin as a fault, a ``FailedResult`` does not, because
+    the tool did not crash. It is a ``str``, so everything that reads a tool's result as text
+    still works. Plugins import it from ``iris_harness.sdk.tools``.
+    """
+
+    __slots__ = ()
+
+
 #: ``audit_metadata`` key of the final ``PRE_TOOL_USE`` decision: the ledger row written
 #: before the call ran.
 SIDE_EFFECT_ID = "side_effect_id"
@@ -214,6 +230,7 @@ def _no_contract_keys(extra: dict[str, Any]) -> None:
 
 
 __all__ = [
+    "FailedResult",
     "ARGS",
     "ARGS_DIGEST",
     "ATTEMPT",
