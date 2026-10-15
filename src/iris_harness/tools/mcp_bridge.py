@@ -36,6 +36,8 @@ from iris_harness.kernel.governance.mcp_signing import (
     resolve_signing_action,
     verify_server_signature,
 )
+from iris_harness.kernel.governance.mcp_signing.launcher import python_module, unpinned_launcher
+from iris_harness.kernel.governance.mcp_signing.spec import tree_sha256
 from iris_harness.kernel.governance.plugins.mcp_allowlist import MCPServerGovernance
 from iris_harness.kernel.governor import GovernorGuardDecision, IRISGovernorService
 from iris_harness.tools.skills import SkillRegistry
@@ -271,13 +273,63 @@ def _entrypoint_script(args: tuple[str, ...], base_dir: Path | None = None) -> P
     return None
 
 
+def _local_module(command: str | None, args: tuple[str, ...], base_dir: Path | None) -> Path | None:
+    """The package directory or module file a ``python -m <module>`` launcher runs, if local."""
+    module = python_module(command, args)
+    if module is None:
+        return None
+    relative = Path(*module.split("."))
+    base = base_dir or Path()
+    for candidate in (base / relative, base / relative.with_suffix(".py")):
+        if candidate.is_dir() and any(candidate.rglob("*.py")):
+            return candidate
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def launcher_gap(server: MCPServerConfig, spec: ServerSpec) -> str | None:
+    """Why the code a stdio server launches is not bound by its signature, or ``None``.
+
+    Covered when a script or local package was hashed into ``spec``, or when ``args`` pin the
+    release a package launcher fetches. Shared by ``iris mcp sign``, ``verify``, ``list`` and
+    the launch gate, so they cannot disagree about what a signature holds."""
+    if server.transport != "stdio" or spec.entrypoint_sha256:
+        return None
+    return unpinned_launcher(server.command, server.args)
+
+
+def verify_server(
+    server: MCPServerConfig, trust_store: TrustStore, *, base_dir: Path | None = None
+) -> tuple[ServerSpec, SignatureVerdict]:
+    """The server's signature verdict, with an unpinned launcher counted against it.
+
+    A signature that verifies but binds no code is not trusted: the verdict becomes
+    ``invalid`` with the reason, so the signing policy treats it like a changed server
+    (recorded in shadow, ``unsigned_policy`` under enforce)."""
+    spec = build_server_spec(server, base_dir=base_dir)
+    verdict = verify_server_signature(
+        spec=spec,
+        signature=server.signature,
+        signed_by=server.signed_by,
+        trust_store=trust_store,
+    )
+    gap = launcher_gap(server, spec)
+    if verdict.is_trusted and gap:
+        verdict = SignatureVerdict(
+            "invalid", f"signature does not bind the server's code: {gap}", key_id=verdict.key_id
+        )
+    return spec, verdict
+
+
 def build_server_spec(server: MCPServerConfig, *, base_dir: Path | None = None) -> ServerSpec:
     """Build the canonical signable spec for ``server``.
 
     The single source of truth shared by the bridge gate and the ``iris mcp
     sign``/``verify`` CLI, so the CLI signs exactly what the gate checks. Hashes
-    the binary of a local-path ``stdio`` command and the script it is asked to run (a
-    launcher like ``npx <pkg>`` is not a file — see the doc's scope boundary)."""
+    the binary of a local-path ``stdio`` command and the script it is asked to run, or the
+    files of a local ``-m`` package. A launcher that fetches its code (``npx <pkg>``) is not a
+    file: :func:`launcher_gap` says whether its ``args`` pin the release instead."""
     package_sha256: str | None = None
     entrypoint_sha256: str | None = None
     if server.transport == "stdio" and server.command:
@@ -287,6 +339,10 @@ def build_server_spec(server: MCPServerConfig, *, base_dir: Path | None = None) 
         script = _entrypoint_script(server.args, base_dir)
         if script is not None:
             entrypoint_sha256 = file_sha256(script)
+        else:
+            package = _local_module(server.command, server.args, base_dir)
+            if package is not None:
+                entrypoint_sha256 = tree_sha256(package)
     return ServerSpec(
         name=server.name,
         transport=server.transport,
@@ -458,24 +514,13 @@ class MCPTransport:
     def verify_signature(
         self, server: MCPServerConfig, base_dir: Path | None = None
     ) -> SignatureVerdict:
-        return verify_server_signature(
-            spec=build_server_spec(server, base_dir=base_dir),
-            signature=server.signature,
-            signed_by=server.signed_by,
-            trust_store=self._trust_store,
-        )
+        return verify_server(server, self._trust_store, base_dir=base_dir)[1]
 
     def check_signature(
         self, server: MCPServerConfig, base_dir: Path | None = None
     ) -> SignatureCheck:
         """The server's verdict and what the policy does about it; logs nothing, refuses nothing."""
-        spec = build_server_spec(server, base_dir=base_dir)
-        verdict = verify_server_signature(
-            spec=spec,
-            signature=server.signature,
-            signed_by=server.signed_by,
-            trust_store=self._trust_store,
-        )
+        spec, verdict = verify_server(server, self._trust_store, base_dir=base_dir)
         return SignatureCheck(
             verdict=verdict,
             action=resolve_signing_action(verdict, self._signing_config),
