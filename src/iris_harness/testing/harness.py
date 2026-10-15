@@ -153,7 +153,10 @@ class TurnAuditRow:
     or 2 for an approved re-execution, whose ``replay_of`` names the held attempt;
     ``resumed_from_run`` is the run id on the rows of a halted run that was re-entered.
     Each is ``None`` on a row it does not describe, and on rows written before the call
-    carried an identity.
+    carried an identity. ``tool_error`` says, on a ``post_tool_use`` row, that the call
+    failed: the class name of what the tool raised, or ``"ToolReportedError"`` when the
+    tool returned a result it marked as failed (an MCP ``isError: true``); never the
+    message. It is ``None`` on a call that succeeded and on every other row.
     """
 
     id: int
@@ -180,6 +183,7 @@ class TurnAuditRow:
     attempt: int | None = None
     replay_of: str | None = None
     resumed_from_run: str | None = None
+    tool_error: str | None = None
 
 
 def _payload(row: AuditRow) -> dict[str, Any]:
@@ -238,6 +242,10 @@ def _turn_audit_row(row: AuditRow) -> TurnAuditRow:
         attempt=_optional_int(payload.get("attempt")),
         replay_of=_optional_str(payload.get("replay_of")),
         resumed_from_run=_optional_str(payload.get("resumed_from_run")),
+        # The kernel writes it on the ``post_tool_use`` rows of a failed call only.
+        tool_error=(
+            _optional_str(payload.get("tool_error")) if row.hook_point == "post_tool_use" else None
+        ),
     )
 
 
