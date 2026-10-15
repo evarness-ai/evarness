@@ -56,6 +56,11 @@ up-local:
 up-host:
 	$(COMPOSE) -f docker-compose.yml -f docker-compose.hostllm.yml up -d --no-deps governor iris-api
 
+# docker-compose.yml refuses to load without IRIS_AUTH_SECRET, even for commands that start
+# nothing. down and logs never use the value, so a placeholder lets them run in a shell
+# that has lost the export; a real value in the environment or .env is kept.
+down logs: export IRIS_AUTH_SECRET ?= unused
+
 down:
 	$(COMPOSE) down
 

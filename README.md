@@ -165,9 +165,26 @@ The scheduled jobs (the email sweep and judge) and the web console run in the IR
 up as a service:
 
 ```bash
-export IRIS_AUTH_SECRET="$(openssl rand -hex 32)"
+echo "IRIS_AUTH_SECRET=$(openssl rand -hex 32)" >> .env   # once; .env is git-ignored
 docker compose up        # Ollama, the Governor and the IRIS API, on 127.0.0.1 only
 ```
+
+The first start pulls about 6 GB of model weights. Containerized Ollama is CPU-only, so on a
+Mac with Ollama already installed, run `make up-host` instead: it starts the Governor and the
+IRIS API against your native Ollama and skips the pull. Open the console at
+http://127.0.0.1:8003/ in a browser; every API call needs `Authorization: Bearer
+$IRIS_AUTH_SECRET`. Docker is for keeping IRIS up as a service; `iris email demo` is the
+quicker way to try it.
+
+Every `docker compose` command, not only `up`, needs `IRIS_AUTH_SECRET`: `ps`, `logs` and
+`down` fail with `required variable IRIS_AUTH_SECRET is missing a value` in a shell where it
+is not set. That is why the snippet saves it to `.env`, which Compose reads every time (use
+the same value the stack started with). `make down` and `make logs` need no variable.
+
+Checked on 0.1.5 (macOS, Docker Desktop 29.4.1): the image builds, the Governor and the IRIS API
+come up healthy against a native Ollama, `/chat` answers (a deterministic turn and a model
+turn), and the console loads. The full `docker compose up` with the bundled Ollama and its
+model pull has not been run.
 
 The [email assistant guide](https://evarness-ai.github.io/iris-harness/guides/email/)
 shows how to run the API from an install and pair the web console.

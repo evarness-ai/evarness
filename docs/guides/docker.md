@@ -7,9 +7,13 @@ from a clone of the repository.
 ```bash
 git clone https://github.com/evarness-ai/iris-harness.git
 cd iris-harness
-export IRIS_AUTH_SECRET="$(openssl rand -hex 32)"   # or put it in .env
+echo "IRIS_AUTH_SECRET=$(openssl rand -hex 32)" >> .env   # once; .env is git-ignored
 docker compose up        # or: make up
 ```
+
+Put the secret in `.env` rather than `export`ing it. An export lasts for one shell, and
+Compose needs the variable for **every** `docker compose` command, not only `up` (see
+below).
 
 | Service | Port | Role |
 |---|---|---|
@@ -24,10 +28,26 @@ and later ones are fast.
 
 ## The one required variable
 
-Compose refuses to start without `IRIS_AUTH_SECRET`, and every API call except the
-`/healthz` probe must carry it as a bearer token:
+Compose refuses to load `docker-compose.yml` without `IRIS_AUTH_SECRET`. That applies to
+every `docker compose` subcommand, including `ps`, `logs`, `exec` and `down`, which start
+nothing. In a new terminal where the variable is not set they stop with:
+
+```text
+error while interpolating services.governor.environment.IRIS_AUTH_SECRET: required variable IRIS_AUTH_SECRET is missing a value
+```
+
+The stack is not broken; Compose cannot read the file. Keep the secret in `.env` (Compose
+reads it from there for every command) or export the same value again. Use the same value
+as the one the running containers started with: the API authenticates calls against it, so
+a different one is a different login. `make down` and `make logs` set a placeholder
+themselves, since they never use the value. The requirement is deliberate: a shipped
+default would be a publicly known secret.
+
+Every API call except the `/healthz` probe must carry it as a bearer token. A secret in
+`.env` is read by Compose, not exported to your shell, so load it for the call:
 
 ```bash
+export IRIS_AUTH_SECRET="$(grep '^IRIS_AUTH_SECRET=' .env | cut -d= -f2-)"
 curl -s localhost:8003/chat -H "authorization: Bearer $IRIS_AUTH_SECRET" \
   -H 'content-type: application/json' \
   -d '{"message": "what time is it?", "session_id": "demo"}'
@@ -57,6 +77,12 @@ make logs                # follow iris-api and the Governor
 make down                # stop and remove the stack; the volumes stay
 docker compose down -v   # also drop the data and model volumes
 ```
+
+## The web console
+
+Open `http://127.0.0.1:8003/` in a browser. The page is served without a token, but
+only to a browser navigation (it sends `Sec-Fetch-Mode: navigate`); a bare `curl` of `/`
+gets a 401, as does any data call without the bearer token.
 
 ## Models
 
