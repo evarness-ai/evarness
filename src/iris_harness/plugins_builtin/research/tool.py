@@ -22,6 +22,7 @@ from iris_harness.plugins_builtin.research.models import ResearchInput, Research
 from iris_harness.plugins_builtin.research.rerank import build_reranker
 from iris_harness.sdk.process_state import track_globals
 from iris_harness.sdk.time import local_today
+from iris_harness.sdk.tools import FailedResult
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ def run_research(args: dict[str, Any], *, embed: EmbedFn | None = None) -> str:
     """ReAct-loop entry point. Never raises — returns a string the model can read."""
     inp = _coerce_input(args)
     if inp is None:
-        return "Error: research requires a 'query' argument."
+        return FailedResult("Error: research requires a 'query' argument.")
     try:
         result = get_engine(embed=embed).research(inp)
     except Exception as exc:  # noqa: BLE001 - the tool must always return a string

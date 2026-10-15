@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from iris_harness.kernel.governance.file_scan import scan_text
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.services.docs_search.corpus import (
     Config,
     Corpus,
@@ -117,7 +118,9 @@ def render(corpus: Corpus, query: str, section: str, limit: int | None, config: 
     lim = config.limits
     terms = _query_terms(query, lim)
     if not terms:
-        return 'Error: search_docs requires a "query" with at least one word to look for.'
+        return FailedResult(
+            'Error: search_docs requires a "query" with at least one word to look for.'
+        )
     want = lim.default_results if limit is None else max(1, min(limit, lim.max_results))
     hits = _score_corpus(corpus, terms, section.strip()[: lim.max_query_chars])
     shown = f'"{" ".join(terms)}"'
@@ -166,7 +169,9 @@ def search_docs_in(args: dict[str, Any], *, base: Path | None = None) -> str:
     """
     query = str(args.get("query") or args.get("q") or args.get("input") or "").strip()
     if not query:
-        return 'Error: search_docs requires a "query" argument, e.g. {"query": "tier routing"}.'
+        return FailedResult(
+            'Error: search_docs requires a "query" argument, e.g. {"query": "tier routing"}.'
+        )
     section = str(args.get("section") or "")
     raw_limit = args.get("limit")
     limit = raw_limit if isinstance(raw_limit, int) and not isinstance(raw_limit, bool) else None

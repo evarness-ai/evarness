@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from iris_harness.sdk import PluginAPI
+from iris_harness.sdk.tools import FailedResult
 from iris_harness.sdk.types import AgentTask
 
 from .handler import _is_docker_available, _make_code_exec_handler
@@ -48,7 +49,7 @@ def setup(api: PluginAPI) -> None:
     def _code_exec(args: dict[str, Any]) -> str:
         task_str = str(args.get("task") or args.get("script") or args.get("input") or "").strip()
         if not task_str:
-            return "Error: code_exec requires a 'task' argument."
+            return FailedResult("Error: code_exec requires a 'task' argument.")
         try:
             result = handler(AgentTask(query=task_str, agent_type="code_exec"))
         except Exception as exc:  # noqa: BLE001 — a tool returns an observation, never raises

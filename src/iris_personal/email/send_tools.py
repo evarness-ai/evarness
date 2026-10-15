@@ -35,6 +35,7 @@ from email.utils import formataddr, getaddresses, parseaddr
 from pathlib import Path
 from typing import Any
 
+from iris_harness.sdk.tools import FailedResult
 from iris_harness.sdk.types import ToolDescription, ToolSpec
 from iris_personal.email.contracts import EmailMessage
 from iris_personal.email.store import EmailStore
@@ -245,10 +246,12 @@ def build_send_tools(
     def send(args: dict[str, Any]) -> str:
         plan, problem = _plan(args)
         if plan is None:
-            return f"Error: {problem} Nothing was sent."
+            return FailedResult(f"Error: {problem} Nothing was sent.")
         provider = _provider(plan["account_id"])
         if provider is None or not hasattr(provider, "send_message"):
-            return f"Error: no mail provider can send from {plan['account_id']}. Nothing was sent."
+            return FailedResult(
+                f"Error: no mail provider can send from {plan['account_id']}. Nothing was sent."
+            )
         try:
             sent_id = provider.send_message(
                 plan["account_id"],
