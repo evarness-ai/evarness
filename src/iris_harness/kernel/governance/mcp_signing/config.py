@@ -30,14 +30,16 @@ class MCPSigningConfig(BaseModel):
 
     @classmethod
     def disabled(cls) -> MCPSigningConfig:
+        """Verification off. Only a policy file that says ``enabled: false`` gets this."""
         return cls(enabled=False)
 
     @classmethod
     def from_yaml(cls, path: Path) -> MCPSigningConfig:
-        """Load policy. Absent file → ``disabled()`` (no verification); a
-        malformed present file raises ``ValueError``."""
+        """Load policy. An absent file is the shipped default (``shadow`` / ``warn``:
+        every call is verified and its verdict is recorded, nothing is blocked), not
+        "off"; a malformed present file raises ``ValueError``."""
         if not path.exists():
-            return cls.disabled()
+            return cls()
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         if not isinstance(raw, dict):
             raise ValueError(f"mcp-signing config must decode to a mapping: {path}")

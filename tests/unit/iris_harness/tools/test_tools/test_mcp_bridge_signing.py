@@ -449,3 +449,62 @@ def test_the_deny_row_carries_the_verdict_too(tmp_path: Path) -> None:
     (payload,) = _row_payloads(audit, "pre_tool_use")
     assert payload["signature_status"] == "unsigned"
     assert len(payload["signature_spec_sha256"]) == 64
+
+
+# --- no policy file: the default, not off ---------------------------------------------------
+
+
+def _policy_dir(tmp_path: Path, text: str | None) -> Path:
+    if text is not None:
+        policy = tmp_path / "config" / "governance"
+        policy.mkdir(parents=True)
+        (policy / "mcp-signing.yaml").write_text(text, encoding="utf-8")
+    return tmp_path
+
+
+def _unsigned_call_rows(tmp_path: Path) -> list[dict[str, object]]:
+    server = _read_server()
+    from iris_harness.kernel.governance import build_default_kernel
+    from iris_harness.kernel.governance.approvals import ApprovalQueue
+    from iris_harness.kernel.governance.audit import AuditLog
+
+    _write_governor_policy(tmp_path)
+    audit = AuditLog(tmp_path / "audit.db")
+    kernel = build_default_kernel(
+        audit_log=audit,
+        approval_queue=ApprovalQueue(db_path=tmp_path / "approvals.db"),
+        side_effect_ledger_db_path=tmp_path / "ledger.db",
+    )
+    bridge = MCPBridge(
+        tmp_path,
+        config=MCPBridgeConfig(enabled=True, servers=(server,)),
+        governance_kernel=kernel,
+        http_requester=lambda _s, _p: {"result": {"ok": True}},
+    )
+    bridge.invoke_external_tool(server.name, "read_x", {}, approval_granted=True)
+    return [
+        json.loads(r.payload_json) for r in audit.query() if "signature_status" in r.payload_json
+    ]
+
+
+def test_a_repo_with_no_signing_policy_still_verifies_in_shadow(tmp_path: Path) -> None:
+    payloads = _unsigned_call_rows(_policy_dir(tmp_path, None))
+
+    assert payloads
+    assert {p["signature_status"] for p in payloads} == {"unsigned"}  # checked, and let through
+
+
+def test_a_policy_that_says_enabled_false_is_the_only_way_to_turn_it_off(tmp_path: Path) -> None:
+    payloads = _unsigned_call_rows(_policy_dir(tmp_path, "version: 1\nenabled: false\n"))
+
+    assert {p["signature_status"] for p in payloads} == {"not_checked"}
+
+
+def test_an_unreadable_policy_stops_the_bridge_instead_of_turning_signing_off(
+    tmp_path: Path,
+) -> None:
+    root = _policy_dir(tmp_path, "version: 1\nmode: enfroce\n")
+    _write_governor_policy(root)
+
+    with pytest.raises(ValueError, match="mcp-signing.yaml"):
+        MCPBridge(root, config=MCPBridgeConfig(enabled=True, servers=(_read_server(),)))

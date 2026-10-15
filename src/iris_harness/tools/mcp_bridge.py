@@ -302,12 +302,17 @@ def build_server_spec(server: MCPServerConfig, *, base_dir: Path | None = None) 
 
 
 def _load_signing_config(repo_root: Path) -> MCPSigningConfig:
-    """Load the MCP-signing policy; absent/unreadable → disabled (no-op gate)."""
+    """Load the MCP-signing policy.
+
+    An absent file is the default policy (shadow: verify and record, never block). An
+    unreadable one is an error: a typo in a policy that says ``enforce`` must not turn
+    signing off, so it stops the bridge and names the file.
+    """
+    path = repo_root / "config" / "governance" / "mcp-signing.yaml"
     try:
-        return MCPSigningConfig.from_yaml(repo_root / "config" / "governance" / "mcp-signing.yaml")
-    except Exception:  # signing must never break bridge construction
-        logger.debug("mcp-signing config load failed; signing disabled", exc_info=True)
-        return MCPSigningConfig.disabled()
+        return MCPSigningConfig.from_yaml(path)
+    except Exception as exc:
+        raise ValueError(f"mcp-signing policy {path} is unreadable: {exc}") from exc
 
 
 def _load_trust_store(repo_root: Path, config: MCPSigningConfig) -> TrustStore:
@@ -320,7 +325,11 @@ def _load_trust_store(repo_root: Path, config: MCPSigningConfig) -> TrustStore:
             path = repo_root / path
         return TrustStore.from_yaml(path)
     except Exception:  # degrade to empty (every signed server untrusted)
-        logger.debug("mcp-signing trust store load failed; using empty store", exc_info=True)
+        logger.warning(
+            "mcp-signing trust store %s is unreadable; no key is trusted",
+            config.trust_store,
+            exc_info=True,
+        )
         return TrustStore.empty()
 
 
