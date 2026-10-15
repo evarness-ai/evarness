@@ -409,6 +409,33 @@ class GovernanceKernel:
             )
             return "lost"
 
+    def record_denial(
+        self,
+        hook_point: HookPoint,
+        plugin: str,
+        reason: str,
+        ctx: HookContext,
+        *,
+        audit_metadata: dict[str, Any] | None = None,
+    ) -> HookDecision:
+        """Write the one ``deny`` row of a call refused before its hooks ran, and return it.
+
+        For a caller that already holds a fact which must stop the call -- the MCP bridge
+        has seen the server's launch signature fail -- so the ledger shows one refusal
+        naming ``plugin`` instead of a row of ``allow`` for every hook the call passed on
+        its way to a stop. It only denies: it never allows, and a call is still refused
+        by whatever else the hooks would have said.
+        """
+        decision = HookDecision(
+            outcome="deny",
+            reason=reason,
+            severity="error",
+            audit_metadata=dict(audit_metadata or {}),
+            decided_by=plugin,
+        )
+        self._audit(hook_point, plugin, decision, ctx)
+        return decision
+
     def fire_sync(
         self, hook_point: HookPoint, ctx: HookContext
     ) -> tuple[HookDecision, HookContext]:

@@ -12,7 +12,7 @@ import subprocess
 import time
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, NoReturn, cast
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -28,6 +28,7 @@ from iris_harness.kernel.governance.mcp_signing import (
     MCPSigningConfig,
     ServerSpec,
     SignatureVerdict,
+    SigningAction,
     TrustStore,
     file_sha256,
     resolve_signing_action,
@@ -38,12 +39,13 @@ from iris_harness.kernel.governor import GovernorGuardDecision, IRISGovernorServ
 from iris_harness.tools.skills import SkillRegistry
 
 if TYPE_CHECKING:
+    from iris_harness.kernel.governance.hooks.types import HookContext
     from iris_harness.kernel.governance.kernel import GovernanceKernel
 
 logger = logging.getLogger(__name__)
 
 
-class MCPSignatureError(RuntimeError):
+class MCPSignatureError(PermissionError):
     """Raised when MCP signing is in ``enforce`` mode and a server's signature
     does not verify (and ``unsigned_policy`` is ``deny``) — the launch/connect
     is refused before any process starts."""
@@ -236,6 +238,20 @@ def _refusal(decision: GovernorGuardDecision, *, approval_granted: bool) -> Perm
     return PermissionError(decision.reason)
 
 
+def _signature_refusal(server: MCPServerConfig, verdict: SignatureVerdict) -> str:
+    """The message of a launch refused for its signature, logged as the policy's DENY."""
+    logger.warning(
+        "mcp-signing[enforce] DENY server=%s status=%s reason=%s",
+        server.name,
+        verdict.status,
+        verdict.reason,
+    )
+    return (
+        f"MCP server {server.name!r} failed signature verification: "
+        f"{verdict.status} ({verdict.reason})"
+    )
+
+
 def _entrypoint_script(args: tuple[str, ...], base_dir: Path | None = None) -> Path | None:
     """The first argument that names a local file: the script an interpreter is asked to run.
 
@@ -411,6 +427,13 @@ class MCPTransport:
             trust_store=self._trust_store,
         )
 
+    def check_signature(
+        self, server: MCPServerConfig, base_dir: Path | None = None
+    ) -> tuple[SignatureVerdict, SigningAction]:
+        """The server's verdict and what the policy does about it; logs nothing, refuses nothing."""
+        verdict = self.verify_signature(server, base_dir)
+        return verdict, resolve_signing_action(verdict, self._signing_config)
+
     def enforce_signature(self, server: MCPServerConfig, base_dir: Path | None = None) -> None:
         """Verify the server signature and apply the configured policy.
 
@@ -422,16 +445,7 @@ class MCPTransport:
         verdict = self.verify_signature(server, base_dir)
         action = resolve_signing_action(verdict, self._signing_config)
         if action == "deny":
-            logger.warning(
-                "mcp-signing[enforce] DENY server=%s status=%s reason=%s",
-                server.name,
-                verdict.status,
-                verdict.reason,
-            )
-            raise MCPSignatureError(
-                f"MCP server {server.name!r} failed signature verification: "
-                f"{verdict.status} ({verdict.reason})"
-            )
+            raise MCPSignatureError(_signature_refusal(server, verdict))
         if not verdict.is_trusted:
             logger.warning(
                 "mcp-signing[%s] server=%s status=%s reason=%s key_id=%s (proceeding)",
@@ -655,6 +669,10 @@ class MCPBridge:
     ) -> tuple[MCPToolDefinition, ...]:
         """Discover tool definitions from one configured external MCP server."""
         server = self._require_enabled_server(server_name)
+        verdict, action = self._transport.check_signature(server)
+        if action == "deny":
+            # Before the governor's guard, so no ``allow`` is recorded for a call that stops.
+            raise MCPSignatureError(_signature_refusal(server, verdict))
         payload_metadata = {"method": "tools/list"}
         if metadata:
             payload_metadata.update(metadata)
@@ -736,6 +754,22 @@ class MCPBridge:
         # rows of the call (#134 stage 2). The HTTP route runs inside none, so it has no parent.
         register_call(call_id)
 
+        # A server whose launch signature fails is refused before any hook runs, so the ledger
+        # holds one deny row rather than a row of allow for each hook on the way to the stop.
+        verdict, action = self._transport.check_signature(server)
+        if action == "deny":
+            self._refuse_signature(
+                server,
+                tool_name,
+                verdict,
+                arguments=arguments,
+                persona=persona,
+                run_id=run_id,
+                call_id=call_id,
+                effect=effect,
+                approved_by=approved_by,
+            )
+
         # Governance kernel pre-check (Phase 4 — story 12.gov-4.6).
         if self._governance_kernel is not None:
             call_arguments = self._fire_governance_pre_tool(
@@ -792,7 +826,49 @@ class MCPBridge:
             result=result,
         )
 
-    def _fire_governance_pre_tool(
+    def _refuse_signature(
+        self,
+        server: MCPServerConfig,
+        tool_name: str,
+        verdict: SignatureVerdict,
+        *,
+        arguments: dict[str, Any],
+        persona: str | None,
+        run_id: str | None,
+        call_id: str,
+        effect: str | None,
+        approved_by: str | None,
+    ) -> NoReturn:
+        """Refuse a call to a server whose signature fails: one deny row, then the error."""
+        message = _signature_refusal(server, verdict)
+        if self._governance_kernel is not None:
+            from iris_harness.kernel.governance.hooks.types import HookPoint
+
+            ctx = self._pre_tool_context(
+                server_name=server.name,
+                tool_name=tool_name,
+                arguments=arguments,
+                persona=persona,
+                run_id=run_id,
+                call_id=call_id,
+                effect=effect,
+                approved_by=approved_by,
+            )
+            self._governance_kernel.record_denial(
+                HookPoint.PRE_TOOL_USE,
+                "mcp_signature",
+                message,
+                ctx,
+                audit_metadata={
+                    "mcp_server": server.name,
+                    "mcp_tool": tool_name,
+                    "signature_status": verdict.status,
+                    "signature_key_id": verdict.key_id,
+                },
+            )
+        raise MCPSignatureError(message)
+
+    def _pre_tool_context(
         self,
         *,
         server_name: str,
@@ -803,21 +879,11 @@ class MCPBridge:
         call_id: str,
         effect: str | None = None,
         approved_by: str | None = None,
-    ) -> dict[str, Any]:
-        """Fire ``PreToolUse`` through the governance kernel for an MCP dispatch.
+    ) -> HookContext:
+        """The ``PreToolUse`` context of one outbound MCP call (route ``mcp/{server}/{tool}``).
 
-        Route format: ``mcp/{server_name}/{tool_name}`` (AC-5). The
-        ``mcp_server`` and ``mcp_tool`` payload fields allow
-        ``MCPAllowlistHook`` to identify the dispatch without parsing the
-        route string. A ``deny`` or ``require_approval`` decision raises
-        :exc:`PermissionError` (the bridge has no resume path), as the post step does.
-        Returns the arguments to call the server with: the final context's
-        ``args`` (``tool_payload.args_of``).
-
-        The row carries a keyed ``args_digest`` of the arguments as written
-        (``kernel/governance/audit/digest.py``). With no audit key the call is
-        refused here, before ``PRE_TOOL_USE`` and before the server is reached:
-        :exc:`PermissionError` with the no-key message.
+        With no audit key the call is refused here: :exc:`PermissionError` with the no-key
+        message.
         """
         from iris_harness.kernel.governance.audit.digest import (
             AuditKeyUnavailable,
@@ -827,7 +893,6 @@ class MCPBridge:
             CALL_ID,
             TOOL_CALL_ID,
             TOOL_EFFECT,
-            args_of,
             pre_tool_payload,
         )
         from iris_harness.kernel.governance.hooks.types import (
@@ -835,7 +900,6 @@ class MCPBridge:
             HookPoint,
         )
 
-        assert self._governance_kernel is not None  # caller guards
         try:
             digester = audit_digester()
         except AuditKeyUnavailable as exc:
@@ -864,6 +928,49 @@ class MCPBridge:
                 TOOL_EFFECT: effect,
                 **({"approved_by": approved_by} if approved_by else {}),
             },
+        )
+        return ctx
+
+    def _fire_governance_pre_tool(
+        self,
+        *,
+        server_name: str,
+        tool_name: str,
+        arguments: dict[str, Any],
+        persona: str | None,
+        run_id: str | None,
+        call_id: str,
+        effect: str | None = None,
+        approved_by: str | None = None,
+    ) -> dict[str, Any]:
+        """Fire ``PreToolUse`` through the governance kernel for an MCP dispatch.
+
+        Route format: ``mcp/{server_name}/{tool_name}`` (AC-5). The
+        ``mcp_server`` and ``mcp_tool`` payload fields allow
+        ``MCPAllowlistHook`` to identify the dispatch without parsing the
+        route string. A ``deny`` or ``require_approval`` decision raises
+        :exc:`PermissionError` (the bridge has no resume path), as the post step does.
+        Returns the arguments to call the server with: the final context's
+        ``args`` (``tool_payload.args_of``).
+
+        The row carries a keyed ``args_digest`` of the arguments as written
+        (``kernel/governance/audit/digest.py``). With no audit key the call is
+        refused here, before ``PRE_TOOL_USE`` and before the server is reached:
+        :exc:`PermissionError` with the no-key message.
+        """
+        from iris_harness.kernel.governance.hooks.tool_payload import args_of
+        from iris_harness.kernel.governance.hooks.types import HookPoint
+
+        assert self._governance_kernel is not None  # caller guards
+        ctx = self._pre_tool_context(
+            server_name=server_name,
+            tool_name=tool_name,
+            arguments=arguments,
+            persona=persona,
+            run_id=run_id,
+            call_id=call_id,
+            effect=effect,
+            approved_by=approved_by,
         )
         decision, final_ctx = self._governance_kernel.fire_sync(HookPoint.PRE_TOOL_USE, ctx)
         if decision.outcome == "deny":
