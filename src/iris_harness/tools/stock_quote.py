@@ -19,6 +19,7 @@ from collections.abc import Callable
 from typing import Any
 
 from iris_harness.foundation.process_state import track_globals
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def stock_quote(symbol: str, *, run_shell: Callable[[str], Any] | None = None) -
     """
     sym = (symbol or "").strip().upper()
     if not _TICKER_RE.match(sym):
-        return "Error: stock_quote needs a ticker symbol, e.g. AAPL."
+        return FailedResult("Error: stock_quote needs a ticker symbol, e.g. AAPL.")
 
     runner = run_shell or _default_run_shell
     # Feed the script over stdin via heredoc; argv[1] carries the ticker.

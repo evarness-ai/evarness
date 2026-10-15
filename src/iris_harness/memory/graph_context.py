@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.llm.budget import estimate_tokens
 from memris.model import OWNER_ID, Entity, Statement, name_key
 
@@ -267,7 +268,9 @@ class GraphContext:
         """What ``memory_graph`` answers: lines with provenance, or why there are none."""
         name = " ".join((entity or "").split())
         if not name:
-            return f'Error: memory_graph needs an "entity" (a name, or "{OWNER_ARG}").'
+            return FailedResult(
+                f'Error: memory_graph needs an "entity" (a name, or "{OWNER_ARG}").'
+            )
         found = self._entity(name)
         if found is None:
             return f"Nothing remembered about '{name}'."
@@ -275,12 +278,12 @@ class GraphContext:
         if relation:
             predicate = self._predicate(relation)
             if predicate is None:
-                return (
+                return FailedResult(
                     f"Error: '{relation}' is not a relation memory keeps. "
                     f"Known: {', '.join(self.relation_names())}."
                 )
         if direction not in ("out", "in", "both"):
-            return 'Error: direction is "out", "in" or "both".'
+            return FailedResult('Error: direction is "out", "in" or "both".')
         limit = graph_tool_max_hops()
         hops = max(1, min(int(hops), limit))
         when = None
@@ -288,7 +291,7 @@ class GraphContext:
             try:
                 when = datetime.fromisoformat(as_of)
             except ValueError:
-                return "Error: as_of is a date like 2026-09-01."
+                return FailedResult("Error: as_of is a date like 2026-09-01.")
             if when.tzinfo is None:
                 when = when.replace(tzinfo=UTC)
         found_statements = self.graph.neighbourhood(

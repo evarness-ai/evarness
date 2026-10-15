@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from iris_harness.foundation.paths import data_dir
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.kernel.governance.reentry import one_line, reenter_many, reenter_memory_lines
 from iris_harness.memory.graph_context import memory_graph_description, memory_graph_tool
 from iris_harness.memory.identity import (
@@ -63,7 +64,7 @@ def builtin_react_tools(
     def _stock_quote(args: dict[str, Any]) -> str:
         symbol = str(args.get("symbol") or args.get("ticker") or args.get("input") or "").strip()
         if not symbol:
-            return "Error: stock_quote requires a 'symbol' argument, e.g. AAPL."
+            return FailedResult("Error: stock_quote requires a 'symbol' argument, e.g. AAPL.")
         return stock_quote(symbol)
 
     _MEMORY_SCOPES = ("facts", "patterns", "behaviors", "sessions", "all")
@@ -215,10 +216,10 @@ def builtin_react_tools(
     def _memory_search(args: dict[str, Any]) -> str:
         query = str(args.get("query") or args.get("input") or "").strip()
         if not query:
-            return "Error: memory_search requires a 'query' argument."
+            return FailedResult("Error: memory_search requires a 'query' argument.")
         scope = str(args.get("scope") or "all").strip().lower()
         if scope not in _MEMORY_SCOPES:
-            return f"Error: scope must be one of {', '.join(_MEMORY_SCOPES)}."
+            return FailedResult(f"Error: scope must be one of {', '.join(_MEMORY_SCOPES)}.")
         try:
             n = int(args.get("n") or args.get("limit") or 5)
         except (TypeError, ValueError):
@@ -280,7 +281,7 @@ def builtin_react_tools(
             else:
                 sid = session_id or current_session_id()
                 if not sid:
-                    return (
+                    return FailedResult(
                         "Error: recall_conversation needs a 'query' to search for, or a "
                         "'session_id' to read back."
                     )
@@ -355,7 +356,9 @@ def builtin_react_tools(
             return "memory_forget unavailable (memory store not configured)."
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         if not key:
-            return "Error: memory_forget requires a 'key' (the fact name, e.g. 'location')."
+            return FailedResult(
+                "Error: memory_forget requires a 'key' (the fact name, e.g. 'location')."
+            )
         try:
             from iris_harness.memory.coordinator import FactCoordinator
 
@@ -375,7 +378,9 @@ def builtin_react_tools(
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         value = str(args.get("value") or args.get("new_value") or args.get("to") or "").strip()
         if not key or not value:
-            return "Error: memory_correct requires a 'key' and a 'value' (e.g. key=location, value='New York')."
+            return FailedResult(
+                "Error: memory_correct requires a 'key' and a 'value' (e.g. key=location, value='New York')."
+            )
         try:
             from iris_harness.memory.coordinator import FactCoordinator
 
@@ -393,7 +398,9 @@ def builtin_react_tools(
             return "memory_restore unavailable (memory store not configured)."
         key = str(args.get("key") or args.get("fact") or args.get("name") or "").strip()
         if not key:
-            return "Error: memory_restore requires a 'key' (the fact name to restore)."
+            return FailedResult(
+                "Error: memory_restore requires a 'key' (the fact name to restore)."
+            )
         try:
             from iris_harness.memory.coordinator import FactCoordinator
 
@@ -410,7 +417,7 @@ def builtin_react_tools(
             return "Wiki unavailable."
         question = str(args.get("query") or args.get("question") or args.get("input") or "").strip()
         if not question:
-            return "Error: wiki_search requires a 'query' argument."
+            return FailedResult("Error: wiki_search requires a 'query' argument.")
         try:
             return wiki.query(question)
         except Exception as exc:  # noqa: BLE001 — the agent reads the failure
@@ -440,7 +447,7 @@ def builtin_react_tools(
     def _iris_doc(args: dict[str, Any]) -> str:
         raw_name = str(args.get("name") or args.get("doc") or args.get("input") or "").strip()
         if not raw_name:
-            return (
+            return FailedResult(
                 "Error: iris_doc requires a 'name' argument. Valid names: "
                 + ", ".join(sorted(_IRIS_DOC_LOADERS))
                 + "."
@@ -448,7 +455,7 @@ def builtin_react_tools(
         name = raw_name.upper()
         loader_fn = _IRIS_DOC_LOADERS.get(name)
         if loader_fn is None:
-            return (
+            return FailedResult(
                 f"Error: iris_doc unknown name {raw_name!r}. Valid names: "
                 + ", ".join(sorted(_IRIS_DOC_LOADERS))
                 + "."
@@ -706,7 +713,7 @@ def builtin_react_tools(
         try:
             index = int(str(raw))
         except (TypeError, ValueError):
-            return (
+            return FailedResult(
                 "Error: promote_recommendation requires an 'index' (the recommendation's "
                 "number, 1-based)."
             )
@@ -737,7 +744,7 @@ def builtin_react_tools(
         intent = str(args.get("intent") or args.get("query") or "").strip()
         narrative = str(args.get("narrative") or args.get("description") or "").strip()
         if not script or not intent or not narrative:
-            return (
+            return FailedResult(
                 "Error: propose_skill_from_sandbox requires 'script', 'intent', "
                 "'narrative' (and optional 'slug')."
             )

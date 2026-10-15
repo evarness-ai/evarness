@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from iris_harness.sdk.time import local_now
+from iris_harness.sdk.tools import FailedResult
 from iris_harness.sdk.types import ToolDescription, ToolSpec
 from iris_personal.email.categories import (
     LabelsFor,
@@ -193,9 +194,11 @@ def build_trash_tools(
     def trash(args: dict[str, Any]) -> str:
         ids = _ids(args)
         if not ids:
-            return 'Error: give the emails to trash as {"ids": [...]}, from search results.'
+            return FailedResult(
+                'Error: give the emails to trash as {"ids": [...]}, from search results.'
+            )
         if len(ids) > _MAX_PER_CALL:
-            return f"Error: at most {_MAX_PER_CALL} emails at a time."
+            return FailedResult(f"Error: at most {_MAX_PER_CALL} emails at a time.")
         store = _store()
         found: list[Any] = []
         missing: list[str] = []
@@ -207,7 +210,7 @@ def build_trash_tools(
                 found.append(msg)
         trashed, problem = _move(store, found)
         if problem is not None and not trashed:
-            return problem
+            return FailedResult(problem)
         parts = [
             f"Moved {_plural(len(trashed))} to Trash (kept 30 days; restore_email brings them back)."
         ]
@@ -242,7 +245,7 @@ def build_trash_tools(
     def trash_category(args: dict[str, Any]) -> str:
         name = str(args.get("category") or args.get("input") or "").strip()
         if not name:
-            return (
+            return FailedResult(
                 'Error: trash_category needs {"category": str} — the kind of email the '
                 'owner named, e.g. "promotions". Nothing was trashed.'
             )
@@ -276,7 +279,9 @@ def build_trash_tools(
         candidates.sort(key=lambda m: m.received_at, reverse=True)
         trashed, problem = _move(store, candidates[:_MAX_PER_CATEGORY])
         if not trashed:
-            return problem or "Nothing was trashed: the mail provider moved none of them."
+            return FailedResult(
+                problem or "Nothing was trashed: the mail provider moved none of them."
+            )
         paths = sorted({p for _, _, shown in targets for p in shown})
         parts = [
             f"Moved {_plural(len(trashed))} filed under '{name}' ({', '.join(paths)}){when} "
@@ -312,7 +317,7 @@ def build_trash_tools(
         for account_id, mids in by_account.items():
             provider = _provider(account_id)
             if provider is None or not hasattr(provider, "restore_messages"):
-                return f"Error: no mail provider can restore mail for {account_id}."
+                return FailedResult(f"Error: no mail provider can restore mail for {account_id}.")
             try:
                 messages = provider.restore_messages(
                     account_id, mids, labels_before=store.trashed_labels(mids)

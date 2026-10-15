@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any
 
 from iris_harness.sdk.time import local_now
+from iris_harness.sdk.tools import FailedResult
 from iris_harness.sdk.types import ToolSpec
 from iris_personal.email.categories import (
     LabelsFor,
@@ -459,7 +460,9 @@ def find_email_attachment(*, data_dir: Path, query: str, since_days: Any = None)
     "couldn't find" when none; graceful re-auth nudge on a revoked token."""
     query = (query or "").strip()
     if not query:
-        return "Error: find_attachment requires a 'query' (e.g. 'passport', 'invoice')."
+        return FailedResult(
+            "Error: find_attachment requires a 'query' (e.g. 'passport', 'invoice')."
+        )
     # Drop generic document words + file extensions: they over-constrain the Gmail
     # AND-query ("has:attachment passport copy" misses "Kutty Passport.pdf" because
     # the file isn't named "copy"). Keep only distinctive nouns (issue 0024).
@@ -893,7 +896,9 @@ def build_email_tools(
     def _list_by_category(args: dict[str, Any]) -> str:
         category = str(args.get("category") or args.get("input") or "").strip()
         if not category:
-            return "Error: list_by_category requires a 'category' name (e.g. Newsletters)."
+            return FailedResult(
+                "Error: list_by_category requires a 'category' name (e.g. Newsletters)."
+            )
         since = _since(args)
         try:
             store = _store(data_dir)
@@ -1122,13 +1127,13 @@ def build_email_tools(
 
         query = str(args.get("query") or args.get("topic") or args.get("input") or "").strip()
         if not query:
-            return (
+            return FailedResult(
                 "Error: analyze_inbox needs a 'query' — the topic the user asked about "
                 "(e.g. 'credit card', 'subscription', 'statement')."
             )
         user_turn = current_query() if current_query is not None else ""
         if not _query_grounded(query, user_turn):
-            return (
+            return FailedResult(
                 f"Error: '{_display_query(query)}' is not in the user's question. Use the "
                 "topic words the user actually said."
             )
