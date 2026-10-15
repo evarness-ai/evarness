@@ -181,10 +181,18 @@ Every `docker compose` command, not only `up`, needs `IRIS_AUTH_SECRET`: `ps`, `
 is not set. That is why the snippet saves it to `.env`, which Compose reads every time (use
 the same value the stack started with). `make down` and `make logs` need no variable.
 
-Checked on 0.1.5 (macOS, Docker Desktop 29.4.1): the image builds, the Governor and the IRIS API
-come up healthy against a native Ollama, `/chat` answers (a deterministic turn and a model
-turn), and the console loads. The full `docker compose up` with the bundled Ollama and its
-model pull has not been run.
+Two things to know before `docker compose up`. If Ollama is already running on the host, it
+holds port 11434 and the bundled one fails to start (`address already in use`); use `make
+up-host`, or stop the host Ollama. And the 7B model needs memory: see
+[Run with Docker](https://evarness-ai.github.io/iris-harness/guides/docker/#memory).
+
+Checked on 0.1.5 (macOS, Docker Desktop 29.4.1, 8 GB given to Docker): against a native
+Ollama the image builds, the Governor and the IRIS API come up healthy, `/chat` answers a
+deterministic turn and a model turn, and the console loads. With the bundled Ollama the stack
+starts healthy and a deterministic turn answers, but a turn that needs the 7B model
+(`qwen2.5:7b-instruct`) failed twice with `llama-server process has terminated: signal:
+killed`, and Docker reported the Ollama container `OOMKilled`. Whether more memory fixes it
+has not been tested.
 
 The [email assistant guide](https://evarness-ai.github.io/iris-harness/guides/email/)
 shows how to run the API from an install and pair the web console.

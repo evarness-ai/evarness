@@ -26,6 +26,24 @@ Every port binds to `127.0.0.1`. `iris-api` waits for the Governor to be healthy
 the models to finish pulling, so the first start is slow (about 6 GB of model weights)
 and later ones are fast.
 
+If Ollama is already running on the host, it holds port 11434 and `docker compose up`
+stops with `bind: address already in use`. Quit the host Ollama, or use `make up-host`
+below, which runs IRIS in Docker against it.
+
+## Memory
+
+The models run on the CPU inside the Docker VM, so they count against the memory Docker
+Desktop gives it. With 8 GB (Docker Desktop's default on many Macs; it showed 7.75 GiB), the
+stack started and a plain turn answered, but a turn that needed `qwen2.5:7b-instruct`
+(16K context) failed twice with `LLM error: llama-server process has terminated: signal:
+killed`, and `docker inspect` showed the Ollama container `OOMKilled=true`. The 3B router
+model loaded fine. Give Docker more memory (Docker Desktop, Settings, Resources), or use
+`make up-host` and let a native Ollama run the models. We have not measured how much
+memory the 7B tier needs, so treat anything above 8 GB as untested.
+
+If you see `signal: killed` from Ollama, check `docker inspect <ollama container> --format
+'{{.State.OOMKilled}}'` first.
+
 ## The one required variable
 
 Compose refuses to load `docker-compose.yml` without `IRIS_AUTH_SECRET`. That applies to
