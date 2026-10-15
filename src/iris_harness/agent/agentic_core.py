@@ -1158,18 +1158,24 @@ def _memory_context_to_payload(memory_context: MemoryContext | None) -> dict[str
     return None
 
 
-# ADR-0107, the owner's decision. On the STREAMING loop the evaluator enforces only
-# the signals with no local equivalent. Loop hygiene — runaway iteration, repeated
-# actions, tool-failure streaks — is already contained by run_stream's own
-# `max_iterations`, `stall_limit` and malformed-step guards, so re-enforcing it
-# through the evaluator would be two mechanisms halting the same run at two
-# thresholds. Reuse what is there; add only what is missing.
+# ADR-0107, the owner's decision. On the STREAMING loop the evaluator enforces the signals
+# with no local equivalent. Runaway iteration and repeated actions are contained by
+# run_stream's own `max_iterations` and `stall_limit` guards, so re-enforcing them through the
+# evaluator would be two mechanisms halting the same run at two thresholds. Reuse what is
+# there; add only what is missing.
+#
+# Amended (#300): `tool_failure_streak` is enforced too. The local guards do not contain it:
+# the stall guard trips only on an identical action and input repeated back to back, and
+# nothing else on this loop counts failures, so a model that keeps calling a failing tool with
+# different arguments ran to `max_iterations`. An identical repeat still stops at the stall
+# guard first (`stall_limit` 2 < the streak's 3), so no run is halted twice.
 STREAMING_ENFORCED_SIGNALS: frozenset[str] = frozenset(
     {
         "classification_violation",
         "cost_budget",
         "goal_drift",
         "loop_detect",  # the semantic one; the counting ones are the local guards' job
+        "tool_failure_streak",
     }
 )
 _TERMINAL_VERDICTS: frozenset[str] = frozenset({"halt", "require_approval"})
@@ -2832,9 +2838,9 @@ class AgenticCore:
                 # ADR-0107: the evaluator now runs on the streaming path too, after
                 # the observation is in — the same point `_loop` fires it. Only the
                 # signals with no local equivalent are enforced here
-                # (STREAMING_ENFORCED_SIGNALS); step-cap / action-repeat /
-                # tool-failure-streak are already contained by the guards above, and
-                # halting the same run twice at two thresholds helps nobody.
+                # (STREAMING_ENFORCED_SIGNALS); step-cap and action-repeat are already
+                # contained by the guards above, and halting the same run twice at two
+                # thresholds helps nobody. The failure streak is not, so it is enforced.
                 evaluator_decision = self._fire_post_step(
                     run_id=run_id,
                     iteration=_iteration,

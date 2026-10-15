@@ -12,6 +12,7 @@ from typing import Any
 
 import pytest
 
+from iris_harness.agent.agent_executor import TraceChunk
 from iris_harness.agent.agentic_core import AgenticCore, AgenticCoreConfig, ToolSpec
 from iris_harness.agent.tool_runner import FailedResult
 from iris_harness.kernel.governance import GovernanceKernel, HookContext, HookPoint
@@ -141,3 +142,59 @@ def test_a_call_that_answers_carries_no_tool_error() -> None:
     _core(lambda _a: "found it", _calls(1), kernel).run("look it up")
 
     assert recorder.tool_errors[:1] == [None]
+
+
+# --- the streaming loop enforces it (#300) --------------------------------------------------
+
+
+def _stream(core: AgenticCore, query: str = "look it up") -> tuple[str, list[Any], dict[str, Any]]:
+    """Drain ``run_stream``: the final text, the tool-step chunks, and the run's summary."""
+    chunks = list(core.run_stream(query))
+    text = [c for c in chunks if isinstance(c, str)]
+    steps = [c for c in chunks if isinstance(c, TraceChunk) and '"action": "lookup"' in c.text]
+    summary = next(c for c in reversed(chunks) if isinstance(c, dict))
+    return (text[-1] if text else ""), steps, summary
+
+
+@pytest.mark.parametrize("tool", [_reports_is_error, _raises, _usage_error])
+def test_the_streaming_loop_stops_after_three_failed_calls_with_different_arguments(
+    tool: Any,
+) -> None:
+    final, steps, summary = _stream(_core(tool, _calls(8), _streak_kernel()))
+
+    assert len(steps) == 3  # not the six iterations the config allows
+    assert summary["reason"] == "evaluator_tool_failure_streak"
+    assert "stopped partway" in final.lower()
+    assert "tool_failure_streak" in final
+
+
+def test_the_streaming_halt_says_what_ran_and_leaves_the_next_step_to_the_user() -> None:
+    final, _, _ = _stream(_core(_reports_is_error, _calls(8), _streak_kernel()))
+
+    assert "What I did before stopping:" in final
+    assert "lookup" in final
+    assert "how you'd like to proceed" in final
+
+
+def test_the_streaming_loop_does_not_stop_a_run_that_recovers() -> None:
+    answers = iter([True, True, False, True, True, False])
+
+    def flaky(_args: dict[str, Any]) -> str:
+        if next(answers):
+            return FailedResult("error: try later")
+        return "found it"
+
+    final, steps, summary = _stream(_core(flaky, _calls(6), _streak_kernel()))
+
+    assert "stopped partway" not in final.lower()
+    assert len(steps) == 6
+
+
+def test_an_identical_repeat_still_stops_at_the_stall_guard_not_the_streak() -> None:
+    same = ['Thought: again\nAction: lookup\nAction Input: {"q": "x"}'] * 6
+
+    final, steps, summary = _stream(_core(_reports_is_error, same, _streak_kernel()))
+
+    assert not summary["reason"].startswith("evaluator_")  # one mechanism halted it, not two
+    assert "tool_failure_streak" not in final
+    assert sum('"observation": null' not in s.text for s in steps) <= 2  # calls that ran
