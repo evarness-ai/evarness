@@ -76,6 +76,7 @@ from iris_harness.kernel.governance.hooks.tool_payload import (
     CALL_ID,
     HELD_CALL_ID,
     TOOL_CALL_ID,
+    TOOL_REPORTED_ERROR,
     TOOL_SENDS_TO,
     TOOL_VERIFY,
     ToolContent,
@@ -182,6 +183,20 @@ class ToolUnavailable(RuntimeError):
     tool that failed must not read as one that ran, so the call's ``ok`` is false and
     an approved call settles as ``failed``, not ``ran``.
     """
+
+
+class FailedResult(str):
+    """The text of a result the tool itself marked as failed, returned instead of raised.
+
+    An MCP server answers a failed ``tools/call`` with a result that carries
+    ``isError: true``; the tool did not crash, so it is not the plugin's fault, but it
+    did not do what was asked. A tool returns its observation as this ``str`` and the
+    runner treats the call as failed (``ok`` false) and settles it with
+    ``TOOL_REPORTED_ERROR``. The text is still handed on, and stays the tool's own
+    (``content: external`` is still enveloped).
+    """
+
+    __slots__ = ()
 
 
 @dataclass(frozen=True)
@@ -498,7 +513,11 @@ class GovernedToolRunner:
             ):
                 # A governed call the tool's code starts (``api.tools.call``, a capability)
                 # reads this as its parent.
-                result = str(tool.call(tool_args))
+                raw = tool.call(tool_args)
+            result = str(raw)
+            if isinstance(raw, FailedResult):
+                ok = False
+                error = TOOL_REPORTED_ERROR
         except ToolUnavailable as exc:
             result = str(exc)
             ok = False
@@ -1286,6 +1305,7 @@ def approval_card_for(
 
 __all__ = [
     "CapabilityCall",
+    "FailedResult",
     "GovernedToolRunner",
     "PostOutcome",
     "ToolCall",

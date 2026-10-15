@@ -40,8 +40,10 @@ declaration, never chosen by the caller:
 - ``tool_verify``: the side-effect probe that can tell whether a write landed, or None.
 - ``call_id`` (alias ``tool_call_id``, same value): this call attempt's ULID, minted once by the
   runner and stamped by the kernel on every audit row of the call (``kernel._audit``).
-- ``tool_error`` (``POST_TOOL_USE``): the exception class name when the tool raised, else
-  None. Never the message: it can carry the call's content.
+- ``tool_error`` (``POST_TOOL_USE``): the exception class name when the tool raised,
+  ``TOOL_REPORTED_ERROR`` when it returned a result it marked as failed, else None. Never
+  the message: it can carry the call's content. The kernel writes it on the call's
+  ``post_tool_use`` audit rows.
 - ``tool_sends_to`` (``PRE_TOOL_USE``): where the arguments go, when the tool declares it:
   ``search_engine`` for a tool that hands its arguments to a web search provider (the
   owner-PII web-search column applies to exactly these calls, ADR-0125), or
@@ -98,6 +100,10 @@ REPLAY_OF = "replay_of"
 RESUMED_FROM_RUN = "resumed_from_run"
 TOOL_SENDS_TO = "tool_sends_to"
 TOOL_ERROR = "tool_error"
+#: The ``tool_error`` of a call whose tool returned a result it marked as failed instead of
+#: raising (an MCP ``tools/call`` result with ``isError: true``). Unlike an exception's
+#: message, the result's text is the tool's own, so it is still third-party text.
+TOOL_REPORTED_ERROR = "ToolReportedError"
 
 #: ``audit_metadata`` key of the final ``PRE_TOOL_USE`` decision: the ledger row written
 #: before the call ran.
@@ -229,6 +235,7 @@ __all__ = [
     "TOOL_EFFECT",
     "TOOL_ERROR",
     "TOOL_NAME",
+    "TOOL_REPORTED_ERROR",
     "TOOL_SENDS_TO",
     "TOOL_VERIFY",
     "ToolContent",

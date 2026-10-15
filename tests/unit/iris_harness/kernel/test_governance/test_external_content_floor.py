@@ -31,6 +31,7 @@ from iris_harness.kernel.governance.external_content import (
     wrap,
 )
 from iris_harness.kernel.governance.hooks.tool_payload import (
+    TOOL_REPORTED_ERROR,
     ToolContent,
     post_tool_payload,
     result_of,
@@ -359,6 +360,23 @@ async def test_a_tool_that_raised_is_scanned_but_not_wrapped() -> None:
     )
     out = result_of(dirty.transformed_payload or {})
     assert MARKER in out and not out.startswith("<external_content")
+
+
+async def test_a_result_the_tool_marked_failed_is_still_wrapped() -> None:
+    """An MCP ``isError`` result is the server's own text, not the harness's message: it is
+    marked untrusted like any other external result (#112 M9b)."""
+    failed = {"content": [{"type": "text", "text": "no forecast for 'atlantis'"}], "isError": True}
+    structured = await ExternalContentFloorHook()(
+        _ctx("forecast", failed, error=TOOL_REPORTED_ERROR, tool_plugin="mcp:weather")
+    )
+    out = result_of(structured.transformed_payload or {})
+    assert out["content"][0]["text"] == wrap(
+        "no forecast for 'atlantis'", source="mcp:weather", tool="forecast"
+    )
+    text = await ExternalContentFloorHook()(
+        _ctx("forecast", "error: no forecast", error=TOOL_REPORTED_ERROR, tool_plugin="weather")
+    )
+    assert result_of(text.transformed_payload or {}).startswith("<external_content ")
 
 
 @pytest.mark.parametrize("caller", ["plugin:mail", "core:digest"])

@@ -7,6 +7,7 @@ network are replaced.
 
 from __future__ import annotations
 
+import json
 import os
 import socket
 import sys
@@ -502,6 +503,110 @@ def test_an_mcp_tool_the_manifest_does_not_declare_is_not_reachable() -> None:
         h.chat("Weather in Oslo?")
         rows = h.audit_rows(hook_point="pre_tool_use")
         assert "delete_everything" not in {r.tool for r in rows if r.decision == "allow"}
+
+
+def _ask(question: str, action: str, observed: str, city: str = "") -> dict[str, Any]:
+    """A script that routes, asks for ``action``, then answers once it observes ``observed``."""
+    return {
+        "rules": [
+            {
+                "name": "route",
+                "match": {"system": "request router"},
+                "reply": {"json": {"intent": "general"}},
+            },
+            {
+                "name": "answer",
+                "match": {"user": rf"(?s)Observation:.*{observed}"},
+                "reply": {"content": "Thought: Done.\nFinal Answer: done."},
+            },
+            {
+                "name": "call",
+                "match": {"user": f"User: {question}"},
+                "reply": {
+                    "content": f"Thought: Look it up.\nAction: {action}\n"
+                    f'Action Input: {{"city": "{city}"}}'
+                },
+            },
+        ]
+    }
+
+
+def test_an_mcp_tool_that_answers_is_error_is_recorded_as_a_failed_call() -> None:
+    """The server answers ``isError: true`` (no forecast for the city): the model still
+    reads its text, and the call's ``post_tool_use`` rows say it failed (#112 M9b)."""
+    script = _ask("Weather in Atlantis", "forecast", "no forecast for", city="atlantis")
+    with harness(plugins=[_weather()], fake_model=script) as h:
+        result = h.chat("Weather in Atlantis?")
+
+        after = h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)
+        assert after and {r.tool for r in after} == {"forecast"}
+        ids = {r.id for r in after}
+        raw = [r for r in AuditLog(db_path=h.audit_db).query() if r.id in ids]
+        assert raw and all(
+            json.loads(r.payload_json).get("tool_error") == "ToolReportedError" for r in raw
+        )
+        observed = [c for c in h.model_calls() if c.rule == "answer"]
+        assert observed and "no forecast for" in observed[-1].user
+
+
+def test_an_mcp_tool_that_answers_is_recorded_without_a_tool_error() -> None:
+    with harness(plugins=[_weather()], fake_model=_MCP_SCRIPT) as h:
+        result = h.chat("Weather in Oslo?")
+
+        ids = {r.id for r in h.audit_rows(hook_point="post_tool_use", session_id=result.session_id)}
+        raw = [r for r in AuditLog(db_path=h.audit_db).query() if r.id in ids]
+        assert raw and all("tool_error" not in json.loads(r.payload_json) for r in raw)
+
+
+_RECORDING_SERVER = """\
+import json, sys
+from pathlib import Path
+
+LOG = Path(sys.argv[1])
+TOOLS = [{"name": n, "description": n, "inputSchema": {"type": "object"}}
+         for n in ("forecast", "delete_everything")]
+for line in sys.stdin:
+    if not line.strip():
+        continue
+    req = json.loads(line)
+    if req.get("id") is None:
+        continue
+    method = req.get("method")
+    if method == "tools/call":
+        with LOG.open("a") as f:
+            f.write(req["params"]["name"] + "\\n")
+        result = {"content": [{"type": "text", "text": "done"}], "isError": False}
+    elif method == "tools/list":
+        result = {"tools": TOOLS}
+    else:
+        result = {"protocolVersion": "2024-11-05", "capabilities": {"tools": {}},
+                  "serverInfo": {"name": "rec", "version": "0"}}
+    sys.stdout.write(json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": result}) + "\\n")
+    sys.stdout.flush()
+"""
+
+
+def test_a_tool_the_server_offers_but_the_manifest_does_not_declare_never_reaches_it(
+    tmp_path: Path,
+) -> None:
+    """The manifest's ``tools:`` is the declared list: a tool the server offers outside it
+    is never registered, so a model that asks for it reaches no server and runs no tool."""
+    script_path = tmp_path / "server.py"
+    script_path.write_text(_RECORDING_SERVER, encoding="utf-8")
+    log = tmp_path / "calls.log"
+    weather = plugin(manifest=_MCP_MANIFEST, server=[sys.executable, str(script_path), str(log)])
+    script = _ask("Wipe it", "delete_everything", "unknown tool")
+    with harness(plugins=[weather], fake_model=script) as h:
+        result = h.chat("Wipe it")
+
+        # The model did ask for it, and was told the tool does not exist.
+        assert [c for c in h.model_calls() if c.rule == "call"]
+        assert [c for c in h.model_calls() if c.rule == "answer"]
+        # No governed tool call was made: no tool-use row at all. (A post_step row may name
+        # the action the model wrote; that is the loop's record of the step, not a call.)
+        rows = h.audit_rows(session_id=result.session_id)
+        assert not [r for r in rows if r.hook_point in ("pre_tool_use", "post_tool_use")]
+    assert not log.exists()  # the server never received a tools/call
 
 
 def test_seed_writes_files_under_the_home_and_refuses_a_path_that_leaves_it() -> None:
