@@ -27,6 +27,7 @@ from iris_harness.tools.mcp_bridge import (
     MCPServerConfig,
     MCPSignatureError,
     build_server_spec,
+    verify_server,
 )
 
 
@@ -508,3 +509,87 @@ def test_an_unreadable_policy_stops_the_bridge_instead_of_turning_signing_off(
 
     with pytest.raises(ValueError, match="mcp-signing.yaml"):
         MCPBridge(root, config=MCPBridgeConfig(enabled=True, servers=(_read_server(),)))
+
+
+# --- launchers that name no script file (#287) -----------------------------------------------
+
+
+def _stdio(command: str, *args: str) -> MCPServerConfig:
+    return MCPServerConfig(
+        name="launched", enabled=True, transport="stdio", command=command, args=tuple(args)
+    )
+
+
+def _signed(server: MCPServerConfig) -> tuple[MCPServerConfig, TrustStore]:
+    private, public = generate_keypair()
+    signature = sign(private, build_server_spec(server).canonical_bytes())
+    signed = server.model_copy(update={"signature": signature, "signed_by": "ops"})
+    return signed, TrustStore(keys={"ops": TrustedKey(key_id="ops", public_key=public)})
+
+
+def test_a_signed_launcher_that_pins_its_release_verifies() -> None:
+    signed, store = _signed(_stdio("npx", "-y", "pkg@1.2.3"))
+
+    _, verdict = verify_server(signed, store)
+
+    assert verdict.status == "verified"
+
+
+def test_a_changed_pin_no_longer_verifies() -> None:
+    signed, store = _signed(_stdio("npx", "-y", "pkg@1.2.3"))
+    bumped = signed.model_copy(update={"args": ("-y", "pkg@1.2.4")})
+
+    assert verify_server(bumped, store)[1].status == "invalid"
+
+
+def test_a_valid_signature_over_an_unpinned_launcher_is_not_trusted() -> None:
+    # Signed before the rule, or by a hand-built spec: the signature verifies but binds nothing.
+    signed, store = _signed(_stdio("npx", "-y", "pkg"))
+
+    _, verdict = verify_server(signed, store)
+
+    assert verdict.status == "invalid"
+    assert "exact version" in verdict.reason and verdict.key_id == "ops"
+
+
+def test_an_unpinned_launcher_is_refused_under_enforce_and_recorded_in_shadow(
+    tmp_path: Path,
+) -> None:
+    signed, store = _signed(_stdio("uvx", "pkg"))
+
+    enforced = _bridge(
+        signed, mode="enforce", unsigned_policy="deny", trust_store=store, tmp_path=tmp_path
+    )
+    shadow = _bridge(signed, mode="shadow", trust_store=store, tmp_path=tmp_path)
+
+    assert enforced._transport.check_signature(signed).action == "deny"
+    assert shadow._transport.check_signature(signed).action == "warn"
+    with pytest.raises(MCPSignatureError, match="exact version"):
+        enforced._transport.enforce_signature(signed)
+
+
+def test_a_local_module_is_hashed_and_an_edit_after_signing_is_caught(tmp_path: Path) -> None:
+    package = tmp_path / "localmcp"
+    package.mkdir()
+    (package / "__main__.py").write_text("print('v1')\n")
+    server = _stdio("python3", "-m", "localmcp")
+    private, public = generate_keypair()
+    spec = build_server_spec(server, base_dir=tmp_path)
+    assert spec.entrypoint_sha256
+    signed = server.model_copy(
+        update={"signature": sign(private, spec.canonical_bytes()), "signed_by": "ops"}
+    )
+    store = TrustStore(keys={"ops": TrustedKey(key_id="ops", public_key=public)})
+    assert verify_server(signed, store, base_dir=tmp_path)[1].status == "verified"
+
+    (package / "__main__.py").write_text("print('evil')\n")
+
+    assert verify_server(signed, store, base_dir=tmp_path)[1].status == "invalid"
+
+
+def test_a_module_that_is_not_local_is_unpinned(tmp_path: Path) -> None:
+    signed, store = _signed(_stdio("python3", "-m", "installed_somewhere"))
+
+    _, verdict = verify_server(signed, store, base_dir=tmp_path)
+
+    assert verdict.status == "invalid" and "-m installed_somewhere" in verdict.reason

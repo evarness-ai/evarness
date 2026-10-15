@@ -86,7 +86,11 @@ def cmd_sign(
 ) -> None:
     """Sign one server's canonical spec; write signature/signed_by into the config."""
     from iris_harness.kernel.governance.mcp_signing import sign
-    from iris_harness.tools.mcp_bridge import build_server_spec, load_mcp_bridge_config
+    from iris_harness.tools.mcp_bridge import (
+        build_server_spec,
+        launcher_gap,
+        load_mcp_bridge_config,
+    )
 
     key_path = private_key or (_keys_dir() / f"{key_id}.key")
     if not key_path.exists():
@@ -101,6 +105,14 @@ def cmd_sign(
         raise typer.Exit(1)
 
     spec = build_server_spec(server)
+    gap = launcher_gap(server, spec)
+    if gap:
+        console.print(f"[red]not signed: {gap}[/red]")
+        console.print(
+            "  a signature over this entry would not bind the code that runs, and "
+            "`verify` and the launch gate would not trust it"
+        )
+        raise typer.Exit(1)
     signature = sign(private_b64, spec.canonical_bytes())
 
     doc = _load_yaml(servers)
@@ -114,18 +126,15 @@ def cmd_sign(
     console.print(
         "  covers: command, args, url, env key names"
         + (", command binary hash" if spec.package_sha256 else "")
-        + (", entry script hash" if spec.entrypoint_sha256 else "")
+        + (", entry script or local package hash" if spec.entrypoint_sha256 else "")
         + (
             f", pinned env values ({', '.join(n for n, _ in spec.pinned_env)})"
             if spec.pinned_env
             else ""
         )
     )
-    if spec.transport == "stdio" and not spec.entrypoint_sha256:
-        console.print(
-            "[yellow]  not covered: the server's own code (no script file among the args; "
-            "a module or package launcher is not hashed)[/yellow]"
-        )
+    if spec.transport == "stdio" and not spec.entrypoint_sha256 and not spec.package_sha256:
+        console.print("  the launcher pins its release in the args; that pin is what is signed")
     console.print("[yellow]note: comments in the YAML are not preserved on write[/yellow]")
 
 
@@ -141,8 +150,8 @@ def cmd_verify(
     ),
 ) -> None:
     """Verify server signatures; non-zero exit if any are not verified."""
-    from iris_harness.kernel.governance.mcp_signing import TrustStore, verify_server_signature
-    from iris_harness.tools.mcp_bridge import build_server_spec, load_mcp_bridge_config
+    from iris_harness.kernel.governance.mcp_signing import TrustStore
+    from iris_harness.tools.mcp_bridge import load_mcp_bridge_config, verify_server
 
     config = load_mcp_bridge_config(Path.cwd(), config_path=servers)
     store = TrustStore.from_yaml(trust_store)
@@ -158,12 +167,7 @@ def cmd_verify(
     table.add_column("reason")
     any_unverified = False
     for server in targets:
-        verdict = verify_server_signature(
-            spec=build_server_spec(server),
-            signature=server.signature,
-            signed_by=server.signed_by,
-            trust_store=store,
-        )
+        _, verdict = verify_server(server, store)
         color = "green" if verdict.is_trusted else "red"
         if not verdict.is_trusted:
             any_unverified = True
@@ -187,8 +191,8 @@ def cmd_list(
     ),
 ) -> None:
     """List the servers with their signature verdicts, and the trust store's keys."""
-    from iris_harness.kernel.governance.mcp_signing import TrustStore, verify_server_signature
-    from iris_harness.tools.mcp_bridge import build_server_spec, load_mcp_bridge_config
+    from iris_harness.kernel.governance.mcp_signing import TrustStore
+    from iris_harness.tools.mcp_bridge import load_mcp_bridge_config, verify_server
 
     config = load_mcp_bridge_config(Path.cwd(), config_path=servers)
     store = TrustStore.from_yaml(trust_store)
@@ -198,12 +202,7 @@ def cmd_list(
     for column in ("server", "transport", "enabled", "signature", "signer"):
         server_table.add_column(column)
     for server in config.servers:
-        verdict = verify_server_signature(
-            spec=build_server_spec(server),
-            signature=server.signature,
-            signed_by=server.signed_by,
-            trust_store=store,
-        )
+        _, verdict = verify_server(server, store)
         if server.signed_by:
             signed_by.setdefault(server.signed_by, []).append(server.name)
         color = "green" if verdict.is_trusted else "red"

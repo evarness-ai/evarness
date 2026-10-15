@@ -121,6 +121,15 @@ checks `weather_server.py` answers a real MCP client.
   one. This is not an operating-system boundary: a server runs as you and can still read
   files you can read.
 
+- **A signature binds the server's code only when something names it.** `python server.py`
+  hashes the script and `python -m pkg` hashes the `.py` files of a local `pkg/`. A launcher
+  that fetches its code when it starts is bound by pinning the release in the args:
+  `npx pkg@1.2.3`, `uvx pkg==1.2.3`, `pipx run pkg==1.2.3`, `docker run image@sha256:<digest>`
+  (a tag or `latest` moves, so it does not count). `iris mcp sign` refuses an entry that does
+  neither, and `verify` and the launch gate read a signed one as `invalid`. A module installed
+  elsewhere (`python -m somepackage` from site-packages) cannot be hashed; run it from a
+  script file. The pin fixes which release runs; it does not vouch for that release.
+
 ## Try changing
 
 Show that the signature covers the arguments, not only the program. In

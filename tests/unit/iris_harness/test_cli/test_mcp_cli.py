@@ -277,3 +277,76 @@ def test_remove_unknown_server_and_unsigned_revoke_are_errors(tmp_path: Path) ->
     assert ghost.exit_code == 1
     assert unsigned.exit_code == 1
     assert len(yaml.safe_load(servers.read_text())["servers"]) == 1  # nothing was removed
+
+
+# --- launchers that name no script file (#287) --------------------------------------------
+
+
+def _stdio_servers(path: Path, command: str, *args: str) -> None:
+    server = {
+        "name": "remote",
+        "enabled": True,
+        "transport": "stdio",
+        "command": command,
+        "args": list(args),
+    }
+    path.write_text(
+        yaml.safe_dump({"version": "1", "enabled": True, "servers": [server]}), encoding="utf-8"
+    )
+
+
+def _keygen(tmp_path: Path) -> tuple[Path, dict[str, str]]:
+    trust = tmp_path / "trust.yaml"
+    env = {"IRIS_MCP_KEYS_DIR": str(tmp_path / "keys")}
+    runner.invoke(mcp_app, ["keygen", "--id", "ops", "--trust-store", str(trust)], env=env)
+    return trust, env
+
+
+def test_sign_refuses_a_launcher_that_does_not_pin_its_release(tmp_path: Path) -> None:
+    servers = tmp_path / "mcp-servers.yaml"
+    _stdio_servers(servers, "npx", "-y", "some-mcp-server")
+    _, env = _keygen(tmp_path)
+
+    result = runner.invoke(
+        mcp_app, ["sign", "remote", "--key", "ops", "--servers", str(servers)], env=env
+    )
+
+    assert result.exit_code == 1
+    assert "exact version" in result.output and "pkg@1.2.3" in result.output
+    assert "signature" not in yaml.safe_load(servers.read_text())["servers"][0]
+
+
+def test_sign_then_verify_a_launcher_that_pins_its_release(tmp_path: Path) -> None:
+    servers = tmp_path / "mcp-servers.yaml"
+    _stdio_servers(servers, "npx", "-y", "some-mcp-server@1.2.3")
+    trust, env = _keygen(tmp_path)
+
+    signed = runner.invoke(
+        mcp_app, ["sign", "remote", "--key", "ops", "--servers", str(servers)], env=env
+    )
+    verified = runner.invoke(
+        mcp_app, ["verify", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+
+    assert signed.exit_code == 0, signed.output
+    assert verified.exit_code == 0, verified.output
+
+
+def test_verify_and_list_report_a_signed_unpinned_launcher_as_invalid(tmp_path: Path) -> None:
+    servers = tmp_path / "mcp-servers.yaml"
+    _stdio_servers(servers, "npx", "-y", "some-mcp-server@1.2.3")
+    trust, env = _keygen(tmp_path)
+    runner.invoke(mcp_app, ["sign", "remote", "--key", "ops", "--servers", str(servers)], env=env)
+    doc = yaml.safe_load(servers.read_text())
+    doc["servers"][0]["args"] = ["-y", "some-mcp-server"]  # the pin dropped after signing
+    servers.write_text(yaml.safe_dump(doc), encoding="utf-8")
+
+    verify = runner.invoke(
+        mcp_app, ["verify", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+    listed = runner.invoke(
+        mcp_app, ["list", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+
+    assert verify.exit_code == 1 and "invalid" in verify.output
+    assert "invalid" in listed.output

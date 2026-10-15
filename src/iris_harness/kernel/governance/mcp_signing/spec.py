@@ -74,3 +74,27 @@ def file_sha256(path: Path) -> str | None:
     except OSError:
         return None
     return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def tree_sha256(root: Path) -> str | None:
+    """Return ``sha256:<hex>`` over the ``.py`` files of a package directory, else ``None``.
+
+    The digest covers each file's path (relative to ``root``) and bytes, in sorted order, so
+    adding, removing, renaming or editing a module changes it. A single module file is hashed
+    as a file. Bytecode caches and other file types are not part of it.
+    """
+    if root.is_file():
+        return file_sha256(root)
+    if not root.is_dir():
+        return None
+    digest = hashlib.sha256()
+    found = False
+    for path in sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts):
+        try:
+            data = path.read_bytes()
+        except OSError:
+            return None
+        digest.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
+        digest.update(hashlib.sha256(data).digest())
+        found = True
+    return "sha256:" + digest.hexdigest() if found else None
