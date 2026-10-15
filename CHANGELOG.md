@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - `MCPBridge.invoke_external_tool(..., executor=fn)` now checks the server's launch signature before it runs `fn`. The executor returned before the transport call, where the check lives, so an unsigned, tampered or revoked server ran under `enforce` with `unsigned_policy: deny`; in `shadow` it logged no verdict. Nothing in the harness passes an executor today, so this closes a trap for a host built on the method. Closes M4c of #113.
+- An MCP server entry can pin the values of non-secret `env:` entries into its signature with `pinned_env`. Env values were never signed, so re-pointing an upstream URL after `iris mcp sign` still verified and sent the traffic to the new host. A pinned value that changes now reads `invalid` in `iris mcp verify` and is refused before the server starts under `enforce`. A name that reads as a credential (it contains `KEY`, `TOKEN`, `SECRET`, `PASSWORD`, `PASSWD`, `CREDENTIAL`, `AUTH`, `DSN`, `BEARER`, `COOKIE` or `PRIVATE`) cannot be pinned, and the error says why: keep those in the vault. The check is on the name, so a secret under another name is not caught. An entry that pins nothing keeps its signature. The plugin `server:` block takes `pinned_env` too. Closes M4b of #113.
+
 
 ### Added
 

@@ -24,6 +24,7 @@ from iris_harness.tools.mcp_bridge import (
     MCPBridgeConfig,
     MCPServerConfig,
     MCPSignatureError,
+    build_server_spec,
 )
 
 
@@ -209,3 +210,76 @@ def test_the_executor_path_warns_in_shadow_like_the_transport_path(
     with caplog.at_level("WARNING", logger="iris_harness.tools.mcp_bridge"):
         assert _call_with_executor(bridge, server) == ["echo"]
     assert sum("mcp-signing[shadow]" in r.message for r in caplog.records) == 1
+
+
+def _signed_with_pinned_env(
+    url: str = "https://api.example/v1",
+) -> tuple[MCPServerConfig, TrustStore]:
+    server = _http_server(
+        env={"UPSTREAM_URL": url, "LOG_LEVEL": "info"}, pinned_env=("UPSTREAM_URL",)
+    )
+    private, public = generate_keypair()
+    signature = sign(private, build_server_spec(server).canonical_bytes())
+    signed = server.model_copy(update={"signature": signature, "signed_by": "ops"})
+    return signed, TrustStore(keys={"ops": TrustedKey(key_id="ops", public_key=public)})
+
+
+def test_a_repointed_pinned_env_value_no_longer_verifies_and_is_refused(tmp_path: Path) -> None:
+    signed, store = _signed_with_pinned_env()
+    moved = signed.model_copy(update={"env": {**signed.env, "UPSTREAM_URL": "https://evil.test"}})
+    bridge = _bridge(
+        moved, mode="enforce", unsigned_policy="deny", trust_store=store, tmp_path=tmp_path
+    )
+
+    with pytest.raises(MCPSignatureError):
+        bridge._invoke_transport(moved, method="tools/list", params={})
+    assert bridge._http_calls == []  # type: ignore[attr-defined]
+
+
+def test_an_unpinned_env_value_may_change_after_signing(tmp_path: Path) -> None:
+    signed, store = _signed_with_pinned_env()
+    changed = signed.model_copy(update={"env": {**signed.env, "LOG_LEVEL": "debug"}})
+    bridge = _bridge(
+        changed, mode="enforce", unsigned_policy="deny", trust_store=store, tmp_path=tmp_path
+    )
+
+    assert bridge._invoke_transport(changed, method="tools/list", params={}) == {"ok": True}
+
+
+def test_the_pinned_env_value_is_in_the_spec_and_an_entry_that_pins_nothing_is_unchanged() -> None:
+    pinned = build_server_spec(_http_server(env={"A": "1"}, pinned_env=("A",)))
+    plain = build_server_spec(_http_server(env={"A": "1"}))
+
+    assert pinned.canonical_bytes() != plain.canonical_bytes()
+    assert b"pinned_env" not in plain.canonical_bytes()
+
+
+@pytest.mark.parametrize(
+    ("pinned", "message"),
+    [
+        (("API_KEY",), "looks like a credential"),
+        (("GITHUB_TOKEN",), "looks like a credential"),
+        (("OAUTH_CLIENT",), "refusing to pin 'OAUTH_CLIENT'"),
+        (("DATABASE_DSN",), "non-secret runtime invariants"),
+        (("BEARER_VALUE",), "Move credentials to the vault"),
+        (("SESSION_COOKIE",), "looks like a credential"),
+        (("SIGNING_PRIVATE",), "looks like a credential"),
+        (("1BAD",), "not an environment variable name"),
+        (("MISSING",), "not set under env"),
+    ],
+)
+def test_pinned_env_refuses_a_credential_a_bad_name_and_an_unset_name(
+    pinned: tuple[str, ...], message: str
+) -> None:
+    env = {
+        "API_KEY": "x",
+        "GITHUB_TOKEN": "y",
+        "OAUTH_CLIENT": "a",
+        "DATABASE_DSN": "b",
+        "BEARER_VALUE": "c",
+        "SESSION_COOKIE": "d",
+        "SIGNING_PRIVATE": "e",
+        "1BAD": "z",
+    }
+    with pytest.raises(ValueError, match=message):
+        _http_server(env=env, pinned_env=pinned)
