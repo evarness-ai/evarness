@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -11,6 +12,7 @@ import select
 import subprocess
 import time
 from collections.abc import Callable, Iterable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn, cast
 from urllib.parse import urljoin, urlparse
@@ -349,6 +351,33 @@ def undeclared_tool_names(server: MCPServerConfig, tool_names: Iterable[str]) ->
     return [name for name in tool_names if declared_effect(server, name) is None]
 
 
+@dataclass(frozen=True)
+class SignatureCheck:
+    """One server's signature verdict, what the policy does about it, and what the ledger records.
+
+    ``enabled`` is false when no signing policy is in force; the rows then say
+    ``not_checked`` rather than a verdict that nothing acted on.
+    """
+
+    verdict: SignatureVerdict
+    action: SigningAction
+    enabled: bool
+    spec_sha256: str
+
+    @property
+    def row_fields(self) -> dict[str, str]:
+        """The keys a ``PRE``/``POST_TOOL_USE`` payload carries so the row names the verdict."""
+        if not self.enabled:
+            return {"signature_status": "not_checked"}
+        fields = {
+            "signature_status": self.verdict.status,
+            "signature_spec_sha256": self.spec_sha256,
+        }
+        if self.verdict.key_id:
+            fields["signature_key_id"] = self.verdict.key_id
+        return fields
+
+
 class MCPTransport:
     """One MCP call over a server's transport, behind the launch-signature gate.
 
@@ -429,10 +458,21 @@ class MCPTransport:
 
     def check_signature(
         self, server: MCPServerConfig, base_dir: Path | None = None
-    ) -> tuple[SignatureVerdict, SigningAction]:
+    ) -> SignatureCheck:
         """The server's verdict and what the policy does about it; logs nothing, refuses nothing."""
-        verdict = self.verify_signature(server, base_dir)
-        return verdict, resolve_signing_action(verdict, self._signing_config)
+        spec = build_server_spec(server, base_dir=base_dir)
+        verdict = verify_server_signature(
+            spec=spec,
+            signature=server.signature,
+            signed_by=server.signed_by,
+            trust_store=self._trust_store,
+        )
+        return SignatureCheck(
+            verdict=verdict,
+            action=resolve_signing_action(verdict, self._signing_config),
+            enabled=self._signing_config.enabled,
+            spec_sha256=hashlib.sha256(spec.canonical_bytes()).hexdigest(),
+        )
 
     def enforce_signature(self, server: MCPServerConfig, base_dir: Path | None = None) -> None:
         """Verify the server signature and apply the configured policy.
@@ -669,10 +709,10 @@ class MCPBridge:
     ) -> tuple[MCPToolDefinition, ...]:
         """Discover tool definitions from one configured external MCP server."""
         server = self._require_enabled_server(server_name)
-        verdict, action = self._transport.check_signature(server)
-        if action == "deny":
+        check = self._transport.check_signature(server)
+        if check.action == "deny":
             # Before the governor's guard, so no ``allow`` is recorded for a call that stops.
-            raise MCPSignatureError(_signature_refusal(server, verdict))
+            raise MCPSignatureError(_signature_refusal(server, check.verdict))
         payload_metadata = {"method": "tools/list"}
         if metadata:
             payload_metadata.update(metadata)
@@ -756,12 +796,12 @@ class MCPBridge:
 
         # A server whose launch signature fails is refused before any hook runs, so the ledger
         # holds one deny row rather than a row of allow for each hook on the way to the stop.
-        verdict, action = self._transport.check_signature(server)
-        if action == "deny":
+        check = self._transport.check_signature(server)
+        if check.action == "deny":
             self._refuse_signature(
                 server,
                 tool_name,
-                verdict,
+                check,
                 arguments=arguments,
                 persona=persona,
                 run_id=run_id,
@@ -773,6 +813,7 @@ class MCPBridge:
         # Governance kernel pre-check (Phase 4 — story 12.gov-4.6).
         if self._governance_kernel is not None:
             call_arguments = self._fire_governance_pre_tool(
+                signature=check,
                 server_name=server.name,
                 tool_name=tool_name,
                 arguments=arguments,
@@ -810,6 +851,7 @@ class MCPBridge:
             )
         if self._governance_kernel is not None:
             result = self._fire_governance_post_tool(
+                signature=check,
                 server_name=server.name,
                 tool_name=tool_name,
                 result=result,
@@ -830,7 +872,7 @@ class MCPBridge:
         self,
         server: MCPServerConfig,
         tool_name: str,
-        verdict: SignatureVerdict,
+        check: SignatureCheck,
         *,
         arguments: dict[str, Any],
         persona: str | None,
@@ -840,11 +882,12 @@ class MCPBridge:
         approved_by: str | None,
     ) -> NoReturn:
         """Refuse a call to a server whose signature fails: one deny row, then the error."""
-        message = _signature_refusal(server, verdict)
+        message = _signature_refusal(server, check.verdict)
         if self._governance_kernel is not None:
             from iris_harness.kernel.governance.hooks.types import HookPoint
 
             ctx = self._pre_tool_context(
+                signature=check,
                 server_name=server.name,
                 tool_name=tool_name,
                 arguments=arguments,
@@ -862,8 +905,6 @@ class MCPBridge:
                 audit_metadata={
                     "mcp_server": server.name,
                     "mcp_tool": tool_name,
-                    "signature_status": verdict.status,
-                    "signature_key_id": verdict.key_id,
                 },
             )
         raise MCPSignatureError(message)
@@ -871,6 +912,7 @@ class MCPBridge:
     def _pre_tool_context(
         self,
         *,
+        signature: SignatureCheck,
         server_name: str,
         tool_name: str,
         arguments: dict[str, Any],
@@ -917,6 +959,7 @@ class MCPBridge:
                 mcp_server=server_name,
                 mcp_tool=tool_name,
                 tool_plugin=f"mcp:{server_name}",
+                **signature.row_fields,
                 **digester.args_fields(arguments),
             ),
             metadata={
@@ -934,6 +977,7 @@ class MCPBridge:
     def _fire_governance_pre_tool(
         self,
         *,
+        signature: SignatureCheck,
         server_name: str,
         tool_name: str,
         arguments: dict[str, Any],
@@ -963,6 +1007,7 @@ class MCPBridge:
 
         assert self._governance_kernel is not None  # caller guards
         ctx = self._pre_tool_context(
+            signature=signature,
             server_name=server_name,
             tool_name=tool_name,
             arguments=arguments,
@@ -997,6 +1042,7 @@ class MCPBridge:
         run_id: str | None,
         call_id: str,
         effect: str | None = None,
+        signature: SignatureCheck | None = None,
     ) -> Any:
         """Fire ``PostToolUse`` over an MCP server's result; what the caller may receive.
 
@@ -1032,6 +1078,7 @@ class MCPBridge:
                 mcp_server=server_name,
                 mcp_tool=tool_name,
                 tool_plugin=f"mcp:{server_name}",
+                **(signature.row_fields if signature is not None else {}),
                 **audit_digester().result_fields(result),
             ),
             metadata=tool_post_metadata(
