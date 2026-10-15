@@ -21,6 +21,10 @@ from iris_harness.kernel.governance.mcp_signing import (
     generate_keypair,
     sign,
 )
+from iris_harness.kernel.governance.plugins.mcp_allowlist import (
+    MCPServerGovernance,
+    MCPToolGovernance,
+)
 from iris_harness.tools.mcp_bridge import (
     MCPBridge,
     MCPBridgeConfig,
@@ -71,12 +75,18 @@ def _bridge(
     return bridge
 
 
+# The tools these tests call are declared, so no call has the bridge list the server first
+# (#296); the listing has its own tests in test_mcp_bridge_results.py.
+_DECLARED = {name: MCPToolGovernance(effect="read") for name in ("echo", "read_x")}
+
+
 def _http_server(**overrides: object) -> MCPServerConfig:
     base: dict[str, object] = {
         "name": "remote",
         "enabled": True,
         "transport": "http",
         "url": "http://127.0.0.1:8787/mcp",
+        "governance": MCPServerGovernance(tools=_DECLARED),
     }
     base.update(overrides)
     return MCPServerConfig(**base)  # type: ignore[arg-type]
@@ -315,9 +325,9 @@ def _kernel_bridge(tmp_path: Path, server: MCPServerConfig, *, store: TrustStore
 
 
 def _read_server(**overrides: object) -> MCPServerConfig:
-    from iris_harness.kernel.governance.plugins.mcp_allowlist import MCPServerGovernance
-
-    return _http_server(governance=MCPServerGovernance(undeclared_tools="read"), **overrides)
+    return _http_server(
+        governance=MCPServerGovernance(undeclared_tools="read", tools=_DECLARED), **overrides
+    )
 
 
 def test_a_signature_refusal_is_a_permission_error() -> None:
