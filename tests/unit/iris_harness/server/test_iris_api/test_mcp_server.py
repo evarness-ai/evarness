@@ -381,4 +381,5 @@ def test_a_call_to_an_undeclared_tool_is_refused_over_http_and_never_reaches_the
 
     assert call.status_code == 403, call.text
     assert "github/remote_echo" in call.json()["detail"]
-    assert TRANSPORT_CALLS == []
+    # The bridge listed the server to check the name (#296); the call itself was never sent.
+    assert TRANSPORT_CALLS == ["tools/list"]

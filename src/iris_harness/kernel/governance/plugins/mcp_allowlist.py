@@ -89,7 +89,9 @@ class MCPServerGovernance(BaseModel):
     # What a tool NOT listed in ``tools`` is treated as (issue #180). Fail closed: an
     # undeclared tool is ``destructive`` (an itemised approval and a write-ahead row)
     # until the operator declares it. ``read`` is the one-line opt-out for a server that
-    # only reads. A server's own hints (``readOnlyHint``) never relax this.
+    # only reads. A server's own hints (``readOnlyHint``) never relax this. Either way an
+    # undeclared tool must be one the server's ``tools/list`` names; the bridge refuses any
+    # other name, listing the server first if it has not yet (issues #292, #296).
     undeclared_tools: Literal["destructive", "read"] = "destructive"
 
     @field_validator("tools")

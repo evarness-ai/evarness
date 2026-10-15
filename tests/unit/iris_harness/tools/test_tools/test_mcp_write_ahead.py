@@ -75,6 +75,15 @@ class Rig:
         )
         self.reached: list[str] = []
         self.rows_when_reached: list[list[Any]] = []
+        # The server's own tools/list: the bridge lists a server before it runs a tool the
+        # operator did not declare (#296). The executor stands in for tools/call only.
+        self.bridge._invoke_transport = self._transport  # type: ignore[method-assign]
+
+    @staticmethod
+    def _transport(_server: Any, *, method: str, params: dict[str, Any]) -> Any:
+        assert method == "tools/list", method
+        names = ("list_files", "read_file", "delete_file")
+        return {"tools": [{"name": n, "description": "d", "inputSchema": {}} for n in names]}
 
     def approval(self, args: dict[str, Any] = ARGS) -> str:
         approval_id = self.queue.enqueue(
@@ -304,7 +313,16 @@ def test_a_pre_tool_hook_that_requires_approval_never_reaches_the_server(
     kernel.init_lock()
     config = MCPBridgeConfig(
         enabled=True,
-        servers=(MCPServerConfig(name="files", enabled=True, command="python"),),
+        servers=(
+            MCPServerConfig(
+                name="files",
+                enabled=True,
+                command="python",
+                governance=MCPServerGovernance(
+                    tools={"read_file": MCPToolGovernance(effect="read")}
+                ),
+            ),
+        ),
     )
     bridge = MCPBridge(
         tmp_path, config=config, governor_service=_governor(tmp_path), governance_kernel=kernel

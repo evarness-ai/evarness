@@ -66,8 +66,14 @@ def write_mcp_config(repo_root: Path, *, enabled: bool) -> None:
         "      - -m\n"
         "      - iris.fake_mcp\n"
         # These tests are about the bridge's other behaviour, so the server declares the
-        # read-only opt-out; the fail-closed default has its own tests (issue #180).
-        "    governance:\n" "      undeclared_tools: read\n",
+        # read-only opt-out and the tools they call (an undeclared name would have the bridge
+        # list the server first, #296); the fail-closed default has its own tests (#180).
+        "    governance:\n"
+        "      undeclared_tools: read\n"
+        "      tools:\n"
+        "        read_file: {effect: read}\n"
+        "        list_directory: {effect: read}\n"
+        "        write_file: {effect: write}\n",
         encoding="utf-8",
     )
 
@@ -326,6 +332,8 @@ def _env_server_config(
                         "args": [str(script)],
                         "env": env or {},
                         "inherit_env": inherit or [],
+                        # Declared, so the call needs no tools/list this script cannot answer.
+                        "governance": {"tools": {"report": {"effect": "read"}}},
                     }
                 ],
             }

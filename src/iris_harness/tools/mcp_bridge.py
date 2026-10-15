@@ -438,6 +438,15 @@ def _undeclared_tool_refusal(server: MCPServerConfig, tool_name: str) -> str:
     )
 
 
+def _listing_failed_refusal(server: MCPServerConfig, tool_name: str, exc: Exception) -> str:
+    # The class only: a transport error can carry the server's stderr, which is not ledger text.
+    return (
+        f"MCP tool '{server.name}/{tool_name}' refused: it is not declared under "
+        f"governance.tools and tools/list failed ({type(exc).__name__}), so the server's "
+        "tools are not known"
+    )
+
+
 @dataclass(frozen=True)
 class SignatureCheck:
     """One server's signature verdict, what the policy does about it, and what the ledger records.
@@ -864,9 +873,15 @@ class MCPBridge:
         ``governance.undeclared_tools``, default ``destructive``; ``read`` opts a server out),
         so it fails closed (issue #180).
 
-        Once the server has answered ``tools/list`` through this bridge, a tool it did not
-        list and the operator did not declare is refused before any hook runs:
-        :exc:`MCPUndeclaredToolError` and one ``deny`` row, and the server is never reached.
+        A tool the operator did not declare must be one the server lists: it is refused
+        before any hook runs when the server's ``tools/list`` does not name it,
+        :exc:`MCPUndeclaredToolError` and one ``deny`` row, and the server is never called.
+        A server this bridge has not listed yet is listed first, once per bridge, through
+        :meth:`list_external_tools` (its signature check and governor guard, with this call's
+        ``approval_granted``); a listing that fails refuses the call the same way
+        (:exc:`MCPApprovalRequired` when it was refused for want of approval). A declared
+        tool needs no listing. The listing goes through the transport even when ``executor``
+        stands in for ``tools/call``.
 
         A result with ``isError: true`` is the server saying the call failed: it is still
         returned, and its ``post_tool_use`` rows carry ``tool_error``
@@ -897,14 +912,17 @@ class MCPBridge:
                 effect=effect,
                 approved_by=approved_by,
             )
-        if not self._is_known_tool(server, tool_name):
+
+        def refuse_unknown_tool(
+            message: str, error: type[PermissionError] = MCPUndeclaredToolError
+        ) -> NoReturn:
             self._refuse_before_hooks(
                 server,
                 tool_name,
                 check,
                 plugin="mcp_undeclared_tool",
-                message=_undeclared_tool_refusal(server, tool_name),
-                error=MCPUndeclaredToolError,
+                message=message,
+                error=error,
                 arguments=arguments,
                 persona=persona,
                 run_id=run_id,
@@ -912,6 +930,26 @@ class MCPBridge:
                 effect=effect,
                 approved_by=approved_by,
             )
+
+        if declared_effect(server, tool_name) is None and server.name not in self._listed_tools:
+            # An undeclared name is checked against the server's own list, so a server this
+            # bridge has not listed is listed first (#296), through the governed path: its
+            # signature check, the governor's guard. Once per bridge; a failure is not kept.
+            try:
+                self.list_external_tools(server.name, approval_granted=approval_granted)
+            except Exception as exc:  # noqa: BLE001 - any failed listing refuses the call
+                # A listing refused for want of approval is the call's own missing approval:
+                # the caller (the HTTP route's 403) is told that, not that a listing failed.
+                refuse_unknown_tool(
+                    _listing_failed_refusal(server, tool_name, exc),
+                    (
+                        MCPApprovalRequired
+                        if isinstance(exc, MCPApprovalRequired)
+                        else MCPUndeclaredToolError
+                    ),
+                )
+        if not self._is_known_tool(server, tool_name):
+            refuse_unknown_tool(_undeclared_tool_refusal(server, tool_name))
 
         # Governance kernel pre-check (Phase 4 — story 12.gov-4.6).
         if self._governance_kernel is not None:
@@ -1005,13 +1043,13 @@ class MCPBridge:
         """Whether ``tool_name`` may be called on ``server``.
 
         The operator's ``governance.tools`` and the server's last ``tools/list`` through this
-        bridge are the declared lists; no list is fetched here. Before any listing, an
-        undeclared name is left to the fail-closed default (``effective_effect``).
+        bridge are the declared lists; no list is fetched here (``invoke_external_tool``
+        lists a server first). With neither naming it, the tool is unknown.
         """
         if declared_effect(server, tool_name) is not None:
             return True
         listed = self._listed_tools.get(server.name)
-        return listed is None or tool_name in listed
+        return listed is not None and tool_name in listed
 
     def _refuse_before_hooks(
         self,
