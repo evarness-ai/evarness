@@ -677,3 +677,76 @@ def test_a_declared_mcp_tool_is_described_by_the_tool_service() -> None:
         assert (info.name, info.effect) == ("forecast", "read")
         assert "Today's forecast" in info.description
         assert h._runtime.tool_service.describe("delete_everything") == []
+
+
+# --- a tool says a call failed without raising (#301) ----------------------------------------
+
+
+def _lookup_plugin(call: Any) -> Any:
+    def setup(api: PluginAPI) -> None:
+        api.register_tool("lookup", 'Look something up. Args: {"q": str}.', call)
+
+    return plugin(
+        setup,
+        manifest={"name": "lookup", "provides": ["tool"], "tools": {"lookup": {"effect": "read"}}},
+    )
+
+
+_LOOKUP_SCRIPT = {
+    "rules": [
+        {
+            "name": "answer from the tool",
+            "match": {"user": r"(?s)Observation:.*(requires a 'q'|crashed)"},
+            "reply": {"content": "Thought: Done.\nFinal Answer: The tool said no."},
+        },
+        {
+            "name": "call the tool",
+            "match": {"user": r"User: Look it up"},
+            "reply": {"content": "Thought: Use the tool.\nAction: lookup\nAction Input: {}"},
+        },
+    ]
+}
+
+
+def _failed(_args: dict[str, Any]) -> str:
+    from iris_harness.sdk.tools import FailedResult
+
+    return FailedResult("Error: lookup requires a 'q' argument.")
+
+
+def _crashed(_args: dict[str, Any]) -> str:
+    raise RuntimeError("lookup crashed")
+
+
+def test_a_tool_that_returns_a_failed_result_is_recorded_as_failed_and_is_not_a_plugin_fault() -> (
+    None
+):
+    with harness(plugins=[_lookup_plugin(_failed)], fake_model=_LOOKUP_SCRIPT) as h:
+        result = h.chat("Look it up")
+
+        after = [
+            r for r in h.audit_rows(session_id=result.session_id) if r.hook_point == "post_tool_use"
+        ]
+        assert {r.tool_error for r in after} == {"ToolReportedError"}
+        assert "The tool said no." in result.text  # the model read the tool's own text
+        assert h.plugins()["lookup"][0] == "loaded"  # a failed call is not the plugin breaking
+
+
+def test_a_tool_that_raises_is_still_the_plugins_fault() -> None:
+    with harness(plugins=[_lookup_plugin(_crashed)], fake_model=_LOOKUP_SCRIPT) as h:
+        result = h.chat("Look it up")
+
+        after = [
+            r for r in h.audit_rows(session_id=result.session_id) if r.hook_point == "post_tool_use"
+        ]
+        assert {r.tool_error for r in after} == {"RuntimeError"}
+        assert h.plugins()["lookup"][0] == "degraded"  # raising counts against the plugin
+
+
+def test_the_sdk_exports_the_failed_result_the_runner_reads() -> None:
+    from iris_harness.agent.tool_runner import FailedResult as RunnerFailedResult
+    from iris_harness.sdk import tools as sdk_tools
+
+    assert sdk_tools.FailedResult is RunnerFailedResult
+    assert issubclass(sdk_tools.FailedResult, str)
+    assert "FailedResult" in sdk_tools.__all__

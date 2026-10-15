@@ -79,6 +79,7 @@ from iris_harness.kernel.governance.hooks.tool_payload import (
     TOOL_REPORTED_ERROR,
     TOOL_SENDS_TO,
     TOOL_VERIFY,
+    FailedResult,
     ToolContent,
     ToolSendsTo,
     args_of,
@@ -183,20 +184,6 @@ class ToolUnavailable(RuntimeError):
     tool that failed must not read as one that ran, so the call's ``ok`` is false and
     an approved call settles as ``failed``, not ``ran``.
     """
-
-
-class FailedResult(str):
-    """The text of a result the tool itself marked as failed, returned instead of raised.
-
-    An MCP server answers a failed ``tools/call`` with a result that carries
-    ``isError: true``; the tool did not crash, so it is not the plugin's fault, but it
-    did not do what was asked. A tool returns its observation as this ``str`` and the
-    runner treats the call as failed (``ok`` false) and settles it with
-    ``TOOL_REPORTED_ERROR``. The text is still handed on, and stays the tool's own
-    (``content: external`` is still enveloped).
-    """
-
-    __slots__ = ()
 
 
 @dataclass(frozen=True)

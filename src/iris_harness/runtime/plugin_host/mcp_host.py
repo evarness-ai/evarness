@@ -20,7 +20,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from iris_harness.agent.tool_runner import FailedResult
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.tools.mcp_bridge import MCPServerConfig, MCPTransport
 
 from .manifest import PluginManifest, ToolDeclaration

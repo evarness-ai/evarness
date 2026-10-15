@@ -227,6 +227,7 @@ iris_harness.sdk.tools:APPROVAL_CALL_COMPLETED
 iris_harness.sdk.tools:ApprovalCallCompletedPayload
 iris_harness.sdk.tools:ApprovedCallStatus
 iris_harness.sdk.tools:BoundTools
+iris_harness.sdk.tools:FailedResult
 iris_harness.sdk.tools:ToolInfo
 iris_harness.sdk.tools:ToolResult
 iris_harness.sdk.types:ActivityChunk

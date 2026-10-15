@@ -9,6 +9,12 @@ another plugin's tool function: that call would skip all of it.
 when governance stopped it). ``describe()`` lists the registered tools and what each
 declares (``ToolInfo``: effect and confirm), the contract you call against.
 
+A tool you register can say that a call failed without raising: return
+``FailedResult("Error: ...")`` (a ``str``) instead of a plain string. The call is recorded as
+failed (``ToolResult.ok`` false, ``tool_error`` ``ToolReportedError`` on its audit rows, the
+failure streak counts it) and the model still reads the text. Raising an exception is for a
+bug in the plugin: it counts against the plugin as a fault, a ``FailedResult`` does not.
+
 A code caller cannot answer an approval: a destructive tool, a pinned write or a
 ``confirm: once`` write is queued for the owner and comes back held with its
 ``approval_id``, never silently written. It runs once, when the owner approves it, as
@@ -23,6 +29,7 @@ from iris_harness.kernel.governance.approvals.events import (
     ApprovalCallCompletedPayload,
     ApprovedCallStatus,
 )
+from iris_harness.kernel.governance.hooks.tool_payload import FailedResult
 from iris_harness.runtime.tool_service import BoundTools, ToolInfo, ToolResult
 
 __all__ = [
@@ -30,6 +37,7 @@ __all__ = [
     "ApprovalCallCompletedPayload",
     "ApprovedCallStatus",
     "BoundTools",
+    "FailedResult",
     "ToolInfo",
     "ToolResult",
 ]
