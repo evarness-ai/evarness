@@ -67,6 +67,10 @@ _SERVER = textwrap.dedent(r"""
         for reply in (init_reply, call_reply):
             body = reply.strip().encode()
             send("Content-Length: %d\r\n\r\n%s" % (len(body), body.decode()))
+    elif mode == "big":
+        text = "x" * int(sys.argv[2])
+        big = line({"jsonrpc": "2.0", "id": call["id"], "result": {"text": text}})
+        send(init_reply + big)
     elif mode == "silent":
         time.sleep(30)
     """)
@@ -95,6 +99,11 @@ def _call(tmp_path: Path, mode: str, *, timeout: float = 5.0) -> object:
     return _transport(tmp_path).invoke(
         _server(tmp_path, mode, timeout=timeout), method="tools/list", params={}
     )
+
+
+def _big_server(tmp_path: Path, size: int, **overrides: object) -> MCPServerConfig:
+    server = _server(tmp_path, "big", timeout=10)
+    return server.model_copy(update={"args": (*server.args, str(size)), **overrides})
 
 
 def test_a_server_that_answers_both_requests_in_one_write_is_read_every_time(
@@ -175,3 +184,48 @@ def test_a_content_length_framed_server_is_still_read(tmp_path: Path) -> None:
 
 def test_a_transport_error_is_a_value_error_so_existing_callers_still_catch_it() -> None:
     assert issubclass(MCPTransportError, ValueError)
+
+
+# --- a result's size is capped (#298) ---------------------------------------------------------
+
+
+def test_a_result_under_the_cap_is_returned(tmp_path: Path) -> None:
+    server = _big_server(tmp_path, 100_000, max_result_bytes=200_000)
+
+    result = _transport(tmp_path).invoke(server, method="tools/list", params={})
+
+    assert len(result["text"]) == 100_000  # type: ignore[index]
+
+
+def test_a_three_megabyte_result_is_refused_under_the_default_cap(tmp_path: Path) -> None:
+    server = _big_server(tmp_path, 3_000_000)
+
+    with pytest.raises(MCPTransportError, match="max_result_bytes"):
+        _transport(tmp_path).invoke(server, method="tools/list", params={})
+
+
+def test_a_stdio_server_is_cut_off_at_the_cap_not_read_to_the_end(tmp_path: Path) -> None:
+    # 30 MB is under the absolute buffer limit, so only the per-server cap can stop it early.
+    server = _big_server(tmp_path, 30_000_000, max_result_bytes=100_000)
+
+    with pytest.raises(MCPTransportError, match="without a complete message"):
+        _transport(tmp_path).invoke(server, method="tools/list", params={})
+
+
+def test_the_cap_applies_to_an_http_result_too(tmp_path: Path) -> None:
+    http = MCPServerConfig(
+        name="remote",
+        enabled=True,
+        transport="http",
+        url="http://127.0.0.1:1/mcp",
+        max_result_bytes=1000,
+    )
+    transport = MCPTransport(
+        tmp_path,
+        signing_config=MCPSigningConfig.disabled(),
+        trust_store=TrustStore.empty(),
+        http_requester=lambda _s, _p: {"result": {"text": "y" * 5000}},
+    )
+
+    with pytest.raises(MCPTransportError, match="returned"):
+        transport.invoke(http, method="tools/list", params={})

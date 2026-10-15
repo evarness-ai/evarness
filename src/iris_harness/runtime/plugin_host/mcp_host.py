@@ -44,6 +44,7 @@ def server_config(manifest: PluginManifest) -> MCPServerConfig:
         inherit_env=block.inherit_env,
         pinned_env=block.pinned_env,
         timeout_seconds=block.timeout_seconds,
+        max_result_bytes=block.max_result_bytes,
         signature=block.signature,
         signed_by=block.signed_by,
     )

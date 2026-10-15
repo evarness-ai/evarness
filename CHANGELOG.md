@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `max_result_bytes` on an MCP server entry and on a plugin `server:` block (default 1 MiB). A `tools/call` or `tools/list` result whose JSON is larger is refused with an `MCPTransportError` that names the size and the setting, instead of being handed to the hooks and the model whole; a stdio server is also cut off once it has sent that much plus the JSON-RPC envelope without completing a message, so a server cannot make the exchange hold up to 32 MiB first. A 3 MB result passed the bridge uncapped before. Raise the limit on an entry that legitimately returns more. Closes #298; keeping a session alive is #299.
+
 - `iris mcp list`, `iris mcp revoke` and `iris mcp remove`. Revoking a key was a hand edit of the trust store, and removing a server left its key trusted with nothing saying so. `list` shows each server's verdict and the trust store's keys; `revoke <key_id>` (or `--signature <sig>`) distrusts a key, keeps it on record and names the servers it now refuses; `remove <server>` deletes the entry, says when its key signs nothing else, and with `--revoke-signature` stops the same signed entry being pasted back. Closes the CLI item of #113.
 
 - `iris_harness.testing.plugin(manifest=..., server=[command, *args])` mounts a `trust: mcp` plugin under the governed harness with no `setup`, so a plugin author's own CI can run a scripted turn against it and assert on the audit rows. `harness(seed={...})` writes files into the home before the runtime is built. M3 of #111.

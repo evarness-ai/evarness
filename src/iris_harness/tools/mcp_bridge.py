@@ -131,6 +131,9 @@ class MCPServerConfig(BaseModel):
     # credential (those belong in the vault); the other ``env`` values stay unsigned.
     pinned_env: tuple[str, ...] = Field(default_factory=tuple)
     timeout_seconds: float = Field(default=10.0, gt=0)
+    # The largest ``result`` a call may return, in bytes of its JSON. A larger one is refused
+    # with a transport error rather than handed to the hooks and the model whole.
+    max_result_bytes: int = Field(default=1_048_576, gt=0)
     governance: MCPServerGovernance | None = Field(default=None)
     # Phase 6 MCP signing (6b): Ed25519 signature over the canonical launch spec
     # and the trust-store key id that produced it. Both optional — an unsigned
@@ -523,11 +526,13 @@ class MCPTransport:
         )
         if server.transport == "http":
             response_payload = self._http_requester(server, request_payload)
-            return _extract_mcp_result(response_payload)
+            return _within_result_cap(server, _extract_mcp_result(response_payload))
         if server.transport == "stdio":
-            return self._invoke_stdio_transport(server, request_payload, working_dir)
+            return _within_result_cap(
+                server, self._invoke_stdio_transport(server, request_payload, working_dir)
+            )
         if server.transport == "sse":
-            return self._invoke_sse_transport(server, request_payload)
+            return _within_result_cap(server, self._invoke_sse_transport(server, request_payload))
 
         raise ValueError(
             f"MCP transport '{server.transport}' is not implemented yet; supported transports: http, stdio, sse"
@@ -1454,6 +1459,19 @@ _STDERR_TAIL_BYTES = 16_384
 #: A server that sends this much without a newline is not speaking the protocol.
 _MAX_STDOUT_BUFFER = 32 * 1024 * 1024
 _READ_CHUNK = 65_536
+#: Room on top of ``max_result_bytes`` for the JSON-RPC envelope and a banner line.
+_ENVELOPE_SLACK_BYTES = 65_536
+
+
+def _within_result_cap(server: MCPServerConfig, result: Any) -> Any:
+    """``result`` itself, or a transport error when its JSON is over the server's cap."""
+    size = len(json.dumps(result, ensure_ascii=False, default=str).encode("utf-8"))
+    if size > server.max_result_bytes:
+        raise MCPTransportError(
+            f"MCP server '{server.name}' returned {size} bytes, over its max_result_bytes of "
+            f"{server.max_result_bytes}; raise the limit on the server entry if that is expected"
+        )
+    return result
 
 
 class _StderrTail:
@@ -1532,6 +1550,9 @@ def _run_stdio_exchange(
         responses: dict[str, Any] = {}
         buffer = bytearray()
         stdout_fd = process.stdout.fileno()
+        # A reply is one message, so the buffer is held to the result cap plus the JSON-RPC
+        # envelope: a server cannot make the exchange hold more than that before it is refused.
+        buffer_limit = min(_MAX_STDOUT_BUFFER, server.max_result_bytes + _ENVELOPE_SLACK_BYTES)
         while not expected <= responses.keys():
             payload = _next_stdio_message(buffer)
             if payload is not None:
@@ -1561,10 +1582,10 @@ def _run_stdio_exchange(
                     )
                 )
             buffer += chunk
-            if len(buffer) > _MAX_STDOUT_BUFFER:
+            if len(buffer) > buffer_limit:
                 raise MCPTransportError(
-                    f"MCP stdio server '{server.name}' sent more than "
-                    f"{_MAX_STDOUT_BUFFER // (1024 * 1024)} MiB without a complete message"
+                    f"MCP stdio server '{server.name}' sent more than {buffer_limit} bytes "
+                    f"without a complete message (max_result_bytes is {server.max_result_bytes})"
                 )
 
         return responses

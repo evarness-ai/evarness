@@ -251,3 +251,17 @@ def test_a_trust_mcp_result_reaches_the_content_checks_as_text(tmp_path: Path) -
     by_plugin = {r.plugin: r for r in rows if r.tool == "lookup"}
     assert "raised the run" in (by_plugin["output_classifier"].reason or "")
     assert "redacted" in (by_plugin["external_content_floor"].reason or "")
+
+
+def test_a_plugin_server_block_sets_the_result_cap(tmp_path: Path) -> None:
+    import yaml
+
+    from iris_harness.runtime.plugin_host.mcp_host import server_config
+
+    default = PluginManifest.model_validate(yaml.safe_load(_manifest(tmp_path)))
+    capped = PluginManifest.model_validate(
+        yaml.safe_load(_manifest(tmp_path).replace("args: [", "max_result_bytes: 2048\n  args: ["))
+    )
+
+    assert server_config(default).max_result_bytes == 1_048_576
+    assert server_config(capped).max_result_bytes == 2048
