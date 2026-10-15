@@ -85,6 +85,17 @@ iris mcp sign weather --key me           # signature + signer written into mcp-s
 iris mcp verify                          # verdict per server; non-zero exit if any fails
 ```
 
+Three more commands manage what those produced:
+
+```bash
+iris mcp list                            # servers with their verdicts, and the trust store's keys
+iris mcp revoke me                       # distrust a key: what it signed is refused (or --signature <sig>)
+iris mcp remove weather                  # delete the entry; its key stays trusted (--revoke-signature)
+```
+
+`revoke` keeps the key listed as revoked, so the revocation is on record. `remove` says when
+the entry's key signs nothing else and is still trusted.
+
 The test runs those three against a copy of `mcp-servers.yaml` and a temporary trust
 store, then edits the signed entry's command and shows `verify` rejecting it. It also
 checks `weather_server.py` answers a real MCP client.

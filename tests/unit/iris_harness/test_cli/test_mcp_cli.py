@@ -129,3 +129,151 @@ def test_verify_detects_tampering_after_signing(tmp_path: Path) -> None:
     )
     assert result.exit_code == 1
     assert "invalid" in result.output
+
+
+# --- list / revoke / remove ---------------------------------------------------------------
+
+
+def _signed_setup(tmp_path: Path) -> tuple[Path, Path, dict[str, str]]:
+    trust = tmp_path / "trust.yaml"
+    servers = tmp_path / "mcp-servers.yaml"
+    env = {"IRIS_MCP_KEYS_DIR": str(tmp_path / "keys")}
+    _write_servers(servers)
+    runner.invoke(mcp_app, ["keygen", "--id", "ops", "--trust-store", str(trust)], env=env)
+    runner.invoke(mcp_app, ["sign", "remote", "--key", "ops", "--servers", str(servers)], env=env)
+    return servers, trust, env
+
+
+def _verify_exit(servers: Path, trust: Path) -> int:
+    return runner.invoke(
+        mcp_app, ["verify", "--servers", str(servers), "--trust-store", str(trust)]
+    ).exit_code
+
+
+def test_list_shows_the_servers_with_their_verdicts_and_the_keys(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+
+    result = runner.invoke(
+        mcp_app, ["list", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "remote" in result.output and "verified" in result.output
+    assert "ops" in result.output and "trusted" in result.output
+
+
+def test_revoke_a_key_makes_what_it_signed_unverified(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+    assert _verify_exit(servers, trust) == 0
+
+    result = runner.invoke(
+        mcp_app, ["revoke", "ops", "--trust-store", str(trust), "--servers", str(servers)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "remote" in result.output  # says which server is now refused
+    doc = yaml.safe_load(trust.read_text())
+    assert doc["revoked_key_ids"] == ["ops"]
+    assert [k["key_id"] for k in doc["keys"]] == ["ops"]  # the key stays on record
+    assert _verify_exit(servers, trust) == 1
+    listed = runner.invoke(
+        mcp_app, ["list", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+    assert "revoked" in listed.output
+
+
+def test_revoke_is_idempotent_and_refuses_an_unknown_key(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+    args = ["--trust-store", str(trust), "--servers", str(servers)]
+
+    runner.invoke(mcp_app, ["revoke", "ops", *args])
+    again = runner.invoke(mcp_app, ["revoke", "ops", *args])
+    ghost = runner.invoke(mcp_app, ["revoke", "ghost", *args])
+
+    assert again.exit_code == 0 and "already revoked" in again.output
+    assert yaml.safe_load(trust.read_text())["revoked_key_ids"] == ["ops"]
+    assert ghost.exit_code == 1
+
+
+def test_revoke_one_signature_keeps_the_key_trusted(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+    signature = yaml.safe_load(servers.read_text())["servers"][0]["signature"]
+
+    result = runner.invoke(
+        mcp_app,
+        [
+            "revoke",
+            "--signature",
+            signature,
+            "--trust-store",
+            str(trust),
+            "--servers",
+            str(servers),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    doc = yaml.safe_load(trust.read_text())
+    assert doc["revoked_signatures"] == [signature]
+    assert not doc.get("revoked_key_ids")
+    assert _verify_exit(servers, trust) == 1
+
+
+def test_revoke_wants_exactly_one_of_a_key_or_a_signature(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+    args = ["--trust-store", str(trust), "--servers", str(servers)]
+
+    assert runner.invoke(mcp_app, ["revoke", *args]).exit_code == 2
+    assert runner.invoke(mcp_app, ["revoke", "ops", "--signature", "x", *args]).exit_code == 2
+
+
+def test_remove_deletes_the_entry_and_says_the_key_is_still_trusted(tmp_path: Path) -> None:
+    servers, trust, _ = _signed_setup(tmp_path)
+
+    result = runner.invoke(
+        mcp_app, ["remove", "remote", "--servers", str(servers), "--trust-store", str(trust)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(servers.read_text())["servers"] == []
+    assert "still trusted" in result.output and "iris mcp revoke ops" in result.output
+    assert not yaml.safe_load(trust.read_text()).get("revoked_key_ids")
+
+
+def test_remove_with_revoke_signature_stops_the_same_entry_coming_back(tmp_path: Path) -> None:
+    servers, trust, env = _signed_setup(tmp_path)
+    signed_entry = yaml.safe_load(servers.read_text())["servers"][0]
+
+    result = runner.invoke(
+        mcp_app,
+        [
+            "remove",
+            "remote",
+            "--revoke-signature",
+            "--servers",
+            str(servers),
+            "--trust-store",
+            str(trust),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert yaml.safe_load(trust.read_text())["revoked_signatures"] == [signed_entry["signature"]]
+
+    doc = yaml.safe_load(servers.read_text())
+    doc["servers"].append(signed_entry)  # pasted back in
+    servers.write_text(yaml.safe_dump(doc), encoding="utf-8")
+    assert _verify_exit(servers, trust) == 1
+
+
+def test_remove_unknown_server_and_unsigned_revoke_are_errors(tmp_path: Path) -> None:
+    servers = tmp_path / "mcp-servers.yaml"
+    _write_servers(servers)
+
+    ghost = runner.invoke(mcp_app, ["remove", "ghost", "--servers", str(servers)])
+    unsigned = runner.invoke(
+        mcp_app, ["remove", "remote", "--revoke-signature", "--servers", str(servers)]
+    )
+
+    assert ghost.exit_code == 1
+    assert unsigned.exit_code == 1
+    assert len(yaml.safe_load(servers.read_text())["servers"]) == 1  # nothing was removed
