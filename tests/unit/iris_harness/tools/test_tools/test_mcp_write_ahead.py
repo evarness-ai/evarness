@@ -84,14 +84,19 @@ class Rig:
         return str(approval_id)
 
     def call(
-        self, tool: str = "delete_file", *, approved_by: str | None = None, fail: bool = False
+        self,
+        tool: str = "delete_file",
+        *,
+        approved_by: str | None = None,
+        fail: bool = False,
+        reply: Any = "deleted",
     ):
-        def executor(_server: Any, _tool: str, _args: dict[str, Any]) -> str:
+        def executor(_server: Any, _tool: str, _args: dict[str, Any]) -> Any:
             self.reached.append(_tool)
             self.rows_when_reached.append(self.ledger.pending(RUN))
             if fail:
                 raise RuntimeError("transport broke")
-            return "deleted"
+            return reply
 
         return self.bridge.invoke_external_tool(
             "files",
@@ -144,6 +149,21 @@ def test_a_transport_that_fails_leaves_the_row_pending_for_resume(tmp_path: Path
 
     (row,) = rig.ledger.pending(RUN)
     assert row.tool == ROUTE and row.status == "pending"
+
+
+def test_a_call_the_server_answers_with_is_error_settles_its_row_as_an_error(
+    tmp_path: Path,
+) -> None:
+    """The server ran the call and said it failed (``isError``): the row is settled
+    ``error`` (``ToolReportedError``), not ``completed`` (#112 M9b)."""
+    rig = Rig(tmp_path, {"delete_file": "destructive"})
+    failed = {"content": [{"type": "text", "text": "no such file"}], "isError": True}
+
+    result = rig.call(approved_by=rig.approval(), reply=failed)
+
+    assert result.result["isError"] is True
+    (row,) = rig.ledger.list_by_run(RUN)
+    assert (row.status, row.error) == ("error", "ToolReportedError")
 
 
 def test_a_taken_ledger_key_denies_the_call_before_it_runs(

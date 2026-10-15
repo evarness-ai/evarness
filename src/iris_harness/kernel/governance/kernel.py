@@ -37,6 +37,7 @@ from iris_harness.kernel.governance.hooks.tool_payload import (
     RESUMED_FROM_RUN,
     SIDE_EFFECT_ID,
     TOOL_EFFECT,
+    TOOL_ERROR,
     TURN_ID,
     call_id_of,
 )
@@ -340,6 +341,15 @@ class GovernanceKernel:
                 payload[HELD_CALL_ID] = held
             else:
                 payload.pop(HELD_CALL_ID, None)  # only the kernel's metadata names the held call
+            # A call that failed says so on its rows: the class of what the tool raised, or
+            # ``TOOL_REPORTED_ERROR`` for a result the tool marked failed (an MCP
+            # ``isError``). From the metadata the runner or the bridge stamped, never a
+            # message, and never a value a hook or the result put in the payload.
+            error = ctx.metadata.get(TOOL_ERROR)
+            if hook_point is HookPoint.POST_TOOL_USE and isinstance(error, str) and error:
+                payload[TOOL_ERROR] = error
+            else:
+                payload.pop(TOOL_ERROR, None)
             # An egress request's row names the governed call it was made inside, the same
             # way: from the metadata the governed client stamped, never from the payload.
             parent = ctx.metadata.get(PARENT_CALL_ID)

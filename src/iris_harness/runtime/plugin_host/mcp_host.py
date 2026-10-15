@@ -6,7 +6,8 @@ launch signature first and starts the child with an allow-listed environment. Th
 registers each tool the manifest declares through ``PluginAPI.register_tool``, exactly as it
 does for an in-process plugin, so the call joins the governed tool pool: one PRE/POST pair,
 the manifest's effect, content and approval rules, the caller stamped. The transport adds no
-governance of its own, so a call is governed once.
+governance of its own, so a call is governed once. A result the server marks
+``isError: true`` is handed on as text and recorded as a failed call.
 
 Only a declared tool is registered, so a tool the server offers but the manifest does not
 declare is never reachable, and an undeclared name is refused by the registry.
@@ -19,6 +20,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from iris_harness.agent.tool_runner import FailedResult
 from iris_harness.tools.mcp_bridge import MCPServerConfig, MCPTransport
 
 from .manifest import PluginManifest, ToolDeclaration
@@ -48,7 +50,12 @@ def server_config(manifest: PluginManifest) -> MCPServerConfig:
 
 
 def observation(result: Any) -> str:
-    """A ``tools/call`` result as the observation text; ``error: ...`` when the tool failed."""
+    """A ``tools/call`` result as the observation text; ``error: ...`` when the tool failed.
+
+    A failed result (``isError: true``) comes back as a :class:`FailedResult`, so the
+    governed runner counts the call as failed and its ``post_tool_use`` rows say so
+    (``tool_error``), while the model still reads the server's text.
+    """
     if not isinstance(result, dict):
         return result if isinstance(result, str) else json.dumps(result)
     content = result.get("content")
@@ -60,7 +67,7 @@ def observation(result: Any) -> str:
         )
     else:
         text = json.dumps(result.get("structuredContent", result))
-    return f"error: {text}" if result.get("isError") else text
+    return FailedResult(f"error: {text}") if result.get("isError") else text
 
 
 def _describe(name: str, decl: ToolDeclaration) -> str:

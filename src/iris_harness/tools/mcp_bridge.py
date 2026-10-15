@@ -27,6 +27,7 @@ from iris_harness import __version__
 from iris_harness.foundation.ids import new_ulid
 from iris_harness.foundation.observability.logging_setup import log_egress
 from iris_harness.kernel.governance.call_context import register_call
+from iris_harness.kernel.governance.hooks.tool_payload import TOOL_REPORTED_ERROR
 from iris_harness.kernel.governance.mcp_signing import (
     MCPSigningConfig,
     ServerSpec,
@@ -62,6 +63,14 @@ class MCPApprovalRequired(PermissionError):
     A subclass of :exc:`PermissionError` so existing callers keep working; the HTTP
     API tells it apart to say "approval required" instead of echoing the governor's
     wording, which names a metadata flag the client is not allowed to set."""
+
+
+class MCPUndeclaredToolError(PermissionError):
+    """Raised when a call names a tool the server is not known to have.
+
+    Neither the operator's ``governance.tools`` nor the server's last ``tools/list``
+    names it, so the call is refused before any hook runs and the server is never
+    reached."""
 
 
 # Metadata keys the governor reads as consent (``kernel/governor/policy.py``,
@@ -417,6 +426,18 @@ def undeclared_tool_names(server: MCPServerConfig, tool_names: Iterable[str]) ->
     return [name for name in tool_names if declared_effect(server, name) is None]
 
 
+def is_error_result(result: Any) -> bool:
+    """Whether a ``tools/call`` result is the server saying the call failed (``isError``)."""
+    return isinstance(result, dict) and bool(result.get("isError"))
+
+
+def _undeclared_tool_refusal(server: MCPServerConfig, tool_name: str) -> str:
+    return (
+        f"MCP tool '{server.name}/{tool_name}' refused: the server did not list it in "
+        "tools/list and it is not declared under governance.tools"
+    )
+
+
 @dataclass(frozen=True)
 class SignatureCheck:
     """One server's signature verdict, what the policy does about it, and what the ledger records.
@@ -643,6 +664,9 @@ class MCPBridge:
         )
         self._server_index = {server.name: server for server in self.config.servers}
         self._governance_kernel = governance_kernel
+        # The tool names each server last answered ``tools/list`` with, through this bridge.
+        # A call naming a tool outside them (and outside ``governance.tools``) is refused.
+        self._listed_tools: dict[str, frozenset[str]] = {}
         # Phase 6 MCP signing (6b.2): verify each server's signature before
         # launch/connect. Absent config → disabled (no-op); shadow → warn-only.
         resolved_signing = signing_config or _load_signing_config(self.repo_root)
@@ -785,6 +809,7 @@ class MCPBridge:
         definitions = tuple(
             _coerce_external_tool_definition(server, payload) for payload in tool_payloads
         )
+        self._listed_tools[server.name] = frozenset(d.name for d in definitions)
         undeclared = undeclared_tool_names(server, (d.name for d in definitions))
         if undeclared:
             default = server.governance.undeclared_tools if server.governance else "destructive"
@@ -838,6 +863,14 @@ class MCPBridge:
         settled after. A tool nobody declared is treated as ``destructive`` (the server's
         ``governance.undeclared_tools``, default ``destructive``; ``read`` opts a server out),
         so it fails closed (issue #180).
+
+        Once the server has answered ``tools/list`` through this bridge, a tool it did not
+        list and the operator did not declare is refused before any hook runs:
+        :exc:`MCPUndeclaredToolError` and one ``deny`` row, and the server is never reached.
+
+        A result with ``isError: true`` is the server saying the call failed: it is still
+        returned, and its ``post_tool_use`` rows carry ``tool_error``
+        (``TOOL_REPORTED_ERROR``), as a call whose tool raised carries its class.
         """
         server = self._require_enabled_server(server_name)
         effect = effective_effect(server, tool_name)
@@ -857,6 +890,21 @@ class MCPBridge:
                 server,
                 tool_name,
                 check,
+                arguments=arguments,
+                persona=persona,
+                run_id=run_id,
+                call_id=call_id,
+                effect=effect,
+                approved_by=approved_by,
+            )
+        if not self._is_known_tool(server, tool_name):
+            self._refuse_before_hooks(
+                server,
+                tool_name,
+                check,
+                plugin="mcp_undeclared_tool",
+                message=_undeclared_tool_refusal(server, tool_name),
+                error=MCPUndeclaredToolError,
                 arguments=arguments,
                 persona=persona,
                 run_id=run_id,
@@ -914,6 +962,7 @@ class MCPBridge:
                 run_id=run_id,
                 call_id=call_id,
                 effect=effect,
+                error=TOOL_REPORTED_ERROR if is_error_result(result) else None,
             )
         return MCPInvocationResult(
             server_name=server.name,
@@ -937,7 +986,54 @@ class MCPBridge:
         approved_by: str | None,
     ) -> NoReturn:
         """Refuse a call to a server whose signature fails: one deny row, then the error."""
-        message = _signature_refusal(server, check.verdict)
+        self._refuse_before_hooks(
+            server,
+            tool_name,
+            check,
+            plugin="mcp_signature",
+            message=_signature_refusal(server, check.verdict),
+            error=MCPSignatureError,
+            arguments=arguments,
+            persona=persona,
+            run_id=run_id,
+            call_id=call_id,
+            effect=effect,
+            approved_by=approved_by,
+        )
+
+    def _is_known_tool(self, server: MCPServerConfig, tool_name: str) -> bool:
+        """Whether ``tool_name`` may be called on ``server``.
+
+        The operator's ``governance.tools`` and the server's last ``tools/list`` through this
+        bridge are the declared lists; no list is fetched here. Before any listing, an
+        undeclared name is left to the fail-closed default (``effective_effect``).
+        """
+        if declared_effect(server, tool_name) is not None:
+            return True
+        listed = self._listed_tools.get(server.name)
+        return listed is None or tool_name in listed
+
+    def _refuse_before_hooks(
+        self,
+        server: MCPServerConfig,
+        tool_name: str,
+        check: SignatureCheck,
+        *,
+        plugin: str,
+        message: str,
+        error: type[PermissionError],
+        arguments: dict[str, Any],
+        persona: str | None,
+        run_id: str | None,
+        call_id: str,
+        effect: str | None,
+        approved_by: str | None,
+    ) -> NoReturn:
+        """Refuse a call before any hook runs: one ``deny`` row from ``plugin``, then ``error``.
+
+        The ledger then holds one refusal naming why, not a row of ``allow`` for each hook
+        the call passed on its way to a stop.
+        """
         if self._governance_kernel is not None:
             from iris_harness.kernel.governance.hooks.types import HookPoint
 
@@ -954,7 +1050,7 @@ class MCPBridge:
             )
             self._governance_kernel.record_denial(
                 HookPoint.PRE_TOOL_USE,
-                "mcp_signature",
+                plugin,
                 message,
                 ctx,
                 audit_metadata={
@@ -962,7 +1058,7 @@ class MCPBridge:
                     "mcp_tool": tool_name,
                 },
             )
-        raise MCPSignatureError(message)
+        raise error(message)
 
     def _pre_tool_context(
         self,
@@ -1098,12 +1194,15 @@ class MCPBridge:
         call_id: str,
         effect: str | None = None,
         signature: SignatureCheck | None = None,
+        error: str | None = None,
     ) -> Any:
         """Fire ``PostToolUse`` over an MCP server's result; what the caller may receive.
 
         An external server's output is third-party text, so it is declared
         ``content: external``; its effect is the one the operator declared for the tool, or
         the server's ``undeclared_tools`` default (an MCP server declares none itself).
+        ``error`` is ``TOOL_REPORTED_ERROR`` for an ``isError`` result: the call failed, and
+        its rows and its side-effect ledger row say so.
         ``deny`` / ``require_approval`` raise :exc:`PermissionError` (the result is
         withheld); a ``transform`` is returned.
         """
@@ -1137,7 +1236,7 @@ class MCPBridge:
                 **audit_digester().result_fields(result),
             ),
             metadata=tool_post_metadata(
-                effect=effect, content="external", verify=None, tool_call_id=call_id
+                effect=effect, content="external", verify=None, tool_call_id=call_id, error=error
             ),
         )
         decision, final_ctx = self._governance_kernel.fire_sync(HookPoint.POST_TOOL_USE, ctx)

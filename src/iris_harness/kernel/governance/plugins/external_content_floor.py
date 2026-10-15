@@ -21,7 +21,9 @@ read by plugin code, redacted field by field (the field map is what the consumer
 receives), so it gets the tripwire and not the envelope: wrapping a number or a place name
 would break the type. The consumer's own tool that hands that text on declares
 ``content: external`` itself and is wrapped there. A tool that raised is not wrapped (its
-message is the harness's, and the loop reads its ``Error:`` prefix); it is still scanned.
+message is the harness's, and the loop reads its ``Error:`` prefix); it is still scanned. A
+result the tool returned and marked failed (``TOOL_REPORTED_ERROR``, an MCP ``isError``) is
+the tool's own text, so it is wrapped like any other.
 
 A call by plugin or core *code* (``plugin:<name>`` / ``core:<workflow>``, through
 ``api.tools``) gets the tripwire and not the envelope: its caller is code that may show the
@@ -43,6 +45,7 @@ from iris_harness.kernel.governance.hooks.tool_payload import (
     RESULT,
     TOOL_ERROR,
     TOOL_PLUGIN,
+    TOOL_REPORTED_ERROR,
     is_external,
     result_of,
     tool_name_of,
@@ -87,8 +90,9 @@ class ExternalContentFloorHook:
 
         result = result_of(ctx.payload)
         caller = ctx.metadata.get("caller")
-        # No envelope for a tool that raised, nor for code that is not a model (see above).
-        wrapped = ctx.metadata.get(TOOL_ERROR) is None and not (
+        # No envelope for a tool that raised, nor for code that is not a model (see above). A
+        # result the tool itself marked failed (an MCP ``isError``) is still the tool's text.
+        wrapped = ctx.metadata.get(TOOL_ERROR) in (None, TOOL_REPORTED_ERROR) and not (
             isinstance(caller, str) and caller.startswith(_CODE_CALLERS)
         )
         if isinstance(result, str):
