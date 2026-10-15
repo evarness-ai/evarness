@@ -722,6 +722,9 @@ class MCPBridge:
             raise _refusal(decision, approval_granted=approval_granted)
 
         if executor is not None:
+            # The transport path checks the launch signature itself; an executor stands in
+            # for the transport, so it gets the same gate before it runs anything (#113 M4c).
+            self._enforce_signature(server)
             result = executor(server, tool_name, call_arguments)
         else:
             result = self._invoke_transport(

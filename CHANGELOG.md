@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- `MCPBridge.invoke_external_tool(..., executor=fn)` now checks the server's launch signature before it runs `fn`. The executor returned before the transport call, where the check lives, so an unsigned, tampered or revoked server ran under `enforce` with `unsigned_policy: deny`; in `shadow` it logged no verdict. Nothing in the harness passes an executor today, so this closes a trap for a host built on the method. Closes M4c of #113.
+
 ### Added
 
 - `iris_harness.testing.plugin(manifest=..., server=[command, *args])` mounts a `trust: mcp` plugin under the governed harness with no `setup`, so a plugin author's own CI can run a scripted turn against it and assert on the audit rows. `harness(seed={...})` writes files into the home before the runtime is built. M3 of #111.
