@@ -143,8 +143,15 @@ def test_packaged_config_is_shadow() -> None:
     assert cfg.unsigned_policy == "warn"
 
 
-def test_config_absent_is_disabled(tmp_path: Path) -> None:
-    assert MCPSigningConfig.from_yaml(tmp_path / "x.yaml").enabled is False
+def test_config_absent_is_the_shadow_default_not_off(tmp_path: Path) -> None:
+    cfg = MCPSigningConfig.from_yaml(tmp_path / "x.yaml")
+    assert (cfg.enabled, cfg.mode, cfg.unsigned_policy) == (True, "shadow", "warn")
+
+
+def test_config_that_says_enabled_false_is_off(tmp_path: Path) -> None:
+    p = tmp_path / "off.yaml"
+    p.write_text("version: 1\nenabled: false\n", encoding="utf-8")
+    assert MCPSigningConfig.from_yaml(p).enabled is False
 
 
 def test_config_rejects_unknown_key(tmp_path: Path) -> None:
