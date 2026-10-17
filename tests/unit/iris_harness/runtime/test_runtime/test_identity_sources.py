@@ -308,6 +308,17 @@ def test_the_runtime_points_the_facts_source_at_its_store(
         root._FACTS.db_path = saved
 
 
+def test_pointing_the_facts_source_elsewhere_closes_the_old_database(store: MemoryStore) -> None:
+    source = _facts_source(store)
+    source.fingerprint()  # opens the probe connection on the store's file
+    assert source._probe is not None
+    source.use(None)
+    assert source._probe is None
+    assert source.db_path is None
+    # Nothing holds it open: deletable even where an open file is not (Windows).
+    store.db_path.unlink()
+
+
 def test_the_composition_root_registers_every_source() -> None:
     import importlib
 

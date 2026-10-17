@@ -42,6 +42,7 @@ from __future__ import annotations
 
 import os
 import socket
+import threading
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -173,25 +174,33 @@ def no_network() -> Iterator[list[Any]]:
 
     Yields the list of addresses that were attempted (each raised
     :class:`NetworkBlockedError`), so a test can assert it stayed empty. Unix-domain
-    sockets are left alone: they never leave the machine.
+    sockets are left alone: they never leave the machine. So is :func:`socket.socketpair`,
+    for the same reason: where the OS has no native pair (Windows) Python builds one by
+    connecting to a loopback listener it opened in the same call, and every asyncio event
+    loop makes one for its self-pipe, so refusing it would refuse every async test there.
     """
     attempted: list[Any] = []
     real_connect = socket.socket.connect
     real_connect_ex = socket.socket.connect_ex
     real_create_connection = socket.create_connection
+    real_socketpair = socket.socketpair
+    pairing = threading.local()
+
+    def _local(sock: socket.socket) -> bool:
+        return sock.family == getattr(socket, "AF_UNIX", None) or getattr(pairing, "on", False)
 
     def _refuse(address: Any) -> None:
         attempted.append(address)
         raise NetworkBlockedError(f"network access blocked in this test: {address!r}")
 
     def connect(self: socket.socket, address: Any) -> None:
-        if self.family == getattr(socket, "AF_UNIX", None):
+        if _local(self):
             real_connect(self, address)
             return
         _refuse(address)
 
     def connect_ex(self: socket.socket, address: Any) -> int:
-        if self.family == getattr(socket, "AF_UNIX", None):
+        if _local(self):
             return real_connect_ex(self, address)
         _refuse(address)
         return 1  # pragma: no cover - _refuse raised
@@ -200,15 +209,24 @@ def no_network() -> Iterator[list[Any]]:
         _refuse(address)
         raise AssertionError("unreachable")  # pragma: no cover
 
+    def socketpair(*args: Any, **kwargs: Any) -> tuple[socket.socket, socket.socket]:
+        pairing.on = True
+        try:
+            return real_socketpair(*args, **kwargs)
+        finally:
+            pairing.on = False
+
     socket.socket.connect = connect  # type: ignore[method-assign,assignment]
     socket.socket.connect_ex = connect_ex  # type: ignore[method-assign,assignment]
     socket.create_connection = create_connection
+    socket.socketpair = socketpair
     try:
         yield attempted
     finally:
         socket.socket.connect = real_connect  # type: ignore[method-assign]
         socket.socket.connect_ex = real_connect_ex  # type: ignore[method-assign]
         socket.create_connection = real_create_connection
+        socket.socketpair = real_socketpair
 
 
 __all__ = [
