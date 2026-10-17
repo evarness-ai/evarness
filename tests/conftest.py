@@ -642,6 +642,22 @@ def pytest_runtest_teardown(item: pytest.Item, nextitem: pytest.Item | None) -> 
     return result
 
 
+#: Longest string parameter kept whole in a test id.
+_MAX_ID_CHARS = 60
+
+
+def pytest_make_parametrize_id(config: pytest.Config, val: object, argname: str) -> str | None:
+    """A short id for a long string parameter: its start and its length.
+
+    pytest puts the running test's id in the ``PYTEST_CURRENT_TEST`` environment variable,
+    and Windows refuses a variable over 32,767 characters, so a test parametrized with a
+    100,000-character input failed there before it ran. pytest numbers ids that collide.
+    """
+    if isinstance(val, str) and len(val) > _MAX_ID_CHARS:
+        return f"{val[:20]!r}...({len(val)} chars)"
+    return None
+
+
 # --------------------------------------------------------------------------------
 # Stubs for the paths the guard caught. Opt-in, so a file says what it replaces.
 # --------------------------------------------------------------------------------
