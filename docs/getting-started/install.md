@@ -11,9 +11,8 @@ on a fresh machine, on every change.
 - **macOS on Apple Silicon, or Linux** (x86_64 or arm64). On Windows, run IRIS with Docker
   Desktop, or WSL2; see [Windows](../guides/windows.md).
 - **16 GB of RAM** for real use with the standard models. With 8 GB you can run the
-  demo (it uses a scripted model) or try the `lite` model set, which runs a smaller
-  chat model with the same email judge: `iris doctor --model-set lite`. The lite set's
-  chat and tool use are not yet measured against the standard one's.
+  demo (it uses a scripted model) or run the `lite` model set, which `iris doctor` picks
+  for you on such a machine: one 4B model does the chat and the email judging.
 - **[uv](https://docs.astral.sh/uv/getting-started/installation/) or
   [pipx](https://pipx.pypa.io/stable/installation/)** to install the tool. Neither
   ships with Python. If you have `pip`, `pip install uv` is the shortest route.
@@ -78,11 +77,11 @@ Right after installing, "demo only" is normal. The next page runs the demo.
 
 The "Model set" line says which set of models the report is sized to. Doctor picks the
 largest set in `config/doctor.yaml` your machine fits: `standard` (the shipped models,
-16 GB) on most machines. `lite` (8 GB, about 6 GB of models resident) is there for
-smaller laptops but is not picked on its own until its chat tier has been measured;
-`iris doctor --model-set lite` chooses it, and `--fix` then pulls its models and points
-the tiers at them. The choice is saved with your settings, so an upgrade keeps it, and
-`iris doctor --model-set standard --fix` moves back.
+16 GB) on most machines, `lite` (8 GB, about 5 GB of models resident) on smaller
+laptops. `--fix` then pulls the set's models and points the tiers at them.
+`iris doctor --model-set <name>` forces a set instead. The choice is saved with your
+settings, so an upgrade keeps it, and `iris doctor --model-set standard --fix` moves
+back.
 
 ### The safe fixes: `iris doctor --fix`
 

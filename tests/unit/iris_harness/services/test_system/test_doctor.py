@@ -127,15 +127,17 @@ def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     assert standard.tiers == {}
     lite = cfg.model_set("lite")
     assert lite is not None
-    assert not lite.auto  # forced only until tier 2 on the small model is measured
-    # The judge is not overridden: every smaller judge failed the holdout (ADR decision 7).
-    assert set(lite.tiers) == {"router", "tier2"}
+    assert lite.auto  # measured on the holdout and the tier 2 suite (ADR decision 7)
+    # Only tier 2 moves, onto the shipped judge's model: every smaller judge failed the
+    # holdout, and the 1B router cost scenarios on the tier 2 suite.
+    assert set(lite.tiers) == {"tier2"}
+    assert lite.tiers["tier2"]["model"] == "qwen3.5:4b-q4_K_M"
     assert lite.tiers["tier2"]["think"] is False
     # Every model the lite tiers point at, and the shipped judge, is in the lite starter set.
     lite_starters = {m.name for m in lite.starter_models}
     assert {f["model"] for f in lite.tiers.values()} <= lite_starters
     assert "qwen3.5:4b-q4_K_M" in lite_starters
-    assert cfg.ram_floor_gb == 16  # the smallest automatic set
+    assert cfg.ram_floor_gb == 8  # the smallest automatic set
     assert cfg.ram_demo_gb == 8
     assert {"email", "ml"} <= {e.name for e in cfg.optional_extras}
 
@@ -500,11 +502,12 @@ def test_apply_model_set_writes_and_resets_tier_edits(
     assert line.startswith("model set lite applied")
     store = SettingsStore(db_path=db)
     assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
-        "lite", True, ("router", "tier2")
+        "lite", True, ("tier2",)
     )
     router = TierRouter.load_from_yaml(config_path("llm_tiers.yaml"), settings=store)
-    assert router.get_tier_by_name("tier2").model == "qwen3:4b"
+    assert router.get_tier_by_name("tier2").model == "qwen3.5:4b-q4_K_M"
     assert router.get_tier_by_name("tier2").think is False
+    assert router.get_tier_by_name("router").model == router._declared_tiers["router"].model
     # The judge is the file's: lite does not touch it (ADR decision 7).
     judge = router.get_tier_by_name("email_judge")
     assert judge.model == router._declared_tiers["email_judge"].model
