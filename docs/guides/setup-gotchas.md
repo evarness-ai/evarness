@@ -30,15 +30,16 @@ dependencies and no `requires-python`, guesses `>=3.13` and builds an empty envi
 To run IRIS, install the package: `uv tool install "iris-harness[email]"`. To work on the
 code, use `poetry install --with dev --extras email`.
 
-**Windows.** Native Windows is not supported; `iris doctor` reports "Not ready". Use
-WSL2.
+**Windows.** Run IRIS with Docker Desktop, or inside WSL2. Native Windows is for
+development: `iris doctor` warns on the platform row but does not block. See
+[Windows](windows.md).
 
 ## Reading `iris doctor`
 
 **"Ready for the demo only." and exit code 1 is normal right after installing.** The demo
 runs on a scripted model, so it needs none of what real use needs: Ollama, the starter
-model, a vault master key and 16 GB of RAM. Only "Not ready." (exit 2) means the machine
-itself must change first.
+models, a vault master key and 8 GB of RAM (16 GB for the standard model set).
+Only "Not ready." (exit 2) means the machine itself must change first.
 
 **The vault master key is missing.** Every governed tool call needs it, so without it IRIS
 refuses them. `iris doctor --fix` creates one, and never overwrites a stored key. On macOS

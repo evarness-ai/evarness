@@ -4,6 +4,7 @@ precedence IRIS > vendor on upsert, and the vendor backfill (promo grill, PR 2).
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -62,7 +63,7 @@ def test_migration_adds_column_and_stamps_existing_classifications_iris(tmp_path
     old.upsert(_msg("classified"))
     old.upsert(_msg("unclassified"))
     old.mark_classified("classified", category="email/shopping/apparel", confidence=0.9)
-    with sqlite3.connect(db) as conn:  # rewind to the pre-column schema
+    with closing(sqlite3.connect(db)) as conn, conn:  # rewind to the pre-column schema
         conn.execute("ALTER TABLE emails DROP COLUMN classified_source")
 
     EmailStore(db_path=db).ensure_schema()

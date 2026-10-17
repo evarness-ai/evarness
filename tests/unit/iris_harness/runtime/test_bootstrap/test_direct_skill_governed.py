@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -224,7 +225,7 @@ def test_an_external_feed_is_redacted_once_with_one_notice_one_floor_row_and_no_
     assert BENIGN in text and CANARY in text
     assert f"<{ENVELOPE_TAG}" not in text  # an owner channel never gets the envelope
     assert text.count(REDACTION_NOTICE) == 1
-    with sqlite3.connect(lane.audit.db_path) as conn:
+    with closing(sqlite3.connect(lane.audit.db_path)) as conn, conn:
         floor_rows = conn.execute(
             "SELECT COUNT(*) FROM audit_log WHERE plugin = 'external_content_floor' "
             "AND json_extract(payload_json, '$.patterns') IS NOT NULL"
@@ -243,7 +244,7 @@ def test_a_pending_action_the_skill_proposes_is_still_recorded(
 
     if entry == "chat":  # the stream's first chunk carries the text only
         assert meta["pending_actions_recorded"] == 1
-    with sqlite3.connect(tmp_path / "tasks.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "tasks.db")) as conn, conn:
         (n,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
     assert n == 1
 

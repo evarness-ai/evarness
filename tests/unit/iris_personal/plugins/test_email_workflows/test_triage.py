@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -390,7 +391,7 @@ def test_classify_and_persist_writes_to_email_db_and_emits_event(tmp_path: Path)
     # We need to inspect raw SQL since EmailMessage doesn't expose classified_* yet
     import sqlite3
 
-    with sqlite3.connect(email_store.db_path) as conn:
+    with closing(sqlite3.connect(email_store.db_path)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, classified_confidence, classified_at, triage_state "
@@ -601,7 +602,7 @@ def test_subscriber_dispatch_makes_zero_llm_calls(tmp_path: Path) -> None:
     # And the row got classified via pure-kNN
     import sqlite3
 
-    with sqlite3.connect(email_store.db_path) as conn:
+    with closing(sqlite3.connect(email_store.db_path)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, triage_state FROM emails WHERE id = ?",
@@ -822,7 +823,7 @@ def test_classify_and_persist_queued_marks_pending_review(tmp_path: Path) -> Non
     # Row is queued, not classified
     import sqlite3
 
-    with sqlite3.connect(email_store.db_path) as conn:
+    with closing(sqlite3.connect(email_store.db_path)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, triage_state FROM emails WHERE id = ?",
@@ -959,7 +960,7 @@ def test_correction_exemplar_makes_one_off_sender_classifiable(tmp_path: Path) -
     )
     email_store.upsert(corrected)
 
-    with sqlite3.connect(tmp_path / "iris.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "iris.db")) as conn, conn:
         conn.execute(
             "INSERT INTO categories_history "
             "(category_path, op, old_path, new_path, payload, edited_at, source) "
@@ -1042,7 +1043,7 @@ def test_correction_exemplar_outranks_stale_cluster_categories(tmp_path: Path) -
         from_domain="superhuman.example",
     )
     email_store.upsert(corrected)
-    with sqlite3.connect(tmp_path / "iris.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "iris.db")) as conn, conn:
         conn.execute(
             "INSERT INTO categories_history "
             "(category_path, op, old_path, new_path, payload, edited_at, source) "

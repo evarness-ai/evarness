@@ -17,6 +17,8 @@ import logging
 import os
 import sqlite3
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -26,7 +28,7 @@ import psutil
 
 from iris_harness.foundation.clock import utc_now
 from iris_harness.foundation.eventbus import EventBus
-from iris_harness.foundation.persistence import connect, data_path
+from iris_harness.foundation.persistence import data_path, sqlite_conn
 from iris_harness.foundation.persistence.sqlite import ensure_columns
 
 from .events import (
@@ -105,8 +107,12 @@ class ActivityStore:
         # On a connection of its own under BEGIN IMMEDIATE (#201), see ``TaskStore``.
         ensure_columns(self.db_path, "activities", {"owner_pid": "INTEGER"})
 
-    def _connect(self) -> sqlite3.Connection:
-        return connect(self.db_path, row_factory=sqlite3.Row)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     # ------------------------------------------------------------------
     # Reads

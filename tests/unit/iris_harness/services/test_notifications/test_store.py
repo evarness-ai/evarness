@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -190,7 +191,7 @@ CREATE TABLE notification_reminders (
 
 def test_an_old_table_gains_the_lifecycle_columns_with_backfill(tmp_path: Path) -> None:
     db = tmp_path / "tasks.db"
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.executescript(_OLD_TABLE)
         rows = [
             ("a", "2026-09-28T08:00:00-05:00", None, None),  # local offset: normalised
@@ -211,7 +212,7 @@ def test_an_old_table_gains_the_lifecycle_columns_with_backfill(tmp_path: Path) 
     a, b, c = (store.get(i) for i in "abc")
     assert a is not None and b is not None and c is not None
     assert (a.status, b.status, c.status) == ("pending", "sent", "cancelled")
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         stored = conn.execute("SELECT remind_at FROM notification_reminders WHERE id='a'")
         assert stored.fetchone()[0] == "2026-09-28T13:00:00+00:00"
     assert [r.id for r in store.list_due(now=T)] == ["a"]
@@ -222,7 +223,7 @@ def test_create_stores_utc_and_a_series(ct_store: ReminderStore) -> None:
     r = ct_store.create(target_kind="event", target_id="e1", remind_at=local, recurrence="weekly")
     assert r.remind_at == T and r.remind_at.tzinfo == UTC
     assert r.series_id == r.id and r.status == "pending"
-    with sqlite3.connect(ct_store.db_path) as conn:
+    with closing(sqlite3.connect(ct_store.db_path)) as conn, conn:
         raw = conn.execute("SELECT remind_at FROM notification_reminders").fetchone()[0]
     assert raw.endswith("+00:00")
     with pytest.raises(ValueError):
@@ -527,7 +528,11 @@ def test_a_dedupe_key_is_created_once_ever(ct_store: ReminderStore) -> None:
 
 def test_the_dedupe_index_refuses_a_second_row_under_one_key(ct_store: ReminderStore) -> None:
     ct_store.create(target_kind="bill", target_id="d", remind_at=T, dedupe_key="k")
-    with sqlite3.connect(ct_store.db_path) as conn, pytest.raises(sqlite3.IntegrityError):
+    with (
+        closing(sqlite3.connect(ct_store.db_path)) as conn,
+        conn,
+        pytest.raises(sqlite3.IntegrityError),
+    ):
         conn.execute(
             "INSERT INTO notification_reminders (id, target_kind, target_id, remind_at, "
             "created_at, dedupe_key) VALUES ('x', 'bill', 'd', ?, ?, 'k')",
@@ -537,7 +542,7 @@ def test_the_dedupe_index_refuses_a_second_row_under_one_key(ct_store: ReminderS
 
 def test_an_old_table_gains_dedupe_key_and_meta(tmp_path: Path) -> None:
     db = tmp_path / "tasks.db"
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "CREATE TABLE notification_reminders (id TEXT PRIMARY KEY, target_kind TEXT NOT "
             "NULL, target_id TEXT NOT NULL, remind_at TEXT NOT NULL, channel TEXT NOT NULL "

@@ -8,8 +8,11 @@ on a fresh machine, on every change.
 
 ## What you need
 
-- **macOS on Apple Silicon, or Linux** (x86_64 or arm64). On Windows, use WSL2.
-- **16 GB of RAM** for real use. 8 GB runs the demo only: it uses a scripted model.
+- **macOS on Apple Silicon, or Linux** (x86_64 or arm64). On Windows, run IRIS with Docker
+  Desktop, or WSL2; see [Windows](../guides/windows.md).
+- **16 GB of RAM** for real use with the standard models. With 8 GB you can run the
+  demo (it uses a scripted model) or run the `lite` model set, which `iris doctor` picks
+  for you on such a machine: one 4B model does the chat and the email judging.
 - **[uv](https://docs.astral.sh/uv/getting-started/installation/) or
   [pipx](https://pipx.pypa.io/stable/installation/)** to install the tool. Neither
   ships with Python. If you have `pip`, `pip install uv` is the shortest route.
@@ -60,17 +63,25 @@ iris doctor
 ```
 
 `iris doctor` checks what IRIS needs here: the Python version, the platform, memory,
-disk space, a writable `IRIS_HOME` (default `~/.iris`), Ollama, the starter model and
+disk space, a writable `IRIS_HOME` (default `~/.iris`), Ollama, the starter models and
 the vault master key. Each check prints a one-line fix when it fails. The report ends
 with a verdict, which is also the exit code:
 
 | Verdict | Exit code | What it means |
 |---|---|---|
 | Ready. | 0 | Everything real use needs is in place. |
-| Ready for the demo only. | 1 | The demo runs; real use still needs Ollama, the starter model, a vault master key, or 16 GB of RAM. |
-| Not ready. | 2 | Fix the failing checks first (the Python version, native Windows, under 8 GB, or an unwritable `IRIS_HOME`). |
+| Ready for the demo only. | 1 | The demo runs; real use still needs Ollama, the starter models, a vault master key, or more RAM. |
+| Not ready. | 2 | Fix the failing checks first (the Python version, under 8 GB, or an unwritable `IRIS_HOME`). |
 
 Right after installing, "demo only" is normal. The next page runs the demo.
+
+The "Model set" line says which set of models the report is sized to. Doctor picks the
+largest set in `config/doctor.yaml` your machine fits: `standard` (the shipped models,
+16 GB) on most machines, `lite` (8 GB, about 5 GB of models resident) on smaller
+laptops. `--fix` then pulls the set's models and points the tiers at them.
+`iris doctor --model-set <name>` forces a set instead. The choice is saved with your
+settings, so an upgrade keeps it, and `iris doctor --model-set standard --fix` moves
+back.
 
 ### The safe fixes: `iris doctor --fix`
 

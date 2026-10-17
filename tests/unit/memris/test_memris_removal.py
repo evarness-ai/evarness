@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -183,7 +184,7 @@ def test_a_removed_entity_survives_the_json_ld_round_trip(
 def test_a_v5_database_gains_the_removal_columns(tmp_path: Path) -> None:
     path = tmp_path / "v5.db"
     SQLiteGraphStore(path)
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute("ALTER TABLE memris_entities DROP COLUMN removed_statements")
         conn.execute("ALTER TABLE memris_entities DROP COLUMN removed_reason")
         conn.execute("ALTER TABLE memris_entities DROP COLUMN removed_at")

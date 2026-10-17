@@ -18,6 +18,7 @@ import dataclasses
 import json
 import sqlite3
 from collections.abc import AsyncIterator, Iterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -84,7 +85,7 @@ def _kernel(
 
 
 def _all_rows(ledger: SideEffectLedger) -> list[SideEffectRow]:
-    with sqlite3.connect(ledger.db_path) as conn:
+    with closing(sqlite3.connect(ledger.db_path)) as conn, conn:
         keys = [r[0] for r in conn.execute("SELECT side_effect_id FROM side_effect_ledger")]
     rows = [ledger.get(key) for key in keys]
     return [row for row in rows if row is not None]

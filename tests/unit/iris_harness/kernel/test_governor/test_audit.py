@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -29,7 +30,7 @@ def test_audit_logger_is_append_only(tmp_path: Path) -> None:
     assert entries[0].route == "coding/git"
     assert entries[0].metadata == {"task_id": "task-1"}
 
-    with sqlite3.connect(audit_logger.db_path) as connection:
+    with closing(sqlite3.connect(audit_logger.db_path)) as connection, connection:
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
             connection.execute("DELETE FROM governor_guard_audit WHERE id = 1")
         with pytest.raises(sqlite3.IntegrityError, match="append-only"):
@@ -49,7 +50,7 @@ def test_the_first_read_creates_an_empty_append_only_store(tmp_path: Path) -> No
     audit_logger = GovernorAuditLogger(tmp_path / "data" / "audit.db")
     assert audit_logger.list_entries() == ()
     assert audit_logger.db_path.exists()
-    with sqlite3.connect(audit_logger.db_path) as connection:
+    with closing(sqlite3.connect(audit_logger.db_path)) as connection, connection:
         triggers = {
             row[0]
             for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'trigger'")

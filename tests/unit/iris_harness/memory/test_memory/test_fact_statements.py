@@ -8,6 +8,7 @@ database moves over by itself, once, with a backup.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -65,7 +66,7 @@ def test_a_fact_is_a_statement_about_the_owner(store: MemoryStore) -> None:
 
 def test_the_legacy_table_is_no_longer_written(store: MemoryStore) -> None:
     store.upsert_user_fact(_fact("employer", "Barclays"))
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         assert conn.execute("SELECT COUNT(*) FROM user_facts").fetchone()[0] == 0
 
 
@@ -158,7 +159,7 @@ def test_the_vocabulary_is_closed(store: MemoryStore) -> None:
 
 def _legacy(path: Path, rows: list[tuple[str, str]]) -> None:
     MemoryStore(db_path=path)._ensure_tables()
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         for key, value in rows:
             conn.execute(
                 "INSERT INTO user_facts(key, value, confidence, source, first_seen, "
@@ -187,7 +188,7 @@ def test_a_legacy_database_moves_over_on_first_open_with_a_backup(tmp_path: Path
     text = report.read_text(encoding="utf-8")
     assert text.startswith("# Fact → statement migration: applied")
     assert "nothing was written" not in text and "memory-before-memris-" in text
-    with sqlite3.connect(db) as conn:  # the archive stays
+    with closing(sqlite3.connect(db)) as conn, conn:  # the archive stays
         assert conn.execute("SELECT COUNT(*) FROM user_facts").fetchone()[0] == 2
 
 
@@ -229,7 +230,7 @@ def test_a_claimed_migration_is_not_run_twice(tmp_path: Path) -> None:
 def test_the_migrated_facts_keep_their_history_as_closed_statements(tmp_path: Path) -> None:
     db = tmp_path / "memory.db"
     _legacy(db, [("employer", "Barclays")])
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute("UPDATE user_facts SET value = 'Litware' WHERE key = 'employer'")
         conn.execute(
             "INSERT INTO user_fact_history(key, old_value, old_confidence, new_value, "
@@ -304,7 +305,10 @@ def test_reject_and_expire_retract_with_a_reason(store: MemoryStore) -> None:
     old = store.add_fact_proposal(key="hobby", value="chess", confidence=0.8, source="llm")
     assert _coordinator(store).reject_proposal(no) is True
     assert _coordinator(store).reject_proposal(no) is False  # only pending ones
-    with sqlite3.connect(store.db_path) as conn:  # age the second one past the window
+    with (
+        closing(sqlite3.connect(store.db_path)) as conn,
+        conn,
+    ):  # age the second one past the window
         conn.execute(
             "UPDATE memris_statements SET recorded_at = ? WHERE id = ?",
             ((NOW - timedelta(days=400)).isoformat(), old),
@@ -318,7 +322,7 @@ def test_reject_and_expire_retract_with_a_reason(store: MemoryStore) -> None:
 def test_legacy_pending_proposals_move_into_the_queue(tmp_path: Path) -> None:
     db = tmp_path / "memory.db"
     _legacy(db, [("employer", "Barclays")])
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "INSERT INTO fact_proposals(key, value, confidence, source, evidence, current_value, "
             "created_at, status, seen_count) VALUES ('city', 'Leeds', 0.7, 'llm', 'I live in Leeds', "
@@ -352,7 +356,7 @@ def test_the_old_log_tables_are_no_longer_written(store: MemoryStore) -> None:
     store.upsert_user_fact(_fact("city", "London"))
     store.upsert_user_fact(_fact("city", "Paris", 0.1))  # refused
     store.delete_user_fact("city")
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         for table in ("user_fact_history", "user_fact_contradictions"):
             assert conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0] == 0  # noqa: S608
     assert [e.reason for e in store.fetch_fact_history("city")] == [
@@ -391,7 +395,7 @@ def test_legacy_logs_move_onto_the_chain(tmp_path: Path) -> None:
     db = tmp_path / "memory.db"
     _legacy(db, [("blog", "web3notes.example")])
     later = (NOW + timedelta(days=1)).isoformat()
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "INSERT INTO user_fact_contradictions(key, stored_value, stored_confidence, "
             "incoming_value, incoming_confidence, resolution, source, detected_at, acknowledged, "
@@ -413,7 +417,7 @@ def test_legacy_logs_move_onto_the_chain(tmp_path: Path) -> None:
 def test_migrated_history_keeps_its_chain_and_reasons(tmp_path: Path) -> None:
     db = tmp_path / "memory.db"
     _legacy(db, [("city", "Leeds")])
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute("UPDATE user_facts SET value = 'London' WHERE key = 'city'")
         conn.execute(
             "INSERT INTO user_fact_history(key, old_value, old_confidence, new_value, "

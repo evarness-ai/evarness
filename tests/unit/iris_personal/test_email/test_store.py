@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -226,7 +227,7 @@ def test_mark_classified_updates_columns(store: EmailStore) -> None:
     # verify via raw DB inspection.
     import sqlite3
 
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, classified_confidence, sensitivity "
@@ -303,7 +304,7 @@ def test_list_unclassified_filters_by_account(store: EmailStore) -> None:
 def _read_triage_state(store: EmailStore, message_id: str) -> str | None:
     import sqlite3
 
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         row = conn.execute("SELECT triage_state FROM emails WHERE id = ?", (message_id,)).fetchone()
     return row[0] if row else None
 
@@ -323,7 +324,7 @@ def test_mark_pending_review_sets_state_without_classification(store: EmailStore
     m = _make_message()
     store.upsert(m)
     assert store.mark_pending_review(m.id) is True
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         row = conn.execute(
             "SELECT triage_state, classified_category FROM emails WHERE id = ?",
             (m.id,),
@@ -407,7 +408,7 @@ def test_migration_adds_triage_state_when_missing(tmp_path: Path) -> None:
     # Build the prior-version emails table (no triage_state). Mirrors
     # what the v1 _SCHEMA_SQL would have created — we just omit the
     # one new column the migration adds.
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         conn.execute("""
             CREATE TABLE emails (
                 id              TEXT PRIMARY KEY,
@@ -436,7 +437,7 @@ def test_migration_adds_triage_state_when_missing(tmp_path: Path) -> None:
         cols_before = {r[1] for r in conn.execute("PRAGMA table_info(emails)").fetchall()}
     assert "triage_state" not in cols_before
     _migrate_columns(db_path)
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         cols_after = {r[1] for r in conn.execute("PRAGMA table_info(emails)").fetchall()}
     assert "triage_state" in cols_after
 
@@ -529,7 +530,7 @@ def _fts_rowids_for(store: EmailStore, term: str) -> list[int]:
     """Return rowids matching the FTS query — used by the trigger tests."""
     import sqlite3
 
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         return [
             r[0]
             for r in conn.execute(
@@ -544,7 +545,7 @@ def test_fts_table_created_on_ensure_schema(tmp_path: Path) -> None:
     db = tmp_path / "email.db"
     store = EmailStore(db_path=db)
     store.ensure_schema()
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         row = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='emails_fts'"
         ).fetchone()
@@ -557,7 +558,7 @@ def test_fts_triggers_created_on_ensure_schema(tmp_path: Path) -> None:
     db = tmp_path / "email.db"
     store = EmailStore(db_path=db)
     store.ensure_schema()
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         triggers = {
             r[0]
             for r in conn.execute(
@@ -592,7 +593,7 @@ def test_fts_delete_trigger_removes_row(store: EmailStore) -> None:
 
     store.upsert(_make_message(id="msg-fts-3", subject="SHEIN summer"))
     assert _fts_rowids_for(store, "shein") != []
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         conn.execute("DELETE FROM emails WHERE id = ?", ("msg-fts-3",))
     assert _fts_rowids_for(store, "shein") == []
 
@@ -625,7 +626,7 @@ def test_fts_backfills_existing_rows_on_first_ensure(tmp_path: Path) -> None:
 
     # Build the emails table manually WITHOUT the FTS surface, then
     # insert a row directly. Simulates a pre-1M database.
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.executescript("""
             CREATE TABLE emails (
                 id TEXT PRIMARY KEY, provider TEXT NOT NULL, account_id TEXT NOT NULL,

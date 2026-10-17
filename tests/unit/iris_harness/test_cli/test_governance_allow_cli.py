@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -57,7 +58,7 @@ def test_add_list_and_remove_round_trip_and_each_edit_is_a_ledger_row() -> None:
     assert gone.exit_code == 0, gone.output
     assert json.loads(runner.invoke(governance_app, ["allow", "list", "--json"]).output) == []
 
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         decisions = [
             r[0]
             for r in conn.execute(
@@ -84,7 +85,7 @@ def test_a_refused_entry_exits_non_zero_and_writes_nothing(
     result = runner.invoke(governance_app, ["allow", "add", "--reason", "x", *args])
     assert result.exit_code == code
     assert not _own_files.exists()
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         assert (
             conn.execute(
                 "SELECT count(*) FROM audit_log WHERE plugin = 'external_content_allow'"

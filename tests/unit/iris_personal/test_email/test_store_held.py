@@ -13,6 +13,7 @@ the held status), so this suite never imports the plugin that owns it.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -49,7 +50,7 @@ def _msg(mid: str, minutes_ago: int) -> EmailMessage:
 
 
 def _hold(db: Path, mid: str, status: str) -> None:
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             f"CREATE TABLE IF NOT EXISTS {HELD_TABLE} "
             "(message_id TEXT PRIMARY KEY, status TEXT NOT NULL)"
@@ -67,7 +68,7 @@ def _store(tmp_path: Path, *, with_holds: bool = True) -> EmailStore:
     for mid in (RELEASED, HELD, PROMO):
         store.mark_classified(mid, category="Finance/Bills", confidence=0.9)
     # Leave triage state open on all three so the triage queues see them.
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         conn.execute(
             "UPDATE emails SET classified_category = NULL, classified_source = NULL, "
             "triage_state = NULL"
@@ -162,7 +163,7 @@ def test_no_hold_table_everything_visible(tmp_path: Path) -> None:
     assert {h.id for h in store.search("invoice")} == ALL
     assert store.count() == 3
     assert store.list_accounts() == [ACCOUNT]
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         assert visible_condition(conn) == "1"
 
 
@@ -175,7 +176,7 @@ def test_hold_table_created_after_first_read_is_honoured(tmp_path: Path) -> None
 
 
 def test_visible_condition_for_raw_sql_readers(store: EmailStore) -> None:
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         cond = visible_condition(conn, "e.id")
         rows = conn.execute(
             f"SELECT e.id FROM emails AS e WHERE {cond}"  # noqa: S608 — test SQL
@@ -185,7 +186,7 @@ def test_visible_condition_for_raw_sql_readers(store: EmailStore) -> None:
 
 def test_held_filter_uses_the_status_index(store: EmailStore) -> None:
     """The hold lookup must stay an index probe, not a scan of the hold table."""
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         conn.execute(f"CREATE INDEX IF NOT EXISTS idx_held_status ON {HELD_TABLE}(status)")
         plan = " | ".join(
             str(r[3])

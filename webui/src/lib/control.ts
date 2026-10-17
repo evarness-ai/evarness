@@ -948,6 +948,20 @@ export interface DoctorReport {
   ollama_url: string;
   /** Something a fix (a model pull, this screen's one write) could do. */
   fixable: boolean;
+  /** The model set the report is sized to (config/doctor.yaml), chosen from the
+   * host's RAM or forced with `iris doctor --model-set`. */
+  model_set: {
+    name: string;
+    description: string;
+    fits: boolean;
+    forced: boolean;
+    reason: string;
+    /** The set `iris doctor --fix` last applied, or null for the file's tiers. */
+    recorded: string | null;
+    /** `--fix` still has to write this set's tiers. */
+    apply_needed: boolean;
+    tiers: Record<string, Record<string, unknown>>;
+  } | null;
 }
 
 /** The same preflight `iris doctor` prints: hardware, Ollama, the starter model,

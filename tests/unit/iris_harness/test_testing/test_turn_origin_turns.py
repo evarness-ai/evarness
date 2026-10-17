@@ -12,6 +12,7 @@ the user's message, and the raw phrase is in no stored memory.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -84,7 +85,7 @@ def _turn(entry: str, h: Any, message: str, session_id: str) -> str:
 
 def _stored(h: Any, session_id: str) -> list[tuple[str, str, str | None]]:
     (db,) = list(h.home.rglob("memory.db"))
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         return conn.execute(
             "SELECT role, content, turn_origin FROM conversations WHERE session_id = ? ORDER BY id",
             (session_id,),

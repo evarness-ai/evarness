@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from iris_harness.foundation.persistence import data_path
+from iris_harness.foundation.process_state import register_process_state
 from iris_harness.kernel.governance.identity_config import load_identity_config
 from iris_harness.kernel.governance.identity_redaction import (
     invalidate_owner_identity,
@@ -162,6 +163,17 @@ class OwnerFacts:
             self._probe[2].close()
             self._probe = None
 
+    def use(self, db_path: Path | None) -> None:
+        """Read from ``db_path`` from now on, letting go of what pointed at the old one.
+
+        The probe holds the old database open: on Windows an open file cannot be
+        deleted, so a harness home could not be removed after its run.
+        """
+        with self._lock:
+            self._close_probe_locked()
+            self._facts = None
+            self.db_path = db_path
+
     def _statements(self, path: Path) -> FactStatements:
         if self._facts is None or self._facts[0] != path:
             from iris_harness.memory.store import MemoryStore
@@ -207,8 +219,13 @@ _FACTS = OwnerFacts()
 
 def use_memory_db(path: Path) -> None:
     """Read the owner's facts from ``path`` (the runtime's memory store)."""
-    _FACTS.db_path = path
+    _FACTS.use(path)
     invalidate_owner_identity()
+
+
+# Process-wide state: put back when a harness run ends (foundation/process_state.py).
+# The run's ``use_memory_db`` pointed it at a home that is about to be deleted.
+register_process_state(f"{__name__}._FACTS", lambda: _FACTS.db_path, _FACTS.use)
 
 
 register_identity_text_provider(identity_documents, fingerprint=identity_documents_fingerprint)

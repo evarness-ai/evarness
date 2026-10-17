@@ -10,6 +10,7 @@ hold, and the owner identifiers are read once at setup, as before.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from iris_harness.sdk import PluginAPI
@@ -35,8 +36,17 @@ DESCRIPTION = (
 )
 
 
-def build_research_call(embed: Any = None) -> Any:
-    """The guarded ``research`` callable. Shared by the plugin and its tests."""
+def build_research_call(
+    embed: Any = None, current_query: Callable[[], str | None] | None = None
+) -> Any:
+    """The guarded ``research`` callable. Shared by the plugin and its tests.
+
+    ``current_query`` is the turn's own question (``HarnessServices.current_query``).
+    The ADR-0102 guard reads it as well as the search query the model wrote: asked
+    "which payments are due soon according to my inbox?", the 7B tier searched the web
+    for "payments due soon" -- the possessive that marks the question as the owner's
+    own money was gone from the query (measured 2026-10-17, the tier 2 suite).
+    """
     from .privacy import strip_emails, strip_owner_identifiers
     from .tool import run_research
 
@@ -46,7 +56,8 @@ def build_research_call(embed: Any = None) -> Any:
 
     def _research(args: dict[str, Any]) -> str:
         raw_query = str(args.get("query") or args.get("input") or "")
-        if is_personal_finance_web_query(raw_query):
+        question = (current_query() or "") if current_query is not None else ""
+        if is_personal_finance_web_query(raw_query) or is_personal_finance_web_query(question):
             logger.info("research: refused a personal-finance query; redirecting to local tools")
             return REDIRECT_TO_LOCAL_TOOLS
         cleaned, name_stripped = strip_owner_identifiers(raw_query, owner_names)
@@ -61,4 +72,8 @@ def build_research_call(embed: Any = None) -> Any:
 
 def register(api: PluginAPI) -> None:
     """Register ``research`` on the governed ReAct tool pool."""
-    api.register_tool("research", DESCRIPTION, build_research_call(api.services.embed))
+    api.register_tool(
+        "research",
+        DESCRIPTION,
+        build_research_call(api.services.embed, current_query=api.services.current_query),
+    )

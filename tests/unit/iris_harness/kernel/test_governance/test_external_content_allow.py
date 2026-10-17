@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -151,7 +152,7 @@ def _run(plugin: str, tmp_path: Path) -> tuple[str, list[dict[str, Any]]]:
     out = GovernedToolRunner(kernel=kernel, agent_type="chat").execute(
         tool, {}, ToolCall(run_id="r1")
     )
-    with sqlite3.connect(log.db_path) as conn:
+    with closing(sqlite3.connect(log.db_path)) as conn, conn:
         rows = [
             json.loads(r[0])
             for r in conn.execute(
@@ -222,7 +223,7 @@ def test_the_tripwire_only_sink_honours_the_allow_list_and_records_the_use(
     _write(_own_files, _entry(source="core:lesson"))
     assert redact_text(ARTICLE, source="lesson") == ARTICLE
     assert MARKER in redact_text(ARTICLE, source="other-label")
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         payloads = [
             json.loads(r[0])
             for r in conn.execute(
@@ -247,7 +248,7 @@ def test_adding_and_removing_an_entry_write_the_file_and_the_ledger(_own_files: 
     with pytest.raises(allow.AllowListError, match="no such entry"):
         allow.remove_entry(ID, source="mcp:docs", tool="read_doc", actor="cli")
 
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         rows = conn.execute(
             "SELECT decision, payload_json FROM audit_log WHERE plugin = 'external_content_allow'"
         ).fetchall()

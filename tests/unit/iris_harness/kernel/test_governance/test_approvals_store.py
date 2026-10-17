@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import stat
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -325,7 +326,7 @@ def test_an_old_database_gains_the_items_column(tmp_path: Path) -> None:
     from iris_harness.kernel.governance.approvals.store import ApprovalStore
 
     db = tmp_path / "approvals.db"
-    with sqlite3.connect(db) as conn:  # the table as it was before ADR-0118
+    with closing(sqlite3.connect(db)) as conn, conn:  # the table as it was before ADR-0118
         conn.execute(
             "CREATE TABLE approval_queue (approval_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,"
             " checkpoint_id TEXT, signal TEXT NOT NULL, context_summary TEXT NOT NULL,"
@@ -353,7 +354,7 @@ def test_unreadable_items_approve_nothing(tmp_path: Path) -> None:
     approval_id = store.enqueue(
         "run-1", None, "sig", "ctx", items=(ApprovalItem.of("trash_email", {"ids": ["m1"]}),)
     )
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "UPDATE approval_queue SET items_json = 'not json' WHERE approval_id = ?",
             (approval_id,),
@@ -368,7 +369,7 @@ def test_the_card_round_trips_and_an_old_database_gains_its_column(tmp_path: Pat
     from iris_harness.kernel.governance.approvals.store import ApprovalCard, ApprovalStore
 
     db = tmp_path / "approvals.db"
-    with sqlite3.connect(db) as conn:  # before step 4: items, no card
+    with closing(sqlite3.connect(db)) as conn, conn:  # before step 4: items, no card
         conn.execute(
             "CREATE TABLE approval_queue (approval_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,"
             " checkpoint_id TEXT, signal TEXT NOT NULL, context_summary TEXT NOT NULL,"
@@ -399,7 +400,7 @@ def test_an_unreadable_card_falls_back_to_none(tmp_path: Path) -> None:
     db = tmp_path / "approvals.db"
     store = ApprovalStore(db_path=db)
     approval_id = store.enqueue("run-1", None, "s", "c", card=ApprovalCard(title="t"))
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "UPDATE approval_queue SET card_json = '{bad' WHERE approval_id = ?", (approval_id,)
         )
@@ -414,7 +415,7 @@ def test_an_old_database_gains_the_caller_and_claim_columns(tmp_path: Path) -> N
     from iris_harness.kernel.governance.approvals.store import ApprovalItem, ApprovalStore
 
     db = tmp_path / "approvals.db"
-    with sqlite3.connect(db) as conn:  # before decision 1: a card, no caller
+    with closing(sqlite3.connect(db)) as conn, conn:  # before decision 1: a card, no caller
         conn.execute(
             "CREATE TABLE approval_queue (approval_id TEXT PRIMARY KEY, run_id TEXT NOT NULL,"
             " checkpoint_id TEXT, signal TEXT NOT NULL, context_summary TEXT NOT NULL,"

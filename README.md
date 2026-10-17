@@ -62,8 +62,9 @@ If an install or setup stops:
 `iris email demo` needs no account, no credentials and no model server. It fetches a
 200-message synthetic mailbox, sorts it, previews and writes labels, prints a first
 digest, and ends with what it did, audit rows included. For your own mail you need
-[Ollama](https://ollama.com/download) and 16 GB of RAM; `iris doctor --fix` pulls the
-starter model. Step by step: [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
+[Ollama](https://ollama.com/download) and 8 GB of RAM (16 GB for the standard models);
+`iris doctor --fix` pulls the models for the set your machine fits. Step by step:
+[Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
 if something does not work, see the [common setup gotchas](https://evarness-ai.github.io/iris-harness/guides/setup-gotchas/).
 
 ## Build on it
@@ -147,9 +148,10 @@ with the governance decision at every hook. Both are from `iris email demo`:
 | Four services: the IRIS API (chat, the MCP server, the web console; 8003), the Governor (8080), the evaluator (8090), the channel gateway (8006) | `src/iris_harness/server/` |
 | The web console (React), built into the released package | `webui/` |
 
-IRIS runs on macOS (Apple Silicon) and Linux; on Windows, use WSL2. It collects no
-telemetry. It is pre-1.0: the stable API changes only after a deprecation cycle, and
-everything else may change in any release.
+IRIS runs on macOS (Apple Silicon) and Linux; on Windows, use Docker Desktop or WSL2
+([Windows guide](docs/guides/windows.md)). It collects no telemetry. It is pre-1.0: the
+stable API changes only after a deprecation cycle, and everything else may change in any
+release.
 
 The MCP bridge is experimental and off by default; it only runs servers you list in
 `mcp-servers.yaml`. Known gaps are tracked in
@@ -168,6 +170,10 @@ up as a service:
 echo "IRIS_AUTH_SECRET=$(openssl rand -hex 32)" >> .env   # once; .env is git-ignored
 docker compose up        # Ollama, the Governor and the IRIS API, on 127.0.0.1 only
 ```
+
+On Windows, the snippet is bash: in PowerShell use the one in the
+[Windows guide](https://evarness-ai.github.io/iris-harness/guides/windows/), which writes
+`.env` as ASCII (Windows PowerShell's `>>` writes UTF-16, which Compose cannot read).
 
 The first start pulls about 6 GB of model weights. Containerized Ollama is CPU-only, so on a
 Mac with Ollama already installed, run `make up-host` instead: it starts the Governor and the
@@ -193,6 +199,9 @@ starts healthy and a deterministic turn answers, but a turn that needs the 7B mo
 (`qwen2.5:7b-instruct`) failed twice with `llama-server process has terminated: signal:
 killed`, and Docker reported the Ollama container `OOMKilled`. Whether more memory fixes it
 has not been tested.
+On Windows 11 (Docker Desktop 28.3.2) against Ollama for Windows, the image builds, the
+Governor and the IRIS API come up healthy and `/chat` answers a deterministic turn; a model
+turn was not checked there.
 
 The [email assistant guide](https://evarness-ai.github.io/iris-harness/guides/email/)
 shows how to run the API from an install and pair the web console.

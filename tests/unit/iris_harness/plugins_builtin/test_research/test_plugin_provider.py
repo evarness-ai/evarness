@@ -106,6 +106,26 @@ def test_a_personal_finance_query_never_reaches_the_plugin_provider(engine: None
     assert "won't web-search your personal finances" in out
 
 
+def test_the_turns_own_question_guards_a_rewritten_search_query(engine: None) -> None:
+    """2026-10-17, the tier 2 suite: asked "which payments are due soon according to my
+    inbox?", the 7B tier searched the web for "payments due soon" -- the possessive was
+    gone from the query it wrote, so the guard on the query alone let it through. The
+    tool reads the turn's question (``HarnessServices.current_query``) as well."""
+    provider = _Provider()
+    _api(PluginRegistry(), "tides").register_search_provider("tides", provider)
+    question = "which payments are due soon according to my inbox?"
+
+    out = tools.build_research_call(current_query=lambda: question)({"query": "payments due soon"})
+
+    assert provider.queries == []
+    assert "won't web-search your personal finances" in out
+    # A general question with the same words still reaches the web.
+    tools.build_research_call(current_query=lambda: "how do utility payments work?")(
+        {"query": "how utility payments work", "fetch_content": False}
+    )
+    assert provider.queries == ["how utility payments work"]
+
+
 def test_a_failing_plugin_provider_is_charged_to_it_and_the_chain_moves_on(
     engine: None,
 ) -> None:

@@ -9,6 +9,7 @@ see the judged and promo mail only.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -74,7 +75,7 @@ def test_discovery_corpus_skips_waiting(db: Path) -> None:
 
 
 def test_hold_filter_probes_the_real_status_index(db: Path) -> None:
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         plan = " | ".join(
             str(r[3])
             for r in conn.execute(

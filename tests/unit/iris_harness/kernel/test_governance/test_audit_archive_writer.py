@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import stat
 from datetime import UTC, datetime
 from pathlib import Path
@@ -82,6 +83,23 @@ def test_write_partitions_by_year_month(tmp_path: Path, sample_rows: list[AuditR
     feb_files = list((tmp_path / "year=2026" / "month=02").glob("audit-*.parquet"))
     assert len(jan_files) == 1
     assert len(feb_files) == 1
+
+
+def test_a_chunk_is_flushed_through_a_handle_open_for_writing(
+    tmp_path: Path, sample_rows: list[AuditRow], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows' fsync (FlushFileBuffers) refuses a file handle not open for writing with EBADF,
+    # which failed every archive write there. Refuse one here as Windows does.
+    real_fsync = os.fsync
+
+    def windows_fsync(fd: int) -> None:
+        if stat.S_ISREG(os.fstat(fd).st_mode):
+            os.write(fd, b"")  # EBADF on a handle opened read-only
+        real_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", windows_fsync)
+    counts = AuditArchive(root=tmp_path).write(sample_rows)
+    assert sum(counts.values()) == len(sample_rows)
 
 
 def test_round_trip_preserves_all_columns(tmp_path: Path) -> None:

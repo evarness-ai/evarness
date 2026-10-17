@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -28,7 +29,7 @@ def _fail(store: ReminderStore, rid: str) -> None:
 def _store(tmp_path: Path) -> ReminderStore:
     store = ReminderStore(db_path=tmp_path / "tasks.db", tz=CT)
     store.ensure_schema()
-    with sqlite3.connect(tmp_path / "calendar.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "calendar.db")) as conn, conn:
         conn.execute("CREATE TABLE calendar_events (id TEXT, summary TEXT)")
         conn.execute("INSERT INTO calendar_events VALUES ('ev', 'Take out the recycling')")
     return store

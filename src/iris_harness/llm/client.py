@@ -1217,8 +1217,12 @@ def _extract_token_usage(response: object) -> LLMTokenUsage | None:
 # qwen3.6:35b-a3b MoE) emit <think>…</think> blocks; older client libs
 # inline them into content, and a truncated generation may never close the
 # tag. Thinking must never reach user-facing content or downstream parsers
-# (exp-003 + exp-004 spike 4 recommendations).
-_THINK_BLOCK_RE = re.compile(r"<think>.*?(?:</think>|\Z)", re.DOTALL)
+# (exp-003 + exp-004 spike 4 recommendations). The second form has no opening
+# tag: Ollama's qwen3:4b, told ``think: false``, still thinks and returns the
+# thinking inline up to a bare ``</think>`` (measured 2026-10-17 on the tier 2
+# suite: 10 of 24 answers carried it), so everything before the first closer is
+# thinking too, unless an opening tag says where the thinking starts.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?(?:</think>|\Z)|\A(?:(?!<think>).)*?</think>", re.DOTALL)
 
 
 def _coerce_invocation_response(response: object) -> LLMInvocationResponse:

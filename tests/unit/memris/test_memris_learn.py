@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from datetime import timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -203,7 +204,7 @@ class TestPersistence:
     def test_a_v4_database_gains_the_terms_table(self, tmp_path: Path) -> None:
         path = tmp_path / "v4.db"
         SQLiteGraphStore(path)
-        with sqlite3.connect(path) as conn:
+        with closing(sqlite3.connect(path)) as conn, conn:
             conn.execute("DROP TABLE memris_ontology_terms")
             conn.execute("UPDATE memris_meta SET value = '4' WHERE key = 'schema_version'")
 

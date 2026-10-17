@@ -13,6 +13,7 @@ watches the graph follow.
 from __future__ import annotations
 
 import shutil
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -474,7 +475,7 @@ def test_the_first_open_of_a_legacy_database_draws_its_facts(tmp_path: Path) -> 
 
     db = tmp_path / "legacy.db"
     _Store(db_path=db)._ensure_tables()  # the old shape only; nothing migrated yet
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "INSERT INTO user_facts(key, value, confidence, source, first_seen, "
             "last_confirmed, times_confirmed, confirmed) VALUES ('bank', 'Northwind Bank', 0.9, "

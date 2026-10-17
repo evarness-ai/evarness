@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -99,7 +100,7 @@ def test_recategorize_writes_history_and_updates_row(runner: CliRunner, tmp_path
     # Email row updated
     import sqlite3
 
-    with sqlite3.connect(email_db) as conn:
+    with closing(sqlite3.connect(email_db)) as conn, conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, classified_confidence, triage_state FROM emails WHERE id = ?",

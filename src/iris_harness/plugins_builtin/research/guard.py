@@ -24,7 +24,7 @@ import re
 _PERSONAL_FRAME_RE = re.compile(r"\b(my|mine|our|i|i'm|i am|me|we)\b", re.IGNORECASE)
 _FINANCE_NOUN_RE = re.compile(
     r"\b(insurance|premiums?|polic(?:y|ies)|emis?|loans?|mortgages?|credit\s*cards?|"
-    r"banks?|statements?|balances?|net\s*worth|dues?|bills?)\b",
+    r"banks?|statements?|balances?|net\s*worth|dues?|bills?|payments?)\b",
     re.IGNORECASE,
 )
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -35,7 +36,7 @@ def test_record_persists_decision_row(tmp_path: Path) -> None:
         channel="console",
     )
 
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         conn.row_factory = sqlite3.Row
         rows = list(conn.execute("SELECT * FROM router_decisions"))
 
@@ -64,7 +65,7 @@ def test_record_is_append_only(tmp_path: Path) -> None:
         result=_result(),
     )
 
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         with pytest.raises(sqlite3.IntegrityError):
             conn.execute("UPDATE router_decisions SET intent='hacked'")
         with pytest.raises(sqlite3.IntegrityError):
@@ -80,7 +81,7 @@ def test_record_stores_source_distinguishing_keyword_vs_llm(tmp_path: Path) -> N
     logger.record(session_id="s", message="ambiguous", result=_result(source="llm"))
     logger.record(session_id="s", message="nope", result=_result(source="fallback"))
 
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         rows = list(conn.execute("SELECT source, COUNT(*) FROM router_decisions GROUP BY source"))
     counts = {r[0]: r[1] for r in rows}
     assert counts == {"keyword": 1, "llm": 1, "fallback": 1}

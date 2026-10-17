@@ -22,6 +22,15 @@ def test_personal_finance_web_query_blocks_possessive_finance() -> None:
     assert is_personal_finance_web_query("my credit card balance") is True
 
 
+def test_personal_finance_web_query_blocks_payments_due_from_my_inbox() -> None:
+    # 2026-10-17, the tier 2 suite: the 7B web-searched this twice. "payments" is a
+    # money noun, and "my inbox" is the possessive frame.
+    assert is_personal_finance_web_query("which payments are due soon according to my inbox?")
+    # The query the model wrote for the web had lost the possessive: on its own it is
+    # not personal, which is why the tool also reads the turn's question.
+    assert is_personal_finance_web_query("payments due soon") is False
+
+
 def test_personal_finance_web_query_allows_general_research() -> None:
     # Genuinely informational/market queries must still reach the web.
     assert is_personal_finance_web_query("best health insurance plans in India") is False

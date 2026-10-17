@@ -6,8 +6,8 @@ check is pass / warn / fail / info with a one-line fix; the report ends in a ver
 * ``ready`` -- everything the real assistant needs is in place;
 * ``demo_only`` -- the synthetic demo runs (it uses a scripted model, not Ollama), but
   something real use needs is missing: local models, Ollama, or the 16 GB floor;
-* ``not_ready`` -- even the demo cannot run (wrong Python, native Windows, under 8 GB,
-  or no writable IRIS_HOME).
+* ``not_ready`` -- even the demo cannot run (wrong Python, under 8 GB, or no writable
+  IRIS_HOME).
 
 The owner's vault master key is a real-use requirement, not a demo one: without it every
 governed tool call is refused (#741), but ``iris email demo`` runs in its own home with a
@@ -19,11 +19,15 @@ yellow = warn, red = fail, grey = info. Doctor is not a second health system: he
 watches a running install; doctor runs before there is one, and most of what it checks
 (the Python range, total RAM, the starter models) health never looks at.
 
-Thresholds and the starter model set come from ``config/doctor.yaml``. Everything that
+Thresholds and the model sets come from ``config/doctor.yaml``. A model set names the
+host it fits (``fits_when.ram_gb``), the starter models to pull and a sparse override of
+``llm_tiers.yaml``; doctor picks the largest set the host meets (``choose_model_set``),
+or the one ``--model-set`` forces, and sizes every other check to it. Everything that
 reaches the machine is injectable, so the report builds deterministically under test.
-The only fixes offered are safe ones: pull a missing starter model, and create a master
-key when there is none (a stored key is never overwritten -- secrets are encrypted
-under it).
+The only fixes offered are safe ones: pull the chosen set's missing starter models,
+write the set's tiers as tier edits (ADR-0120; a set the owner did not ask for is never
+written over an applied one), and create a master key when there is none (a stored key
+is never overwritten -- secrets are encrypted under it).
 """
 
 from __future__ import annotations
@@ -34,7 +38,7 @@ import json
 import os
 import platform
 import shutil
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -48,6 +52,7 @@ from iris_harness.foundation.paths import config_path
 from iris_harness.foundation.plugin_dirs import iris_home
 from iris_harness.kernel.governance.audit.digest import AuditKeyState, audit_key_status
 from iris_harness.kernel.governance.vault import keys as vault_keys
+from iris_harness.llm import tier_edits
 from iris_harness.services.health.models import HealthState
 
 _GIB = 1024**3
@@ -72,27 +77,93 @@ class OptionalExtra:
 
 
 @dataclass(frozen=True)
+class ModelSet:
+    """One ``model_sets`` entry: the host it fits, what to pull, what to override."""
+
+    name: str
+    ram_gb: float
+    starter_models: tuple[StarterModel, ...]
+    #: ``tier -> {editable field: value}``; only what differs from ``llm_tiers.yaml``.
+    tiers: dict[str, dict[str, Any]] = field(default_factory=dict)
+    description: str = ""
+    #: Part of the automatic choice; ``False`` = applied only when forced.
+    auto: bool = True
+
+    def describe_tiers(self) -> str:
+        """``router -> llama3.2:1b, tier2 -> qwen3:4b``, or ``the shipped tiers``."""
+        parts = [
+            f"{tier} -> {fields['model']}" if "model" in fields else f"{tier} ({', '.join(fields)})"
+            for tier, fields in self.tiers.items()
+        ]
+        return ", ".join(parts) if parts else "the shipped tiers"
+
+
+@dataclass(frozen=True)
 class DoctorConfig:
     """``config/doctor.yaml``."""
 
-    ram_floor_gb: float
     ram_demo_gb: float
     platforms: dict[str, tuple[str, ...]]
     data_headroom_gb: float
     warn_free_gb: float
-    starter_models: tuple[StarterModel, ...]
+    #: Smallest to largest (``ram_gb`` ascending).
+    model_sets: tuple[ModelSet, ...]
     optional_extras: tuple[OptionalExtra, ...] = ()
+
+    @property
+    def ram_floor_gb(self) -> float:
+        """What real use needs at least: the smallest automatic set's RAM."""
+        return min(s.ram_gb for s in self.model_sets if s.auto)
+
+    def model_set(self, name: str) -> ModelSet | None:
+        return next((s for s in self.model_sets if s.name == name), None)
 
 
 class DoctorConfigError(ValueError):
     """``doctor.yaml`` is missing a value doctor cannot guess."""
 
 
+def _starter_models(raw: Any, *, where: str) -> tuple[StarterModel, ...]:
+    if not raw:
+        raise DoctorConfigError(f"{where}: starter_models is required")
+    return tuple(StarterModel(name=str(m["name"]), size_gb=float(m["size_gb"])) for m in raw)
+
+
+def _model_set(name: str, raw: Any, *, where: str) -> ModelSet:
+    if not isinstance(raw, dict):
+        raise DoctorConfigError(f"{where}: must be a mapping")
+    try:
+        ram_gb = float(raw["fits_when"]["ram_gb"])
+    except (KeyError, TypeError) as exc:
+        raise DoctorConfigError(f"{where}: fits_when.ram_gb is required") from exc
+    unknown = set(raw["fits_when"]) - {"ram_gb"}
+    if unknown:
+        raise DoctorConfigError(f"{where}: fits_when has unknown keys {sorted(unknown)}")
+    tiers_raw = raw.get("tiers") or {}
+    if not isinstance(tiers_raw, dict):
+        raise DoctorConfigError(f"{where}: tiers must be a mapping")
+    tiers: dict[str, dict[str, Any]] = {}
+    for tier, fields in tiers_raw.items():
+        try:
+            tiers[str(tier)] = tier_edits.validate_fields(dict(fields or {}))
+        except (tier_edits.TierEditError, TypeError) as exc:
+            raise DoctorConfigError(f"{where}: tiers.{tier}: {exc}") from exc
+    return ModelSet(
+        name=name,
+        ram_gb=ram_gb,
+        starter_models=_starter_models(raw.get("starter_models"), where=where),
+        tiers=tiers,
+        description=str(raw.get("description", "")),
+        auto=bool(raw.get("auto", True)),
+    )
+
+
 def load_doctor_config(path: Path | None = None) -> DoctorConfig:
     """Read ``doctor.yaml`` (the config dir's, unless ``path`` is given).
 
     No defaults in code: a missing key is an error naming it, so a threshold is only
-    ever the one the file states.
+    ever the one the file states. A set's ``tiers`` are validated as tier edits here,
+    so a field that does not fit fails the config, not a later ``--fix``.
     """
     target = path or config_path("doctor.yaml")
     raw = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
@@ -103,14 +174,21 @@ def load_doctor_config(path: Path | None = None) -> DoctorConfig:
         except (KeyError, TypeError) as exc:
             raise DoctorConfigError(f"{target}: {section}.{key} is required") from exc
 
-    starters = raw.get("starter_models")
-    if not starters:
-        raise DoctorConfigError(f"{target}: starter_models is required")
+    sets_raw = raw.get("model_sets")
+    if not isinstance(sets_raw, dict) or not sets_raw:
+        raise DoctorConfigError(f"{target}: model_sets is required")
+    sets = tuple(
+        _model_set(str(name), body, where=f"{target}: model_sets.{name}")
+        for name, body in sets_raw.items()
+    )
+    if [s.ram_gb for s in sets] != sorted(s.ram_gb for s in sets):
+        raise DoctorConfigError(f"{target}: model_sets must be listed smallest to largest")
+    if not any(s.auto for s in sets):
+        raise DoctorConfigError(f"{target}: at least one model set must be automatic")
     platforms = raw.get("platforms")
     if not isinstance(platforms, dict) or not platforms:
         raise DoctorConfigError(f"{target}: platforms is required")
     return DoctorConfig(
-        ram_floor_gb=float(need("ram", "floor_gb")),
         ram_demo_gb=float(need("ram", "demo_gb")),
         platforms={
             str(system).lower(): tuple(str(m).lower() for m in machines or ())
@@ -118,9 +196,7 @@ def load_doctor_config(path: Path | None = None) -> DoctorConfig:
         },
         data_headroom_gb=float(need("disk", "data_headroom_gb")),
         warn_free_gb=float(need("disk", "warn_free_gb")),
-        starter_models=tuple(
-            StarterModel(name=str(m["name"]), size_gb=float(m["size_gb"])) for m in starters
-        ),
+        model_sets=sets,
         optional_extras=tuple(
             OptionalExtra(
                 name=str(e["name"]), module=str(e["module"]), purpose=str(e.get("purpose", ""))
@@ -128,6 +204,97 @@ def load_doctor_config(path: Path | None = None) -> DoctorConfig:
             for e in raw.get("optional_extras") or ()
         ),
     )
+
+
+# ── the model set ───────────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class ModelSetChoice:
+    """Which set this run is sized to, and why."""
+
+    model_set: ModelSet
+    #: The host meets the set's ``fits_when``.
+    fits: bool
+    #: Named with ``--model-set`` rather than chosen from the host.
+    forced: bool
+    reason: str
+    #: What ``--fix`` last applied (``tier_edits.recorded_model_set``), if anything.
+    recorded: tier_edits.RecordedModelSet | None = None
+
+    @property
+    def name(self) -> str:
+        return self.model_set.name
+
+    @property
+    def apply_needed(self) -> bool:
+        """``--fix`` should write this set's tiers: another set is applied, or none is
+        and this one changes the file's tiers."""
+        if self.recorded is not None:
+            return self.recorded.name != self.name
+        return bool(self.model_set.tiers)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "description": self.model_set.description,
+            "fits": self.fits,
+            "forced": self.forced,
+            "reason": self.reason,
+            "recorded": None if self.recorded is None else self.recorded.name,
+            "apply_needed": self.apply_needed,
+            "tiers": self.model_set.tiers,
+        }
+
+
+def choose_model_set(
+    config: DoctorConfig,
+    ram_total_bytes: int,
+    *,
+    force: str | None = None,
+    recorded: tier_edits.RecordedModelSet | None = None,
+) -> ModelSetChoice:
+    """The largest automatic set the host meets, or the forced one.
+
+    Whole GiB, as :func:`check_ram`: a 16 GB Linux box reports ~15.6 GiB after the
+    kernel's reservations, and it is a 16 GB machine. When nothing fits, the smallest
+    automatic set stands in, so the report says what the machine is short of.
+    Raises ``KeyError`` for a forced name the file does not have.
+    """
+    gib = round(ram_total_bytes / _GIB)
+    shown = f"{ram_total_bytes / _GIB:.1f} GB RAM"
+    if force is not None:
+        chosen = config.model_set(force)
+        if chosen is None:
+            raise KeyError(force)
+        fits = gib >= chosen.ram_gb
+        short = "" if fits else f"; needs {chosen.ram_gb:g} GB"
+        return ModelSetChoice(
+            chosen, fits, True, f"forced with --model-set ({shown}{short})", recorded
+        )
+    fitting = [s for s in config.model_sets if s.auto and gib >= s.ram_gb]
+    if fitting:
+        chosen = fitting[-1]
+        return ModelSetChoice(chosen, True, False, f"the largest set {shown} fits", recorded)
+    smallest = next(s for s in config.model_sets if s.auto)
+    return ModelSetChoice(
+        smallest,
+        False,
+        False,
+        f"no set fits {shown}; the smallest, {smallest.name}, needs {smallest.ram_gb:g} GB",
+        recorded,
+    )
+
+
+def settings_store() -> Any:
+    """The settings store tier edits live in (one place for a test to replace)."""
+    from iris_harness.foundation.settings import SettingsStore
+
+    return SettingsStore()
+
+
+def recorded_model_set() -> tier_edits.RecordedModelSet | None:
+    return tier_edits.recorded_model_set(settings_store())
 
 
 # ── the report ──────────────────────────────────────────────────────────────────
@@ -210,11 +377,17 @@ class DoctorReport:
         default_factory=lambda: vault_keys.MasterKeyStatus("not_read")
     )
     ollama_url: str = ""
+    #: The model set this report is sized to (what ``--fix`` pulls and applies).
+    model_set: ModelSetChoice | None = None
 
     @property
     def fixable(self) -> bool:
-        """Something ``--fix`` can do: pull a model or create a missing key."""
-        return bool(self.missing_models) or key_needs_fix(self.key_status)
+        """Something ``--fix`` can do: pull a model, apply the model set, create a key."""
+        return (
+            bool(self.missing_models)
+            or key_needs_fix(self.key_status)
+            or (self.model_set is not None and self.model_set.apply_needed)
+        )
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -225,6 +398,7 @@ class DoctorReport:
             "key": {"source": self.key_status.source, "detail": self.key_status.detail},
             "ollama_url": self.ollama_url,
             "fixable": self.fixable,
+            "model_set": None if self.model_set is None else self.model_set.as_dict(),
         }
 
 
@@ -326,17 +500,23 @@ def requires_python() -> str | None:
         return None
 
 
-def configured_ollama_models(path: Path | None = None) -> tuple[str, ...]:
-    """Every Ollama model ``llm_tiers.yaml`` names, in file order, deduplicated."""
+def configured_ollama_models(
+    path: Path | None = None, overrides: Mapping[str, Mapping[str, Any]] | None = None
+) -> tuple[str, ...]:
+    """Every Ollama model ``llm_tiers.yaml`` names, in file order, deduplicated, with a
+    model set's ``tiers`` (``overrides``) laid over the file's provider and model."""
     target = path or config_path("llm_tiers.yaml")
     try:
         raw = yaml.safe_load(target.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
         return ()
     seen: dict[str, None] = {}
-    for cfg in (raw.get("tiers") or {}).values():
-        if isinstance(cfg, dict) and cfg.get("provider", "ollama") == "ollama" and cfg.get("model"):
-            seen.setdefault(str(cfg["model"]), None)
+    for name, cfg in (raw.get("tiers") or {}).items():
+        if not isinstance(cfg, dict):
+            continue
+        merged = {**cfg, **((overrides or {}).get(str(name)) or {})}
+        if merged.get("provider", "ollama") == "ollama" and merged.get("model"):
+            seen.setdefault(str(merged["model"]), None)
     return tuple(seen)
 
 
@@ -402,12 +582,16 @@ def check_platform(facts: HostFacts, config: DoctorConfig) -> DoctorCheck:
     system, machine = facts.system.lower(), facts.machine.lower()
     label = f"{facts.system} {facts.machine}"
     if system == "windows":
+        # Supported for development (the suite, the CLI, plugin work); running IRIS on
+        # Windows is the Docker stack's job (docs/guides/windows.md). Said plainly because
+        # nothing else warns: the stores' 0o600 modes are POSIX-only. (The audit locks hold
+        # on Windows too: foundation/file_lock.py.)
         return DoctorCheck(
             "Platform",
-            HealthState.RED,
-            f"{label}: native Windows is not supported",
-            fix="Install WSL2 (wsl --install) and run IRIS inside it",
-            blocks="all",
+            HealthState.YELLOW,
+            f"{label}: native Windows is for development; owner-only file modes are not "
+            "enforced here",
+            fix="To run IRIS on Windows, use Docker Desktop (docs/guides/windows.md)",
         )
     if machine in config.platforms.get(system, ()):
         if _is_wsl(facts):
@@ -424,29 +608,68 @@ def check_platform(facts: HostFacts, config: DoctorConfig) -> DoctorCheck:
     )
 
 
-def check_ram(total_bytes: int, config: DoctorConfig) -> DoctorCheck:
-    """Total RAM against the floor. Rounded to whole GiB: a 16 GB Linux box reports
-    ~15.6 GiB after the kernel's reservations, and it is a 16 GB machine."""
+def check_ram(total_bytes: int, config: DoctorConfig, choice: ModelSetChoice) -> DoctorCheck:
+    """Total RAM against the chosen model set. Rounded to whole GiB: a 16 GB Linux box
+    reports ~15.6 GiB after the kernel's reservations, and it is a 16 GB machine."""
     gib = total_bytes / _GIB
     shown = f"{gib:.1f} GB RAM"
-    if round(gib) >= config.ram_floor_gb:
-        return DoctorCheck("Memory", HealthState.GREEN, shown)
-    if round(gib) >= config.ram_demo_gb:
+    if round(gib) < config.ram_demo_gb:
         return DoctorCheck(
             "Memory",
             HealthState.RED,
-            f"{shown}: enough for the demo, below the {config.ram_floor_gb:g} GB "
-            "needed for local models",
-            fix=f"Use a machine with {config.ram_floor_gb:g} GB or more for real use",
-            blocks="use",
+            f"{shown}: below the {config.ram_demo_gb:g} GB minimum",
+            fix=f"Use a machine with {config.ram_floor_gb:g} GB or more",
+            blocks="all",
         )
+    if choice.fits:
+        return DoctorCheck("Memory", HealthState.GREEN, f"{shown} ({choice.name} model set)")
+    need = choice.model_set.ram_gb
+    # A smaller set that is not part of the automatic choice (unmeasured yet) is still
+    # the owner's to try; say so instead of only "buy a bigger machine".
+    manual = [s for s in config.model_sets if not s.auto and round(gib) >= s.ram_gb]
+    if manual and not choice.forced:
+        fix = (
+            f"iris doctor --model-set {manual[-1].name}  (the {manual[-1].name} set, "
+            f"{manual[-1].ram_gb:g} GB; not yet measured on the email holdout)"
+        )
+    else:
+        fix = f"Use a machine with {need:g} GB or more for real use"
     return DoctorCheck(
         "Memory",
         HealthState.RED,
-        f"{shown}: below the {config.ram_demo_gb:g} GB minimum",
-        fix=f"Use a machine with {config.ram_floor_gb:g} GB or more",
-        blocks="all",
+        f"{shown}: enough for the demo, below the {need:g} GB the {choice.name} model set needs",
+        fix=fix,
+        blocks="use",
     )
+
+
+def check_model_set(choice: ModelSetChoice) -> DoctorCheck:
+    """Which set the report is sized to, and whether ``--fix`` has to write it.
+
+    Information when the applied set is this one (or none is applied and this set is
+    the file's tiers); a warning with the fix when another set is applied, or a forced
+    set was never written.
+    """
+    detail = f"{choice.name}: {choice.reason}; {choice.model_set.describe_tiers()}"
+    if choice.recorded is not None and choice.recorded.name != choice.name:
+        return DoctorCheck(
+            "Model set",
+            HealthState.YELLOW,
+            f"{detail}; applied: {choice.recorded.name}",
+            fix=(
+                f"iris doctor --fix  (moves the tiers to {choice.name}; "
+                f"`iris doctor --model-set {choice.recorded.name}` keeps {choice.recorded.name})"
+            ),
+        )
+    if choice.apply_needed:
+        return DoctorCheck(
+            "Model set",
+            HealthState.YELLOW,
+            f"{detail}; not applied yet",
+            fix="iris doctor --fix  (writes the set's tiers as tier edits)",
+        )
+    applied = "applied" if choice.recorded is not None else "no set applied"
+    return DoctorCheck("Model set", HealthState.GREY, f"{detail}; {applied}")
 
 
 def check_disk(
@@ -620,13 +843,16 @@ def run_doctor(
     client: Any = None,
     home: Path | None = None,
     audit_state: AuditKeyState | None = None,
+    model_set: str | None = None,
 ) -> DoctorReport:
     """Build the preflight report. Reads only; installs, pulls and stores nothing.
 
     ``read_keyring=False`` keeps the OS keyring closed (a Keychain dialog must not open
     in a script or a server). ``client`` is an ``httpx.Client``-like object, else
-    :func:`http_client`. Each fact comes from one module-level reader (``host_facts``,
-    ``disk_free_bytes``, ``requires_python``, ...), which is what a test replaces.
+    :func:`http_client`. ``model_set`` forces a set by name (``KeyError`` for an
+    unknown one); otherwise the host picks (:func:`choose_model_set`). Each fact comes
+    from one module-level reader (``host_facts``, ``disk_free_bytes``,
+    ``requires_python``, ``recorded_model_set``, ...), which is what a test replaces.
     """
     cfg = config or load_doctor_config()
     facts = host_facts()
@@ -634,6 +860,10 @@ def run_doctor(
     spec = requires_python()
     if audit_state is None:
         audit_state = audit_key_status()[0]
+    choice = choose_model_set(
+        cfg, facts.ram_total_bytes, force=model_set, recorded=recorded_model_set()
+    )
+    starter = choice.model_set.starter_models
 
     root = ollama_root_url()
     if client is None:
@@ -641,24 +871,25 @@ def run_doctor(
             ollama = ollama_facts(own, root)
     else:
         ollama = ollama_facts(client, root)
-    missing = missing_starter_models(ollama, cfg.starter_models)
+    missing = missing_starter_models(ollama, starter)
     key_status = vault_keys.master_key_status(read_keyring=read_keyring)
     volume, free = disk_free_bytes(home_dir)
 
     checks: list[DoctorCheck] = [
         check_python(facts.python_version, spec),
         check_platform(facts, cfg),
-        check_ram(facts.ram_total_bytes, cfg),
+        check_ram(facts.ram_total_bytes, cfg, choice),
+        check_model_set(choice),
         check_disk(volume, free, missing, cfg),
         check_home(home_dir),
         check_vault_key(key_status, audit_state),
         check_ollama(ollama),
-        check_starter_models(ollama, cfg.starter_models, missing),
+        check_starter_models(ollama, starter, missing),
     ]
     tier_row = check_tier_models(
         ollama,
-        configured_ollama_models(),
-        cfg.starter_models,
+        configured_ollama_models(overrides=choice.model_set.tiers),
+        starter,
     )
     if tier_row is not None:
         checks.append(tier_row)
@@ -669,6 +900,7 @@ def run_doctor(
         missing_models=missing,
         key_status=key_status,
         ollama_url=root,
+        model_set=choice,
     )
 
 
@@ -720,6 +952,36 @@ def pull_model(
         raise DoctorFixError(f"pull {name}: {exc}") from exc
     if last != "success":
         raise DoctorFixError(f"pull {name}: the stream ended without success ({last or 'empty'})")
+
+
+def apply_model_set(choice: ModelSetChoice, *, actor: str = "doctor") -> str:
+    """Write the chosen set's tiers as tier edits (ADR-0120) and record the set.
+
+    Loads the router the way the runtime does (``llm_tiers.yaml`` plus the saved edits)
+    so the diff against the file is the one the app would compute. Returns one line
+    saying what changed. Raises :class:`DoctorFixError` when a tier the set names is
+    not in the file.
+    """
+    from iris_harness.llm.tier_router import TierRouter
+
+    store = settings_store()
+    router = TierRouter.load_from_yaml(config_path("llm_tiers.yaml"), settings=store)
+    try:
+        tier_edits.apply_model_set(
+            router,
+            store,
+            choice.name,
+            choice.model_set.tiers,
+            forced=choice.forced,
+            actor=actor,
+        )
+    except KeyError as exc:
+        raise DoctorFixError(
+            f"model set {choice.name}: llm_tiers.yaml has no tier {exc.args[0]!r}"
+        ) from exc
+    except tier_edits.TierEditError as exc:
+        raise DoctorFixError(f"model set {choice.name}: {exc}") from exc
+    return f"model set {choice.name} applied: {choice.model_set.describe_tiers()}"
 
 
 KeyFixOutcome = Literal["kept", "stored", "export", "invalid"]
@@ -782,14 +1044,18 @@ __all__ = [
     "DoctorReport",
     "HostFacts",
     "KeyFix",
+    "ModelSet",
+    "ModelSetChoice",
     "OllamaFacts",
     "OptionalExtra",
     "PullProgress",
     "StarterModel",
     "Verdict",
+    "apply_model_set",
     "check_disk",
     "check_extra",
     "check_home",
+    "check_model_set",
     "check_ollama",
     "check_platform",
     "check_python",
@@ -797,6 +1063,7 @@ __all__ = [
     "check_starter_models",
     "check_tier_models",
     "check_vault_key",
+    "choose_model_set",
     "fix_master_key",
     "http_client",
     "key_needs_fix",
@@ -804,6 +1071,8 @@ __all__ = [
     "missing_starter_models",
     "ollama_facts",
     "pull_model",
+    "recorded_model_set",
     "run_doctor",
+    "settings_store",
     "verdict_for",
 ]

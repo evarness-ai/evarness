@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -84,7 +85,7 @@ class _World:
         )
 
     def audit_text(self) -> str:
-        with sqlite3.connect(self.audit_db) as conn:
+        with closing(sqlite3.connect(self.audit_db)) as conn, conn:
             rows = conn.execute("SELECT * FROM audit_log").fetchall()
         assert rows, "the kernel audited nothing"
         return json.dumps(rows, default=str)

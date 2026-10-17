@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import closing
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -263,7 +264,7 @@ def _failed_reminder(db: Path, note: str) -> str:
         remind_at=datetime(2026, 9, 28, 13, tzinfo=UTC),
         note=note,
     )
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute("UPDATE notification_reminders SET status = 'failed' WHERE id = ?", (row.id,))
     return row.id
 

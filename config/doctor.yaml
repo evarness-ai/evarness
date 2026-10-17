@@ -1,17 +1,18 @@
 # `iris doctor` -- the install preflight (OSS plan R5, milestone L1).
 #
-# Thresholds and the starter model set live here, not in code. The supported Python
-# range is not repeated: doctor reads it from the installed package's metadata
-# (pyproject's `python = ">=3.12,<3.14"`).
+# Thresholds and the model sets live here, not in code. The supported Python range is
+# not repeated: doctor reads it from the installed package's metadata (pyproject's
+# `python = ">=3.12,<3.14"`).
 
-# Host memory, total (not free). Below `demo_gb` IRIS cannot run; between the two it
-# runs the synthetic demo on the scripted model but not local models for real use.
+# Host memory, total (not free). Below `demo_gb` IRIS cannot run at all. Above it, the
+# machine runs the synthetic demo on the scripted model; real use needs a model set
+# (below) whose `fits_when.ram_gb` the host meets.
 ram:
-  floor_gb: 16
   demo_gb: 8
 
 # Where IRIS runs (platform.system() / platform.machine(), lowercased). Anything else
-# is a warning; native Windows is refused with a pointer to WSL2.
+# is a warning. Native Windows is a warning too: it is for development, and running IRIS
+# there is the Docker stack's job (docs/guides/windows.md).
 platforms:
   darwin: [arm64]
   linux: [x86_64, amd64, aarch64, arm64]
@@ -23,14 +24,51 @@ disk:
   data_headroom_gb: 2
   warn_free_gb: 20
 
-# The starter model set: what `iris doctor --fix` pulls when it is missing. R5 plans a
-# single-model `starter` set gated on the models-by-capability ADR's proof (draft, not
-# merged); until that lands the fallback starter is `qwen2.5:7b-instruct` alone.
-# `size_gb` is the download size shown before a pull (Ollama's API cannot say it before
-# the pull starts).
-starter_models:
-  - name: qwen2.5:7b-instruct
-    size_gb: 4.7
+# Model sets, sized to the host (ADR: model sets and host sizing). Doctor picks the
+# largest set whose `fits_when` the host meets (whole GiB: a 16 GB Linux box reports
+# 15.6), says why, and `iris doctor --fix` pulls that set's `starter_models` and lays
+# its `tiers` over `llm_tiers.yaml` as tier edits (ADR-0120, the settings store), so an
+# upgrade keeps the choice and the owner can still change one tier in the app.
+# `iris doctor --model-set <name>` forces a set.
+#
+# `tiers` is sparse: only the fields that differ from `llm_tiers.yaml`, and only the
+# editable ones (provider, model, max_tokens, temperature, timeout_seconds, think).
+# `auto: false` keeps a set out of the automatic choice: it is applied only when
+# forced. Sets are listed smallest to largest. `size_gb` is the download size shown
+# before a pull (Ollama's API cannot say it before the pull starts).
+model_sets:
+  # CPU laptops with 8 to 16 GB. One 4B model, the shipped email judge, serves tier 2
+  # as well; the router stays the shipped 3B. Measured (ADR decision 7, 2026-10-17):
+  # on the 50-email holdout every smaller judge tried agreed with this one on at most
+  # 30/50 and called promotions and notifications bills or events; on the 12-scenario
+  # tier 2 suite over the demo mailbox it passed 21/24 runs against the 7B's 18/24 at
+  # the same latency, where qwen3:4b passed 16/24 at four times the latency (its
+  # thinking ignores `think: false`) and the 1B router cost two more scenarios.
+  lite:
+    description: 8 to 16 GB of RAM, no GPU; one 4B model for tier 2 and the judge, about 5 GB resident
+    fits_when:
+      ram_gb: 8
+    tiers:
+      tier2:
+        model: qwen3.5:4b-q4_K_M
+        think: false     # a reasoning model; the agentic loop needs the answer, not the thinking
+    starter_models:
+      - name: llama3.2:3b          # the router (llm_tiers.yaml), unchanged from standard
+        size_gb: 2.0
+      - name: qwen3.5:4b-q4_K_M    # tier 2 here, and the email judge in every set
+        size_gb: 2.5
+
+  # `llm_tiers.yaml` as shipped. R5 plans a single-model `starter` set gated on the
+  # models-by-capability ADR's proof (draft, not merged); until that lands the starter
+  # is `qwen2.5:7b-instruct` alone.
+  standard:
+    description: 16 GB of RAM or more; the shipped tiers
+    fits_when:
+      ram_gb: 16
+    tiers: {}
+    starter_models:
+      - name: qwen2.5:7b-instruct
+        size_gb: 4.7
 
 # Optional extras: reported as information, never a failure. `module` is what is
 # importable when the extra is installed.

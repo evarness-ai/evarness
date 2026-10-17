@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from io import StringIO
 from pathlib import Path
 from types import SimpleNamespace
@@ -175,7 +176,7 @@ def _own_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _floor_rows() -> list[dict[str, Any]]:
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         rows = conn.execute(
             "SELECT payload_json, hook_point, decision FROM audit_log "
             "WHERE plugin = 'external_content_floor'"

@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -159,7 +160,7 @@ _SCRIPT: dict[str, Any] = {
 
 
 def _rows(h: Any) -> list[dict[str, Any]]:
-    with sqlite3.connect(h.audit_db) as conn:
+    with closing(sqlite3.connect(h.audit_db)) as conn, conn:
         found = conn.execute(
             "SELECT payload_json FROM audit_log WHERE plugin = 'reentry' ORDER BY id"
         ).fetchall()

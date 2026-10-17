@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -224,10 +225,10 @@ def test_the_facts_fingerprint_moves_on_a_status_flip(store: MemoryStore) -> Non
     store.add_fact_proposal(key="phone", value="+1 555 999 0000", confidence=0.9, source="t")
     source = _facts_source(store)
     before = source.fingerprint()
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         rows = conn.execute("SELECT COUNT(*) FROM memris_statements").fetchone()
     MemoryStore(db_path=store.db_path).set_fact_confirmed("phone")
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         assert conn.execute("SELECT COUNT(*) FROM memris_statements").fetchone() == rows
     assert source.fingerprint() != before
 
@@ -306,6 +307,17 @@ def test_the_runtime_points_the_facts_source_at_its_store(
         assert root._FACTS.path() == store.db_path
     finally:
         root._FACTS.db_path = saved
+
+
+def test_pointing_the_facts_source_elsewhere_closes_the_old_database(store: MemoryStore) -> None:
+    source = _facts_source(store)
+    source.fingerprint()  # opens the probe connection on the store's file
+    assert source._probe is not None
+    source.use(None)
+    assert source._probe is None
+    assert source.db_path is None
+    # Nothing holds it open: deletable even where an open file is not (Windows).
+    store.db_path.unlink()
 
 
 def test_the_composition_root_registers_every_source() -> None:
