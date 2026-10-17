@@ -6,6 +6,7 @@ import sys
 import textwrap
 import time
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -23,8 +24,10 @@ _SERVER = textwrap.dedent(r"""
 
 
     def send(text):
-        sys.stdout.write(text)
-        sys.stdout.flush()
+        # Bytes, not text mode: on Windows text mode writes "\n" as "\r\n", which would
+        # break the Content-Length framing the "framed" mode sends.
+        sys.stdout.buffer.write(text.encode())
+        sys.stdout.buffer.flush()
 
 
     requests = []
@@ -180,6 +183,20 @@ def test_a_timeout_carries_what_the_server_wrote_to_stderr(tmp_path: Path) -> No
 
 def test_a_content_length_framed_server_is_still_read(tmp_path: Path) -> None:
     assert _call(tmp_path, "framed") == {"tools": [{"name": "t"}]}
+
+
+def test_the_exchange_does_not_wait_on_the_pipe_with_select(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Windows' select() takes sockets only: waiting on the stdout pipe with it failed every
+    # stdio call there with WinError 10038. Refuse it here as Windows does.
+    import select
+
+    def sockets_only(*args: object, **kwargs: object) -> NoReturn:
+        raise OSError(10038, "An operation was attempted on something that is not a socket")
+
+    monkeypatch.setattr(select, "select", sockets_only)
+    assert _call(tmp_path, "coalesced") == {"tools": [{"name": "t"}]}
 
 
 def test_a_transport_error_is_a_value_error_so_existing_callers_still_catch_it() -> None:
