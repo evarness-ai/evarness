@@ -414,6 +414,21 @@ def test_a_second_run_does_not_inherit_the_first_runs_process_state() -> None:
     assert _state_differences(before, snapshot_process_state().values) == []
 
 
+def test_a_run_lets_go_of_its_memory_database() -> None:
+    # The owner-facts source reads the run's memory.db through a connection it keeps open.
+    # Left open, the home could not be removed on Windows, where an open file cannot be
+    # deleted, and the source went on pointing at a home that no longer exists.
+    from iris_harness.runtime import identity_redaction
+
+    before = identity_redaction._FACTS.db_path
+    with harness(fake_model=_SCRIPT) as h:
+        h.chat("hello there")
+        assert identity_redaction._FACTS.db_path == h.home / "data" / "memory.db"
+        home = h.home
+    assert identity_redaction._FACTS.db_path == before
+    assert not home.exists()
+
+
 # --- trust: mcp ------------------------------------------------------------------------
 
 _WEATHER = Path(__file__).resolve().parents[4] / "examples" / "08-mcp" / "weather_server.py"

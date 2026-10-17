@@ -62,8 +62,9 @@ If an install or setup stops:
 `iris email demo` needs no account, no credentials and no model server. It fetches a
 200-message synthetic mailbox, sorts it, previews and writes labels, prints a first
 digest, and ends with what it did, audit rows included. For your own mail you need
-[Ollama](https://ollama.com/download) and 16 GB of RAM; `iris doctor --fix` pulls the
-starter model. Step by step: [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
+[Ollama](https://ollama.com/download) and 16 GB of RAM (8 GB with the `lite` model set,
+`iris doctor --model-set lite`); `iris doctor --fix` pulls the models for the set your
+machine fits. Step by step: [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
 if something does not work, see the [common setup gotchas](https://evarness-ai.github.io/iris-harness/guides/setup-gotchas/).
 
 ## Build on it

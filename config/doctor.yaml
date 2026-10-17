@@ -1,13 +1,13 @@
 # `iris doctor` -- the install preflight (OSS plan R5, milestone L1).
 #
-# Thresholds and the starter model set live here, not in code. The supported Python
-# range is not repeated: doctor reads it from the installed package's metadata
-# (pyproject's `python = ">=3.12,<3.14"`).
+# Thresholds and the model sets live here, not in code. The supported Python range is
+# not repeated: doctor reads it from the installed package's metadata (pyproject's
+# `python = ">=3.12,<3.14"`).
 
-# Host memory, total (not free). Below `demo_gb` IRIS cannot run; between the two it
-# runs the synthetic demo on the scripted model but not local models for real use.
+# Host memory, total (not free). Below `demo_gb` IRIS cannot run at all. Above it, the
+# machine runs the synthetic demo on the scripted model; real use needs a model set
+# (below) whose `fits_when.ram_gb` the host meets.
 ram:
-  floor_gb: 16
   demo_gb: 8
 
 # Where IRIS runs (platform.system() / platform.machine(), lowercased). Anything else
@@ -24,14 +24,55 @@ disk:
   data_headroom_gb: 2
   warn_free_gb: 20
 
-# The starter model set: what `iris doctor --fix` pulls when it is missing. R5 plans a
-# single-model `starter` set gated on the models-by-capability ADR's proof (draft, not
-# merged); until that lands the fallback starter is `qwen2.5:7b-instruct` alone.
-# `size_gb` is the download size shown before a pull (Ollama's API cannot say it before
-# the pull starts).
-starter_models:
-  - name: qwen2.5:7b-instruct
-    size_gb: 4.7
+# Model sets, sized to the host (ADR: model sets and host sizing). Doctor picks the
+# largest set whose `fits_when` the host meets (whole GiB: a 16 GB Linux box reports
+# 15.6), says why, and `iris doctor --fix` pulls that set's `starter_models` and lays
+# its `tiers` over `llm_tiers.yaml` as tier edits (ADR-0120, the settings store), so an
+# upgrade keeps the choice and the owner can still change one tier in the app.
+# `iris doctor --model-set <name>` forces a set.
+#
+# `tiers` is sparse: only the fields that differ from `llm_tiers.yaml`, and only the
+# editable ones (provider, model, max_tokens, temperature, timeout_seconds, think).
+# `auto: false` keeps a set out of the automatic choice: it is applied only when
+# forced. Sets are listed smallest to largest. `size_gb` is the download size shown
+# before a pull (Ollama's API cannot say it before the pull starts).
+model_sets:
+  # CPU laptops with 8 to 16 GB. The email judge stays on the shipped 4B model: on the
+  # 50-email holdout (2026-10-17, ADR decision 7) every smaller judge tried
+  # (qwen3:1.7b, qwen3:4b, granite4.2:3b, llama3.2:3b) agreed with it on at most 30/50
+  # and called promotions and notifications bills or events. Only the router and tier 2
+  # shrink. Forced only until tier 2 on qwen3:4b is measured; then `auto: true` makes
+  # it the choice for those machines.
+  lite:
+    description: 8 to 16 GB of RAM, no GPU; a 1B router and a 4B tier 2, about 6 GB resident
+    fits_when:
+      ram_gb: 8
+    auto: false
+    tiers:
+      router:
+        model: llama3.2:1b
+      tier2:
+        model: qwen3:4b
+        think: false     # a reasoning model; the agentic loop needs the answer, not the thinking
+    starter_models:
+      - name: llama3.2:1b
+        size_gb: 1.3
+      - name: qwen3:4b
+        size_gb: 2.6
+      - name: qwen3.5:4b-q4_K_M   # the email judge (llm_tiers.yaml), unchanged from standard
+        size_gb: 2.5
+
+  # `llm_tiers.yaml` as shipped. R5 plans a single-model `starter` set gated on the
+  # models-by-capability ADR's proof (draft, not merged); until that lands the starter
+  # is `qwen2.5:7b-instruct` alone.
+  standard:
+    description: 16 GB of RAM or more; the shipped tiers
+    fits_when:
+      ram_gb: 16
+    tiers: {}
+    starter_models:
+      - name: qwen2.5:7b-instruct
+        size_gb: 4.7
 
 # Optional extras: reported as information, never a failure. `module` is what is
 # importable when the extra is installed.

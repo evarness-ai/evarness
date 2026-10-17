@@ -19,6 +19,7 @@ iris doctor [OPTIONS]
 | `--fix` | flag |  | Apply the safe fixes: pull models, create a key. |
 | `--yes`, `-y` | flag |  | Apply fixes without asking (implies --fix). |
 | `--json` | flag |  | Print the report as JSON (applies no fixes). |
+| `--model-set` | TEXT |  | Size the report to this model set (config/doctor.yaml: lite, standard) instead of the one the host fits; --fix applies it. |
 | `--help` | flag |  | Show the command's help and exit. |
 
 ## `iris serve`

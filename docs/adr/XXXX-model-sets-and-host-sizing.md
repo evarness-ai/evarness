@@ -1,7 +1,7 @@
 # ADR-XXXX: Model sets sized to the host, chosen by `iris doctor`
 
 - Status: **Draft** (number and final location to be assigned in the private tree)
-- Date: 2026-10-16
+- Date: 2026-10-16; decision 7 measured and the `lite` judge changed 2026-10-17
 - Relates to: ADR-0120 (tier edits in the settings store), ADR-0023 (kNN gate before
   the LLM), R5 (the starter model set), `config/doctor.yaml`, `config/llm_tiers.yaml`
 
@@ -52,15 +52,17 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
    ```yaml
    model_sets:
-     lite:        # CPU laptops, 8-16 GB RAM
+     lite:        # CPU laptops, 8-16 GB RAM; forced only until tier 2 is measured
        fits_when: { ram_gb: 8 }
+       auto: false
        tiers:
          router:      { model: llama3.2:1b }
-         tier2:       { model: qwen3:4b }
-         email_judge: { model: qwen3:1.7b }
+         tier2:       { model: qwen3:4b, think: false }
+         # email_judge is NOT overridden: see decision 7
        starter_models:
-         - { name: qwen3:1.7b, size_gb: 1.1 }
-         - { name: qwen3:4b,   size_gb: 2.5 }
+         - { name: llama3.2:1b,       size_gb: 1.3 }
+         - { name: qwen3:4b,          size_gb: 2.6 }
+         - { name: qwen3.5:4b-q4_K_M, size_gb: 2.5 }   # the judge, same as standard
      standard:    # today's llm_tiers.yaml, unchanged
        fits_when: { ram_gb: 16 }
        tiers: {}
@@ -75,8 +77,9 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
    The top-level `starter_models` list moves under `standard`. `tier1` (`granite4.2:3b`)
    is already small and is the governor's downshift target; `lite` leaves it alone.
-   The concrete models in `lite` are a starting proposal, not a measured result (see
-   consequence 3).
+   `auto: false` keeps a set out of the automatic choice until it is measured; it is
+   then applied only when forced. The judge in `lite` is the measured result of decision
+   7; tier 2 on `qwen3:4b` is still a proposal (consequence 3).
 
 2. **`iris doctor` picks the largest set the host satisfies and says why.**
    `fits_when` is a conjunction of minimums; sets are ordered smallest to largest and
@@ -113,9 +116,41 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
    set's (open question 3).
 
 7. **The `lite` set is gated on the holdout, not on model cards.** Before `lite` ships as
-   a chosen (rather than forced) set, the judge's accuracy on `qwen3:1.7b` is measured
-   against `holdout-labels.jsonl` with the existing `iris email judge --retry-failed`
-   loop, and the delta against `qwen3.5:4b` is recorded in this ADR.
+   a chosen (rather than forced) set, each model it changes is measured against
+   `holdout-labels.jsonl`, and the delta against the shipped model is recorded here.
+
+   *The judge, measured 2026-10-17.* The 50 holdout emails were judged from their stored
+   sender, subject and snippet, through `judge_one` (the real `judge.yaml` prompt and the
+   governed schema-constrained Ollama call), in a throwaway `IRIS_HOME`. The holdout's
+   labels are category roots, not buckets, so the score is agreement with the shipped
+   judge, read against the bucket definitions where the root makes the answer plain.
+
+   | Judge model | Agrees with shipped | bill / event / needs_reply / fyi / unsure | Figures invented | p50 |
+   |---|---|---|---|---|
+   | `qwen3.5:4b-q4_K_M` (shipped) | 50/50 | 0 / 7 / 1 / 42 / 0 | 0 rows | 2.2 s |
+   | `qwen3:1.7b` (proposed) | 25/50 | 10 / 22 / 0 / 18 / 0 | 8 rows (`min_due`, balances) | 1.1 s |
+   | `qwen3:4b` | 20/50 | 5 / 32 / 1 / 12 / 0 | 0 rows | 2.9 s |
+   | `granite4.2:3b` (tier 1) | 30/50 | 5 / 20 / 2 / 22 / 1 | not checked | 1.8 s |
+   | `llama3.2:3b` (router) | 15/50 | 2 / 17 / 1 / 7 / 23 | not checked | 1.2 s |
+
+   Every one of `qwen3:1.7b`'s 25 disagreements is a false positive against the
+   definitions: bank alerts and social notifications as `bill`, retailer promotions and
+   news digests as `event`, the one `needs_reply` demoted to `event`, all at confidence
+   0.90 or more, so `unsure_below` catches nothing. A false `bill` reaches the dues
+   digest. The shipped judge on the same input gave 42 `fyi`, 7 `event` from one school's
+   mail, 1 `needs_reply` and copied no figures it was not given. Caveat: production reads
+   up to 4000 characters of body; here every model saw the snippet, so absolute numbers
+   shift with bodies, but every model saw the same text and the gap is not close.
+
+   *Decision:* the judge is not where the memory goes (about 2.5 GB resident), so `lite`
+   keeps `qwen3.5:4b-q4_K_M` and shrinks only the router and tier 2. `qwen3:1.7b` is out.
+   A smaller judge is revisited only with a smaller model that passes this table.
+   The option of running tier 2 and the judge on the one 4B model (about 3.8 GB resident
+   in all) was considered and not taken: tier 2 on `qwen3.5:4b` is unmeasured and the
+   tier 1 log of 2026-05-19 records it regressing tool calls.
+
+   *Still open before `auto: true`:* tier 2 on `qwen3:4b` (chat, tool calls, the agentic
+   loop) against the standard tier 2.
 
 8. **Not decided here, recorded so they are not lost.** Two follow-ups that the research
    behind this ADR supports, each its own decision:
@@ -136,15 +171,20 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
 ## Consequences
 
-1. A user on an 8-16 GB machine gets a working email assistant with a ~1 GB pull and
-   roughly 4 GB resident, instead of a refusal. A user on a big machine sees no change.
+1. A user on an 8-16 GB machine gets a working email assistant with a 6.4 GB pull and
+   about 6 GB resident with the router, tier 2 and the judge all warm, instead of a
+   refusal. The pull is larger than `standard`'s 4.7 GB because `standard`'s starter
+   list does not include the judge (its tier-models check warns about it); the resident
+   figure, not the download, is what the 8 GB floor is about. A user on a big machine
+   sees no change.
 2. `doctor.yaml` gains a schema (`model_sets`, `fits_when`, per-set `starter_models`);
    `services/system/doctor.py` gains host sizing and a `--model-set` flag; `tier_edits`
    gains the `model_set` key; `iris system status` prints the set. Tests:
    `tests/unit/.../test_doctor*` for the selection order and the override,
    `test_tier_edits.py` for the new key.
-3. `lite` can be less accurate on the judge. That is a measured, visible trade (decision
-   7), not a silent one; the row carries the model (decision 6).
+3. `lite` judges exactly as `standard` does (decision 7); what it may lose is tier 2
+   quality on chat and tool calls, which is unmeasured and is why `lite` stays forced
+   only. When a set does move the judge, the row carries the model (decision 6).
 4. `ram.floor_gb: 16` becomes `standard.fits_when.ram_gb`; the hard floor becomes the
    smallest set's `ram_gb` (8). `demo_gb` stays: below it only the scripted demo runs.
 5. The README's "Ollama and 16 GB of RAM" and `docs/getting-started/install.md` change
@@ -210,7 +250,7 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
 | Candidate | Params / disk | Python inference | Evidence | Verdict |
 |---|---|---|---|---|
-| Smaller Ollama judge (`qwen3:1.7b`, `qwen2.5:1.5b`) | 1.5-1.7B, ~1.1 GB | none added | Qwen2.5-1.5B 95.7 % JSON parse; Ollama `format=schema` is grammar-constrained | **Lite set** (decision 1) |
+| Smaller Ollama judge (`qwen3:1.7b`, `qwen2.5:1.5b`) | 1.5-1.7B, ~1.1 GB | none added | Qwen2.5-1.5B 95.7 % JSON parse; Ollama `format=schema` is grammar-constrained | **Rejected by the holdout** (decision 7): valid JSON, wrong buckets |
 | `minishlab/potion-base-32M` (model2vec) | 32M, 30 MB | numpy, tokenizers, safetensors | MTEB classification 71.7 vs MiniLM 69.3; ~500x faster | **Gate backend** (decision 8) |
 | `cross-encoder/nli-deberta-v3-xsmall` / `ModernBERT-base-zeroshot-v2.0` | 71M / 150M, ONNX on Hub | onnxruntime (already installed via chromadb) | BTZSC 2026: best NLI cross-encoder ~0.60 macro-F1 vs Qwen3-4B 0.65 | Viable zero-shot fallback; not chosen |
 | GLiClass `edge-v3.0` / `instruct-edge-v1.0` | 32.7M, 131 MB | `gliclass` → torch + transformers + sklearn | edge 0.49 F1 vs base (746 MB) 0.66; no ONNX for v3 | Wrong footprint |
