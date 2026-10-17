@@ -7,8 +7,8 @@ import hashlib
 import json
 import logging
 import os
+import queue
 import re
-import select
 import subprocess
 import threading
 import time
@@ -1539,6 +1539,37 @@ class _StderrTail:
             return bytes(self._tail).decode("utf-8", errors="replace").strip()
 
 
+class _StdoutChunks:
+    """Reads a child's stdout on a thread, so the exchange can wait for it against a deadline.
+
+    ``select`` waits on a pipe without a thread, but on Windows it takes sockets only; a
+    reader thread and a queue wait the same way everywhere. The thread ends at end of output,
+    which the exchange's ``finally`` brings about by terminating the process."""
+
+    def __init__(self, stream: Any) -> None:
+        self._fd = stream.fileno()
+        self._chunks: queue.Queue[bytes] = queue.Queue()
+        self._thread = threading.Thread(target=self._read, name="mcp-stdout", daemon=True)
+        self._thread.start()
+
+    def _read(self) -> None:
+        try:
+            while chunk := os.read(self._fd, _READ_CHUNK):
+                self._chunks.put(chunk)
+        except (OSError, ValueError):  # closed under us when the call ends
+            pass
+        self._chunks.put(b"")
+
+    def next(self, timeout: float) -> bytes | None:
+        """The next chunk, ``b""`` at end of output, or ``None`` if none came in ``timeout``."""
+        if timeout <= 0:
+            return None
+        try:
+            return self._chunks.get(timeout=timeout)
+        except queue.Empty:
+            return None
+
+
 def _describe_failure(server: MCPServerConfig, what: str, stderr: str, code: int | None) -> str:
     message = f"MCP stdio server '{server.name}' {what}"
     if code is not None:
@@ -1587,7 +1618,7 @@ def _run_stdio_exchange(
         expected = set(expected_response_ids)
         responses: dict[str, Any] = {}
         buffer = bytearray()
-        stdout_fd = process.stdout.fileno()
+        stdout = _StdoutChunks(process.stdout)
         # A reply is one message, so the buffer is held to the result cap plus the JSON-RPC
         # envelope: a server cannot make the exchange hold more than that before it is refused.
         buffer_limit = min(_MAX_STDOUT_BUFFER, server.max_result_bytes + _ENVELOPE_SLACK_BYTES)
@@ -1597,9 +1628,8 @@ def _run_stdio_exchange(
                 _accept_stdio_message(server, payload, expected, responses, process.stdin)
                 continue
 
-            remaining = deadline - time.monotonic()
-            ready = select.select([stdout_fd], [], [], remaining)[0] if remaining > 0 else []
-            if not ready:
+            chunk = stdout.next(deadline - time.monotonic())
+            if chunk is None:
                 raise MCPTransportError(
                     _describe_failure(
                         server,
@@ -1608,7 +1638,6 @@ def _run_stdio_exchange(
                         None,
                     )
                 )
-            chunk = os.read(stdout_fd, _READ_CHUNK)
             if not chunk:
                 code = _exit_code(process)
                 raise MCPTransportError(
