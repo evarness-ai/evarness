@@ -149,6 +149,79 @@ def test_unknown_tier_or_intent_is_a_key_error(files) -> None:
         tier_edits.move_intent(router, store, "calendar", "tier9", actor="d")
 
 
+def test_a_model_set_writes_its_tiers_resets_the_old_ones_and_is_recorded(files) -> None:
+    router = _load(files)
+    _, store = files
+    assert tier_edits.recorded_model_set(store) is None
+
+    record = tier_edits.apply_model_set(
+        router,
+        store,
+        "lite",
+        {"tier1": {"model": "small:1b", "timeout_seconds": 60}},
+        forced=True,
+        actor="doctor",
+    )
+
+    assert record == tier_edits.RecordedModelSet("lite", True, ("tier1",))
+    assert router.get_tier_by_name("tier1").model == "small:1b"
+    assert store.get("llm_tiers", "tier:tier1") == {"model": "small:1b", "timeout_seconds": 60}
+    assert tier_edits.recorded_model_set(store) == record
+    again = _load(files)  # the reload lays the set over the file like any edit
+    assert again.get_tier_by_name("tier1").model == "small:1b"
+
+    # Moving to a set without tier1 puts tier1 back to the file.
+    back = tier_edits.apply_model_set(
+        router, store, "standard", {"tier2": {"temperature": 0.2}}, forced=False, actor="doctor"
+    )
+    assert back == tier_edits.RecordedModelSet("standard", False, ("tier2",))
+    assert router.get_tier_by_name("tier1").model == "granite4:latest"
+    assert store.get("llm_tiers", "tier:tier1") is None
+    assert store.get("llm_tiers", "tier:tier2") == {"temperature": 0.2}
+
+
+def test_a_model_set_replaces_the_owners_edit_on_the_tiers_it_names_only(files) -> None:
+    router = _load(files)
+    _, store = files
+    tier_edits.update_tier(router, store, "tier1", {"model": "mine:3b"}, actor="owner")
+    tier_edits.update_tier(router, store, "private", {"temperature": 0.1}, actor="owner")
+
+    tier_edits.apply_model_set(
+        router, store, "lite", {"tier1": {"model": "small:1b"}}, forced=True, actor="doctor"
+    )
+
+    assert router.get_tier_by_name("tier1").model == "small:1b"
+    assert router.get_tier_by_name("private").temperature == 0.1  # untouched
+
+
+def test_a_model_set_naming_an_unknown_tier_or_field_writes_nothing(files) -> None:
+    router = _load(files)
+    _, store = files
+    with pytest.raises(KeyError):
+        tier_edits.apply_model_set(
+            router,
+            store,
+            "lite",
+            {"tier1": {"model": "ok:1b"}, "tier9": {"model": "x"}},
+            forced=True,
+            actor="doctor",
+        )
+    with pytest.raises(tier_edits.TierEditError):
+        tier_edits.apply_model_set(
+            router, store, "lite", {"tier1": {"num_ctx": 1}}, forced=True, actor="doctor"
+        )
+    assert store.history() == []
+    assert router.get_tier_by_name("tier1").model == "granite4:latest"
+
+
+def test_the_model_set_record_is_not_read_as_a_tier_edit(files) -> None:
+    _, store = files
+    store.set("llm_tiers", "model_set", {"name": "lite", "forced": True}, old=None, actor="d")
+    router = _load(files)
+    assert router.get_tier_by_name("tier1").model == "granite4:latest"
+    assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet("lite", True, ())
+
+
 def test_a_saved_edit_that_no_longer_fits_falls_back_to_the_file(files) -> None:
     _, store = files
     store.set("llm_tiers", "tier:tier1", {"temperature": 9}, old=None, actor="d")

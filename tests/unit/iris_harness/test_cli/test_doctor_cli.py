@@ -53,28 +53,43 @@ class FakeOllama:
 
 @pytest.fixture
 def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
+    from iris_harness.foundation.settings import SettingsStore
+
     state: dict[str, Any] = {
         "ollama": FakeOllama(["qwen2.5:7b-instruct"]),
         "config": dr.DoctorConfig(
-            ram_floor_gb=16,
             ram_demo_gb=8,
             platforms={"darwin": ("arm64",)},
             data_headroom_gb=2,
             warn_free_gb=20,
-            starter_models=(
-                dr.StarterModel("qwen2.5:7b-instruct", 4.7),
-                dr.StarterModel("tiny:1b", 0.8),
+            model_sets=(
+                # The lite tiers name a tier the shipped llm_tiers.yaml has: --fix
+                # writes them against the real file.
+                dr.ModelSet(
+                    "lite",
+                    8,
+                    (dr.StarterModel("tiny:1b", 0.8),),
+                    tiers={"tier1": {"model": "tiny:1b"}},
+                    auto=False,
+                ),
+                dr.ModelSet(
+                    "standard",
+                    16,
+                    (dr.StarterModel("qwen2.5:7b-instruct", 4.7), dr.StarterModel("tiny:1b", 0.8)),
+                ),
             ),
         ),
+        "settings_db": tmp_path / "settings.db",
     }
     host = dr.HostFacts("3.12.4", "Darwin", "arm64", "24.0.0", 32 * _GIB)
     monkeypatch.setattr(dr, "host_facts", lambda: host)
     monkeypatch.setattr(dr, "disk_free_bytes", lambda p: (tmp_path, 100 * 10**9))
     monkeypatch.setattr(dr, "requires_python", lambda: ">=3.12,<3.14")
-    monkeypatch.setattr(dr, "configured_ollama_models", lambda: ())
+    monkeypatch.setattr(dr, "configured_ollama_models", lambda overrides=None: ())
     monkeypatch.setattr(dr, "extra_installed", lambda module: True)
     monkeypatch.setattr(dr, "load_doctor_config", lambda path=None: state["config"])
     monkeypatch.setattr(dr, "http_client", lambda: state["ollama"].client())
+    monkeypatch.setattr(dr, "settings_store", lambda: SettingsStore(db_path=state["settings_db"]))
     monkeypatch.setattr(doctor_cli, "_interactive", lambda: False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama.test:11434")
     monkeypatch.delenv(vault_keys.MASTER_KEY_ENV, raising=False)
@@ -172,5 +187,78 @@ def test_json_output(env: dict[str, Any]) -> None:
     body = json.loads(result.output)
     assert body["verdict"] == "demo_only"
     assert body["missing_models"] == [{"name": "tiny:1b", "size_gb": 0.8}]
+    assert body["model_set"]["name"] == "standard"
     assert result.exit_code == 1
     assert env["ollama"].pulls == []
+
+
+# ── model sets ──────────────────────────────────────────────────────────────────
+
+
+def _store(env: dict[str, Any]) -> Any:
+    from iris_harness.foundation.settings import SettingsStore
+
+    return SettingsStore(db_path=env["settings_db"])
+
+
+def test_the_report_names_the_set_the_host_fits(env: dict[str, Any]) -> None:
+    result = runner.invoke(app, ["doctor"])
+    assert "Model set" in result.output
+    assert "standard: the largest set" in result.output
+    assert _store(env).section("llm_tiers") == {}  # a plain run writes nothing
+
+
+def test_forcing_lite_pulls_its_model_and_writes_its_tiers(env: dict[str, Any]) -> None:
+    from iris_harness.llm import tier_edits
+
+    result = runner.invoke(app, ["doctor", "--model-set", "lite", "--fix", "--yes"])
+    assert result.exit_code == 0, result.output
+    assert env["ollama"].pulls == ["tiny:1b"]
+    assert "model set lite applied: tier1 -> tiny:1b" in result.output
+    store = _store(env)
+    assert store.get("llm_tiers", "tier:tier1") == {"model": "tiny:1b"}
+    assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
+        "lite", True, ("tier1",)
+    )
+    # The re-run after the fix sees the set as applied: nothing left to fix.
+    assert "not applied yet" not in result.output.split("Ready.")[-1]
+
+
+def test_a_plain_run_after_forcing_lite_warns_and_fix_moves_back(env: dict[str, Any]) -> None:
+    from iris_harness.llm import tier_edits
+
+    runner.invoke(app, ["doctor", "--model-set", "lite", "--fix", "--yes"])
+    env["ollama"].models.append("qwen2.5:7b-instruct")
+    plain = runner.invoke(app, ["doctor"])
+    assert "applied: lite" in plain.output
+    assert "--model-set lite" in plain.output  # how to keep it
+    assert plain.exit_code == 0  # a warning never changes the verdict
+
+    back = runner.invoke(app, ["doctor", "--fix", "--yes"])
+    assert back.exit_code == 0, back.output
+    assert "model set standard applied" in back.output
+    store = _store(env)
+    assert store.get("llm_tiers", "tier:tier1") is None
+    assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
+        "standard", False, ()
+    )
+
+
+def test_interactive_fix_asks_before_writing_the_set(
+    env: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(doctor_cli, "_interactive", lambda: True)
+    # "Apply the safe fixes now?" yes; "Apply the lite model set?" no; "Pull tiny:1b?" no.
+    result = runner.invoke(app, ["doctor", "--model-set", "lite"], input="y\nn\nn\n")
+    assert "Apply the lite model set (tier1 -> tiny:1b)?" in result.output
+    assert _store(env).section("llm_tiers") == {}
+    assert env["ollama"].pulls == []
+
+
+def test_an_unknown_set_is_a_usage_error(env: dict[str, Any]) -> None:
+    result = runner.invoke(app, ["doctor", "--model-set", "huge"])
+    assert result.exit_code == 2
+    # Rich wraps the error panel and puts its border between the lines.
+    flat = " ".join(result.output.replace("│", " ").split())
+    assert "no model set 'huge'" in flat
+    assert "doctor.yaml has: lite, standard" in flat

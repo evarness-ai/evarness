@@ -57,7 +57,9 @@ def render_report(report: dr.DoctorReport, out: Console | None = None) -> None:
     for check in blocking:
         con.print(f"  - {escape(check.name)}: {escape(check.fix or check.detail)}")
     if report.fixable:
-        con.print("  [dim]`iris doctor --fix` applies the safe fixes (models, vault key).[/dim]")
+        con.print(
+            "  [dim]`iris doctor --fix` applies the safe fixes (model set, models, vault key).[/dim]"
+        )
 
 
 def _print_progress() -> Callable[[dr.PullProgress], None]:
@@ -86,9 +88,17 @@ def apply_fixes(
     confirm: Callable[[str], bool],
     client: Any = None,
 ) -> None:
-    """Pull the missing starter models and create a missing vault key, each after
-    ``confirm``. Nothing else is touched."""
+    """Apply the model set, pull its missing starter models and create a missing vault
+    key, each after ``confirm``. Nothing else is touched."""
     from iris_harness.services.system import doctor as dr
+
+    choice = report.model_set
+    if choice is not None and choice.apply_needed:
+        if confirm(f"Apply the {choice.name} model set ({choice.model_set.describe_tiers()})?"):
+            try:
+                console.print(f"  [green]{escape(dr.apply_model_set(choice))}[/green]")
+            except dr.DoctorFixError as exc:
+                console.print(f"  [bold red]model set not applied:[/bold red] {escape(str(exc))}")
 
     for model in report.missing_models:
         if not confirm(f"Pull {model.name} (~{model.size_gb:g} GB download)?"):
@@ -140,6 +150,14 @@ def cmd_doctor(
     as_json: Annotated[
         bool, typer.Option("--json", help="Print the report as JSON (applies no fixes).")
     ] = False,
+    model_set: Annotated[
+        str | None,
+        typer.Option(
+            "--model-set",
+            help="Size the report to this model set (config/doctor.yaml: lite, standard) "
+            "instead of the one the host fits; --fix applies it.",
+        ),
+    ] = None,
 ) -> None:
     """Preflight: can IRIS run on this machine, and what to fix if not."""
     from iris_harness.services.system import doctor as dr
@@ -148,7 +166,15 @@ def cmd_doctor(
     wants_fix = fix or yes
     # The OS keyring is read only when someone can answer a Keychain dialog, or when a
     # fix was asked for (the fix must read it before it may write).
-    report = dr.run_doctor(read_keyring=interactive or (wants_fix and not as_json))
+    try:
+        report = dr.run_doctor(
+            read_keyring=interactive or (wants_fix and not as_json), model_set=model_set
+        )
+    except KeyError:
+        names = ", ".join(s.name for s in dr.load_doctor_config().model_sets)
+        raise typer.BadParameter(
+            f"no model set {model_set!r}; doctor.yaml has: {names}", param_hint="--model-set"
+        ) from None
     if as_json:
         print(json.dumps(report.as_dict(), indent=2))
         raise typer.Exit(report.verdict.exit_code)
@@ -167,7 +193,7 @@ def cmd_doctor(
                 return True if yes else typer.confirm(question, default=True)
 
             apply_fixes(report, confirm=confirm)
-            report = dr.run_doctor(read_keyring=True)
+            report = dr.run_doctor(read_keyring=True, model_set=model_set)
             console.print()
             render_report(report)
     raise typer.Exit(report.verdict.exit_code)

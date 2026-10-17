@@ -188,7 +188,7 @@ def test_health_doctor_serves_the_preflight_without_reading_the_keyring(
     host = dr.HostFacts("3.12.4", "Linux", "x86_64", "6.1.0", 32 * 1024**3)
     monkeypatch.setattr(dr, "host_facts", lambda: host)
     monkeypatch.setattr(dr, "disk_free_bytes", lambda p: (tmp_path, 100 * 10**9))
-    monkeypatch.setattr(dr, "configured_ollama_models", lambda: ())
+    monkeypatch.setattr(dr, "configured_ollama_models", lambda overrides=None: ())
     monkeypatch.setattr(
         dr,
         "ollama_facts",
@@ -291,7 +291,7 @@ def _doctor_sees_a_missing_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     host = dr.HostFacts("3.12.4", "Linux", "x86_64", "6.1.0", 32 * 1024**3)
     monkeypatch.setattr(dr, "host_facts", lambda: host)
     monkeypatch.setattr(dr, "disk_free_bytes", lambda p: (tmp_path, 100 * 10**9))
-    monkeypatch.setattr(dr, "configured_ollama_models", lambda: ())
+    monkeypatch.setattr(dr, "configured_ollama_models", lambda overrides=None: ())
     monkeypatch.setattr(
         dr,
         "ollama_facts",
