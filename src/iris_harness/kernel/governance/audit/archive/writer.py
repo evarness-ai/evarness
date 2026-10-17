@@ -285,11 +285,20 @@ def _parse_ts(raw: str) -> datetime:
 
 
 def _fsync_file(path: Path) -> None:
-    with path.open("rb") as fh:
+    # Opened for writing: on Windows fsync is FlushFileBuffers, which refuses a read-only
+    # handle (EBADF). Nothing is written.
+    with path.open("r+b") as fh:
         os.fsync(fh.fileno())
 
 
 def _fsync_dir(path: Path) -> None:
+    """Make the rename into ``path`` durable (POSIX).
+
+    Windows cannot open a directory as a file to flush it, and needs no such step: NTFS
+    journals the rename's metadata itself.
+    """
+    if os.name == "nt":
+        return
     flags = getattr(os, "O_DIRECTORY", 0)
     fd = os.open(path, os.O_RDONLY | flags)
     try:
