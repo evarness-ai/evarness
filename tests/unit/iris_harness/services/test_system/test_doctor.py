@@ -283,7 +283,8 @@ def test_platforms() -> None:
     assert windows.state is HealthState.YELLOW
     assert windows.blocks == "none"
     assert "Docker" in (windows.fix or "")
-    assert "not enforced" in windows.detail
+    assert "file modes are not enforced" in windows.detail
+    assert "audit locks" not in windows.detail  # they hold on Windows (file_lock.py)
     wsl = dr.check_platform(
         _host(system="Linux", machine="x86_64", release="5.15.0-microsoft-standard-WSL2"),
         _CONFIG,

@@ -58,8 +58,8 @@ poetry run iris doctor
 ```
 
 `iris doctor` warns on the Platform row: native Windows is for development, and owner-only
-file modes and the audit locks are not enforced there (below). The vault master key goes in
-Windows Credential Manager, as it goes in the Keychain on a Mac.
+file modes are not enforced there (below). The vault master key goes in Windows Credential
+Manager, as it goes in the Keychain on a Mac.
 
 ### Tests and the gate
 
@@ -81,9 +81,9 @@ pins: `winget install Gitleaks.Gitleaks`.
 
 ### What differs on Windows
 
-- **Audit locks.** The audit spool and compaction lock with `flock` on POSIX. On Windows the
-  lock is skipped, so two IRIS processes writing the same home at once are not kept apart.
-  Run one.
+- **Audit locks.** The audit spool and compaction lock with `flock` on POSIX and
+  `msvcrt.locking` on Windows, so two IRIS processes writing the same home are kept apart on
+  both.
 - **File modes.** IRIS creates its databases and keys `0o600` on POSIX. Windows has no such
   modes; what protects the files is the folder's access list. Keep `IRIS_HOME` under your user
   profile (the default), which only your account can read.
