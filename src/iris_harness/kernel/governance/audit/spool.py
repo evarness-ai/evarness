@@ -38,10 +38,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-try:  # POSIX only; on a platform without it the lock degrades to the single-process case.
-    import fcntl
-except ImportError:  # pragma: no cover - non-POSIX
-    fcntl = None  # type: ignore[assignment]
+from iris_harness.foundation.file_lock import exclusive_lock
 
 logger = logging.getLogger(__name__)
 
@@ -90,15 +87,10 @@ def _locked(path: Path) -> Iterator[None]:
     lock_path = path.with_name(path.name + ".lock")
     fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        if fcntl is not None:
-            fcntl.flock(fd, fcntl.LOCK_EX)
-        yield
+        with exclusive_lock(fd):
+            yield
     finally:
-        try:
-            if fcntl is not None:
-                fcntl.flock(fd, fcntl.LOCK_UN)
-        finally:
-            os.close(fd)
+        os.close(fd)
 
 
 def append(path: Path, record: Mapping[str, Any]) -> None:
