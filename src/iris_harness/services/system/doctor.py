@@ -584,12 +584,13 @@ def check_platform(facts: HostFacts, config: DoctorConfig) -> DoctorCheck:
     if system == "windows":
         # Supported for development (the suite, the CLI, plugin work); running IRIS on
         # Windows is the Docker stack's job (docs/guides/windows.md). Said plainly because
-        # nothing else warns: the stores' 0o600 modes and the audit locks are POSIX-only.
+        # nothing else warns: the stores' 0o600 modes are POSIX-only. (The audit locks hold
+        # on Windows too: foundation/file_lock.py.)
         return DoctorCheck(
             "Platform",
             HealthState.YELLOW,
-            f"{label}: native Windows is for development; owner-only file modes and the "
-            "audit locks are not enforced here",
+            f"{label}: native Windows is for development; owner-only file modes are not "
+            "enforced here",
             fix="To run IRIS on Windows, use Docker Desktop (docs/guides/windows.md)",
         )
     if machine in config.platforms.get(system, ()):
