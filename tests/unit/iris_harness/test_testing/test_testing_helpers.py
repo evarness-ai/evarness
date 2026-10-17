@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import socket
 
@@ -39,3 +40,18 @@ def test_no_network_refuses_outbound_connections_and_restores_them() -> None:
             sock.close()
     assert len(attempted) == 2
     assert socket.socket.connect is real
+
+
+def test_no_network_lets_an_event_loop_make_its_self_pipe() -> None:
+    # On Windows socket.socketpair() connects over loopback, and every new event loop
+    # makes one; refusing it failed every async turn under no_network() there.
+    real = socket.socketpair
+    with no_network() as attempted:
+        left, right = socket.socketpair()
+        left.close()
+        right.close()
+        assert asyncio.run(asyncio.sleep(0, result="ran")) == "ran"
+        with pytest.raises(NetworkBlockedError):
+            socket.create_connection(("192.0.2.1", 80), timeout=1)
+    assert attempted == [("192.0.2.1", 80)]
+    assert socket.socketpair is real
