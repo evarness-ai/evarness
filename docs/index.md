@@ -60,4 +60,5 @@ iris email setup                        # then your own mailbox, step by step
 - [Architecture](concepts/architecture.md) for how the pieces fit.
 
 IRIS is licensed under the Apache License 2.0, and it stays that way. It runs on
-macOS (Apple Silicon) and Linux; on Windows, use WSL2. It collects no telemetry.
+macOS (Apple Silicon) and Linux; on Windows, use Docker Desktop or WSL2
+([Windows](guides/windows.md)). It collects no telemetry.

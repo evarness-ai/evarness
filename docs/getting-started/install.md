@@ -8,7 +8,8 @@ on a fresh machine, on every change.
 
 ## What you need
 
-- **macOS on Apple Silicon, or Linux** (x86_64 or arm64). On Windows, use WSL2.
+- **macOS on Apple Silicon, or Linux** (x86_64 or arm64). On Windows, run IRIS with Docker
+  Desktop, or WSL2; see [Windows](../guides/windows.md).
 - **16 GB of RAM** for real use with the standard models. With 8 GB you can run the
   demo (it uses a scripted model) or try the `lite` model set, which runs a smaller
   chat model with the same email judge: `iris doctor --model-set lite`. The lite set's
@@ -71,7 +72,7 @@ with a verdict, which is also the exit code:
 |---|---|---|
 | Ready. | 0 | Everything real use needs is in place. |
 | Ready for the demo only. | 1 | The demo runs; real use still needs Ollama, the starter models, a vault master key, or more RAM. |
-| Not ready. | 2 | Fix the failing checks first (the Python version, native Windows, under 8 GB, or an unwritable `IRIS_HOME`). |
+| Not ready. | 2 | Fix the failing checks first (the Python version, under 8 GB, or an unwritable `IRIS_HOME`). |
 
 Right after installing, "demo only" is normal. The next page runs the demo.
 

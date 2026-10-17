@@ -278,10 +278,12 @@ def test_platforms() -> None:
     assert dr.check_platform(_host(), _CONFIG).state is HealthState.GREEN
     intel_mac = dr.check_platform(_host(machine="x86_64"), _CONFIG)
     assert intel_mac.state is HealthState.YELLOW
+    # Native Windows is for development: a warning that points at Docker, never a block.
     windows = dr.check_platform(_host(system="Windows", machine="AMD64"), _CONFIG)
-    assert windows.state is HealthState.RED
-    assert windows.blocks == "all"
-    assert "WSL2" in (windows.fix or "")
+    assert windows.state is HealthState.YELLOW
+    assert windows.blocks == "none"
+    assert "Docker" in (windows.fix or "")
+    assert "not enforced" in windows.detail
     wsl = dr.check_platform(
         _host(system="Linux", machine="x86_64", release="5.15.0-microsoft-standard-WSL2"),
         _CONFIG,

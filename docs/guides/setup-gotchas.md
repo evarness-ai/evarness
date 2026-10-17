@@ -30,8 +30,9 @@ dependencies and no `requires-python`, guesses `>=3.13` and builds an empty envi
 To run IRIS, install the package: `uv tool install "iris-harness[email]"`. To work on the
 code, use `poetry install --with dev --extras email`.
 
-**Windows.** Native Windows is not supported; `iris doctor` reports "Not ready". Use
-WSL2.
+**Windows.** Run IRIS with Docker Desktop, or inside WSL2. Native Windows is for
+development: `iris doctor` warns on the platform row but does not block. See
+[Windows](windows.md).
 
 ## Reading `iris doctor`
 

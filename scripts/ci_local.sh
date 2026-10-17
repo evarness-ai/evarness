@@ -67,6 +67,14 @@ fi
 
 GITLEAKS_PIN="8.30.1"   # keep in step with .github/workflows/ci-linux.yml and brew
 
+# Mypy checks for the platform it runs on. CI runs Linux, so on Windows (Git Bash) it checks
+# as Linux too: the POSIX-only branches (fcntl) are what CI checks, and Windows would
+# report them as errors CI never sees.
+MYPY_PLATFORM=""
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) MYPY_PLATFORM="--platform linux" ;;
+esac
+
 RUN_QUALITY=1
 RUN_SCAN=1
 FAST=0
@@ -141,10 +149,10 @@ if [[ $RUN_QUALITY -eq 1 ]]; then
   # From here, stop at the first failure, the way a CI job's steps do.
   step "Ruff (lint)"          poetry run ruff check src/ tests/ examples/ &&
   step "Black (format check)" poetry run black --check src/ tests/ examples/ &&
-  step "Mypy (types)"         poetry run mypy src/iris_harness/ src/memris/ $( [[ -d src/iris_personal ]] && echo src/iris_personal/ ) $( [[ -d src/iris_code ]] && echo src/iris_code/ ) &&
+  step "Mypy (types)"         poetry run mypy $MYPY_PLATFORM src/iris_harness/ src/memris/ $( [[ -d src/iris_personal ]] && echo src/iris_personal/ ) $( [[ -d src/iris_code ]] && echo src/iris_code/ ) &&
   # The examples type-check against the stable tier as a plugin author's would. MYPYPATH:
   # in a worktree sharing the main checkout's venv, the editable install points there.
-  step "Mypy (examples)"      env MYPYPATH="$ROOT/src" poetry run mypy examples/ &&
+  step "Mypy (examples)"      env MYPYPATH="$ROOT/src" poetry run mypy $MYPY_PLATFORM examples/ &&
   step "Import contracts"     poetry run lint-imports &&
   {
     if [[ $FAST -eq 1 ]]; then

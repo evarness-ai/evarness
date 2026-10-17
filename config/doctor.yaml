@@ -11,7 +11,8 @@ ram:
   demo_gb: 8
 
 # Where IRIS runs (platform.system() / platform.machine(), lowercased). Anything else
-# is a warning; native Windows is refused with a pointer to WSL2.
+# is a warning. Native Windows is a warning too: it is for development, and running IRIS
+# there is the Docker stack's job (docs/guides/windows.md).
 platforms:
   darwin: [arm64]
   linux: [x86_64, amd64, aarch64, arm64]
