@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
-from iris_harness.foundation.persistence import connect
+from iris_harness.foundation.persistence import sqlite_conn
 
 from .models import Mission, MissionStatus, MissionStep, StepStatus
 
@@ -38,9 +39,12 @@ class MissionStore:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = connect(self.db_path, row_factory=sqlite3.Row)
-        return conn
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     # ------------------------------------------------------------------
     # Serialization

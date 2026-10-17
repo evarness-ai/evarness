@@ -34,6 +34,7 @@ import re
 import sqlite3
 from collections import Counter
 from collections.abc import Callable, Mapping
+from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -238,7 +239,7 @@ def load_corpus(db_path: Path, account_id: str, *, include_held: bool = False) -
     names for the owner to review; it releases nothing and emits nothing."""
     from iris_personal.email.store import visible_condition
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn:
         conn.row_factory = sqlite3.Row
         visible = "1" if include_held else visible_condition(conn)
         rows = conn.execute(

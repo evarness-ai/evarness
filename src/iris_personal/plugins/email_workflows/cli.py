@@ -19,6 +19,7 @@ one line of :func:`register`.
 from __future__ import annotations
 
 import json
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
@@ -769,7 +770,7 @@ def cmd_email_recategorize(
 
     # Pull the previous classification + classifier tag directly via SQL
     # (EmailMessage doesn't expose those columns yet).
-    with sqlite3.connect(email_db) as conn:
+    with closing(sqlite3.connect(email_db)) as conn:
         conn.row_factory = sqlite3.Row
         row = conn.execute(
             "SELECT classified_category, sensitivity FROM emails WHERE id = ?",
@@ -897,7 +898,7 @@ def cmd_email_reingest_wiki(
     if since is not None:
         sql += " AND classified_at >= ?"
         params.append(since.isoformat())
-    with sqlite3.connect(email_db) as conn:
+    with closing(sqlite3.connect(email_db)) as conn:
         conn.row_factory = sqlite3.Row
         # A held message (not released by its plugin yet) is not re-emitted.
         sql += f" AND {visible_condition(conn)} ORDER BY classified_at DESC LIMIT ?"

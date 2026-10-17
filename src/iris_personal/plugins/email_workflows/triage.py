@@ -29,6 +29,7 @@ import json
 import logging
 import re
 from collections.abc import Sequence
+from contextlib import closing
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
@@ -421,7 +422,7 @@ class EmailTriageClassifier:
 
         exemplars: list[CategoryCentroid] = []
         try:
-            with sqlite3.connect(self.db_path) as conn:
+            with closing(sqlite3.connect(self.db_path)) as conn:
                 rows = conn.execute(
                     "SELECT payload FROM categories_history "
                     "WHERE source='user-classification-correction' AND op='update'"

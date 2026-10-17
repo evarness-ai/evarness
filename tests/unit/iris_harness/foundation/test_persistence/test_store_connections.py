@@ -22,8 +22,21 @@ from iris_harness.kernel.governor.audit import GovernorAuditLogger
 from iris_harness.memory.state.continuations import ContinuationStore
 from iris_harness.memory.state.store import CheckpointStore
 from iris_harness.runtime.router_audit import RouterAuditLogger
+from iris_harness.services.activities.store import ActivityStore
 from iris_harness.services.channels.web_push.store import PushSubscriptionStore
 from iris_harness.services.digests.store import DigestStore
+from iris_harness.services.heartbeat.run_store import HeartbeatRunStore
+from iris_harness.services.missions.store import MissionStore
+from iris_harness.services.notifications.store import ReminderStore
+from iris_harness.services.rag.store import DocumentStore
+from iris_harness.services.routines.store import RoutineStore
+from iris_harness.services.tasks.store import TaskStore
+
+
+def _schema_then(store: Any) -> Any:
+    store.ensure_schema()
+    return store
+
 
 STORES: dict[str, Callable[[Path], Any]] = {
     "digests": DigestStore,
@@ -33,6 +46,15 @@ STORES: dict[str, Callable[[Path], Any]] = {
     # Creates its database on first use, not on construction: build it, then read once.
     "governor_audit": lambda p: GovernorAuditLogger(p).list_entries(),
     "router_audit": RouterAuditLogger,
+    # These wrapped a bare connection in ``with``: committed, never closed. Each makes its
+    # schema and reads once, so both paths open a connection.
+    "activities": lambda p: _schema_then(ActivityStore(db_path=p)).get("absent"),
+    "heartbeat_runs": lambda p: HeartbeatRunStore(db_path=p).first_seen("absent"),
+    "missions": lambda p: MissionStore(p).load("absent"),
+    "reminders": lambda p: _schema_then(ReminderStore(db_path=p)).get("absent"),
+    "rag": lambda p: _schema_then(DocumentStore(db_path=p)).get_source("absent"),
+    "routines": lambda p: RoutineStore(p).load("absent"),
+    "tasks": lambda p: _schema_then(TaskStore(db_path=p)).get("absent"),
 }
 
 
