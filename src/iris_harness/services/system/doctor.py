@@ -6,8 +6,8 @@ check is pass / warn / fail / info with a one-line fix; the report ends in a ver
 * ``ready`` -- everything the real assistant needs is in place;
 * ``demo_only`` -- the synthetic demo runs (it uses a scripted model, not Ollama), but
   something real use needs is missing: local models, Ollama, or the 16 GB floor;
-* ``not_ready`` -- even the demo cannot run (wrong Python, native Windows, under 8 GB,
-  or no writable IRIS_HOME).
+* ``not_ready`` -- even the demo cannot run (wrong Python, under 8 GB, or no writable
+  IRIS_HOME).
 
 The owner's vault master key is a real-use requirement, not a demo one: without it every
 governed tool call is refused (#741), but ``iris email demo`` runs in its own home with a
@@ -402,12 +402,15 @@ def check_platform(facts: HostFacts, config: DoctorConfig) -> DoctorCheck:
     system, machine = facts.system.lower(), facts.machine.lower()
     label = f"{facts.system} {facts.machine}"
     if system == "windows":
+        # Supported for development (the suite, the CLI, plugin work); running IRIS on
+        # Windows is the Docker stack's job (docs/guides/windows.md). Said plainly because
+        # nothing else warns: the stores' 0o600 modes and the audit locks are POSIX-only.
         return DoctorCheck(
             "Platform",
-            HealthState.RED,
-            f"{label}: native Windows is not supported",
-            fix="Install WSL2 (wsl --install) and run IRIS inside it",
-            blocks="all",
+            HealthState.YELLOW,
+            f"{label}: native Windows is for development; owner-only file modes and the "
+            "audit locks are not enforced here",
+            fix="To run IRIS on Windows, use Docker Desktop (docs/guides/windows.md)",
         )
     if machine in config.platforms.get(system, ()):
         if _is_wsl(facts):

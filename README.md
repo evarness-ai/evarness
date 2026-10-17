@@ -147,9 +147,10 @@ with the governance decision at every hook. Both are from `iris email demo`:
 | Four services: the IRIS API (chat, the MCP server, the web console; 8003), the Governor (8080), the evaluator (8090), the channel gateway (8006) | `src/iris_harness/server/` |
 | The web console (React), built into the released package | `webui/` |
 
-IRIS runs on macOS (Apple Silicon) and Linux; on Windows, use WSL2. It collects no
-telemetry. It is pre-1.0: the stable API changes only after a deprecation cycle, and
-everything else may change in any release.
+IRIS runs on macOS (Apple Silicon) and Linux; on Windows, use Docker Desktop or WSL2
+([Windows guide](docs/guides/windows.md)). It collects no telemetry. It is pre-1.0: the
+stable API changes only after a deprecation cycle, and everything else may change in any
+release.
 
 The MCP bridge is experimental and off by default; it only runs servers you list in
 `mcp-servers.yaml`. Known gaps are tracked in

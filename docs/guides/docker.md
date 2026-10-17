@@ -15,6 +15,9 @@ Put the secret in `.env` rather than `export`ing it. An export lasts for one she
 Compose needs the variable for **every** `docker compose` command, not only `up` (see
 below).
 
+On Windows, see [Windows](windows.md) for the PowerShell version of the secret and for
+using Ollama for Windows.
+
 | Service | Port | Role |
 |---|---|---|
 | `ollama` | 11434 | The local model runtime. |
