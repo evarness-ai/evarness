@@ -19,6 +19,7 @@ import io
 import json
 import sqlite3
 from collections.abc import AsyncIterator, Iterator
+from contextlib import closing
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Protocol
@@ -58,7 +59,7 @@ def _kernel(tmp_path: Path, *, guard: object | None = None) -> GovernanceKernel:
 
 
 def _floor_rows(tmp_path: Path) -> list[dict[str, Any]]:
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         rows = conn.execute(
             "SELECT payload_json FROM audit_log WHERE plugin = 'external_content_floor'"
         ).fetchall()
@@ -66,7 +67,7 @@ def _floor_rows(tmp_path: Path) -> list[dict[str, Any]]:
 
 
 def _all_audit_text(tmp_path: Path) -> str:
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         return json.dumps(conn.execute("SELECT * FROM audit_log").fetchall(), default=str)
 
 
@@ -122,7 +123,7 @@ def test_the_floor_runs_with_no_model_guard_and_when_the_guard_is_unavailable(
 
     # The guard failed open (it allowed, with a row that says so) and the floor still held.
     assert MARKER in outcome.text and outcome.text.startswith("<external_content ")
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         unavailable = conn.execute(
             "SELECT severity, payload_json FROM audit_log WHERE plugin = 'prompt_guard_retrieved'"
         ).fetchall()

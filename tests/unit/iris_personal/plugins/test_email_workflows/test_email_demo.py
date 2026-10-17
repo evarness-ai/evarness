@@ -27,6 +27,7 @@ import re
 import sqlite3
 import stat
 from collections.abc import Iterator
+from contextlib import closing
 from email.utils import parseaddr
 from pathlib import Path
 from typing import Any
@@ -351,7 +352,7 @@ def test_the_demo_runs_end_to_end_offline_and_audits_every_model_call(
     grant = WriteApprovalStore().get(DEMO_ACCOUNT)
     assert grant is not None and grant.approval_ref == f"iris email demo [audit #{row.id}]"
     assert report.writes_approved_now and report.writes_approval_ref == grant.approval_ref
-    with sqlite3.connect(WriteApprovalStore().db_path) as conn:
+    with closing(sqlite3.connect(WriteApprovalStore().db_path)) as conn, conn:
         approved = [r[0] for r in conn.execute("SELECT account_id FROM mailbox_write_approvals")]
     assert approved == [DEMO_ACCOUNT]
 

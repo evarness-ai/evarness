@@ -33,6 +33,7 @@ import sqlite3
 import time
 from collections import Counter
 from collections.abc import Callable, Mapping
+from contextlib import closing
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -537,7 +538,7 @@ def _die_before_saving(monkeypatch: pytest.MonkeyPatch, when: Callable[[Any], bo
 
 
 def _classified_by_knn(world: World) -> int:
-    with sqlite3.connect(world.deps.email_db) as conn:
+    with closing(sqlite3.connect(world.deps.email_db)) as conn, conn:
         row = conn.execute(
             "SELECT COUNT(*) FROM emails WHERE account_id = ? AND triage_state = 'classified'",
             (DEMO_ACCOUNT,),
@@ -851,7 +852,7 @@ def test_an_export_line_is_shown_once_and_never_stored(
     _script_key(monkeypatch, KeyScript("no_keyring", fix_outcome="export"))
     state = world.machine().advance(DEMO_ACCOUNT, Inputs(create_master_key=True))
     assert state.waiting_kind == BLOCKED and KEY in state.notice
-    with sqlite3.connect(world.deps.email_db) as conn:
+    with closing(sqlite3.connect(world.deps.email_db)) as conn, conn:
         dumped = "".join(str(r) for r in conn.execute("SELECT * FROM email_onboarding"))
     assert KEY not in dumped
     stored = world.machine().state(DEMO_ACCOUNT)

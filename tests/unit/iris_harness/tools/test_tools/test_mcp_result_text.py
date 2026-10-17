@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -124,7 +125,7 @@ def _call(bridge: MCPBridge, blocks: list[dict[str, Any]]) -> MCPInvocationResul
 
 
 def _rows(tmp_path: Path, plugin: str) -> list[tuple[str, str, dict[str, Any]]]:
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         rows = conn.execute(
             "SELECT decision, reason, payload_json FROM audit_log WHERE plugin = ?", (plugin,)
         ).fetchall()

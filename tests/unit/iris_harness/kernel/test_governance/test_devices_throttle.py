@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -211,7 +212,7 @@ def _fail(service: DeviceService, times: int) -> None:
 
 
 def _attempts(db_path: Path) -> list[int]:
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         return [r[0] for r in conn.execute("SELECT attempts FROM pairing_codes ORDER BY rowid")]
 
 

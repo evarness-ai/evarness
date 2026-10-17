@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -413,7 +414,7 @@ def test_a_ledger_from_before_gains_the_labels_column(tmp_path: Path) -> None:
     import sqlite3
 
     db = tmp_path / "email.db"
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         conn.execute(
             "CREATE TABLE trashed (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, "
             "subject TEXT NOT NULL, from_address TEXT NOT NULL, trashed_at TEXT NOT NULL, "

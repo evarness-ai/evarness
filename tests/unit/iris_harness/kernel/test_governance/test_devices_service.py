@@ -6,6 +6,7 @@ import os
 import re
 import sqlite3
 import stat
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -171,7 +172,7 @@ def test_starting_a_pairing_sweeps_dead_codes(tmp_path: Path, service: DeviceSer
     used = service.start_pairing(scope="read", actor="service", now=T0)
     service.claim(code=used.code, name="x", kind="app", now=T0)
     service.start_pairing(scope="read", actor="service", now=T0 + PAIRING_CODE_TTL)
-    with sqlite3.connect(tmp_path / "devices.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "devices.db")) as conn, conn:
         assert conn.execute("SELECT COUNT(*) FROM pairing_codes").fetchone()[0] == 1
 
 

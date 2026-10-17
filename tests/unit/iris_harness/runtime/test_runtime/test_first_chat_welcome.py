@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +59,7 @@ def _session_files() -> list[Path]:
 
 
 def _audit_rows(session_id: str) -> list[tuple[str, str, str]]:
-    with sqlite3.connect(audit_db_path()) as conn:
+    with closing(sqlite3.connect(audit_db_path())) as conn, conn:
         return conn.execute(
             "SELECT hook_point, decision, payload_json FROM audit_log "
             "WHERE json_extract(payload_json, '$.session_id') = ?",

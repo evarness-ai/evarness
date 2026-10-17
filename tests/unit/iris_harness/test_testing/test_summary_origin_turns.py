@@ -11,6 +11,7 @@ gone. A session that read nothing keeps an unflagged summary, which is not envel
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -32,7 +33,7 @@ SUMMARY = f"Weather chat: the owner asked about Oslo. {INJECTED}"
 
 def _stored_flag(h: Any, session_id: str) -> int | None:
     (db,) = list(h.home.rglob("memory.db"))
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         row = conn.execute(
             "SELECT has_external FROM conversation_summaries WHERE session_id = ?", (session_id,)
         ).fetchone()

@@ -6,6 +6,7 @@ The ontology here is test data written for these cases; memris knows none of it.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from textwrap import dedent
@@ -367,7 +368,7 @@ def test_sqlite_refuses_a_newer_schema(tmp_path: Path) -> None:
 
     path = tmp_path / "future.db"
     SQLiteGraphStore(path)
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute("UPDATE memris_meta SET value = '999' WHERE key = 'schema_version'")
     with pytest.raises(RuntimeError, match="schema 999"):
         SQLiteGraphStore(path)
@@ -450,7 +451,10 @@ def test_sqlite_upgrades_a_version_1_file_in_place(tmp_path: Path) -> None:
 
     path = tmp_path / "v1.db"
     SQLiteGraphStore(path)
-    with sqlite3.connect(path) as conn:  # rebuild the v1 shape: no reinforcement columns
+    with (
+        closing(sqlite3.connect(path)) as conn,
+        conn,
+    ):  # rebuild the v1 shape: no reinforcement columns
         conn.execute("DROP TABLE memris_statements")
         conn.execute(
             "CREATE TABLE memris_statements (id TEXT PRIMARY KEY, subject_id TEXT NOT NULL, predicate TEXT NOT NULL, "
@@ -479,7 +483,7 @@ def test_a_v3_database_gains_asked_at_on_its_entity_decisions(tmp_path: Path) ->
 
     path = tmp_path / "v3.db"
     SQLiteGraphStore(path)
-    with sqlite3.connect(path) as conn:
+    with closing(sqlite3.connect(path)) as conn, conn:
         conn.execute("DROP TABLE memris_entity_decisions")
         conn.execute(
             "CREATE TABLE memris_entity_decisions (id TEXT PRIMARY KEY, a TEXT NOT NULL, "
