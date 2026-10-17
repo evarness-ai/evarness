@@ -12,6 +12,7 @@ modules (core/SDK boundary plan, PR 2); their cases are in
 from __future__ import annotations
 
 import sqlite3
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -64,10 +65,14 @@ def test_the_store_is_wal_and_leaves_no_handle_open(
 ) -> None:
     opened: list[sqlite3.Connection] = []
     real_connect = sqlite3.connect
+    this_thread = threading.get_ident()
 
     def watching(*args: Any, **kwargs: Any) -> sqlite3.Connection:
         conn = real_connect(*args, **kwargs)
-        opened.append(conn)
+        # The patch is process-wide: a thread an earlier test left running can open one
+        # meanwhile, and it is not this store's, nor checkable from this thread.
+        if threading.get_ident() == this_thread:
+            opened.append(conn)
         return conn
 
     monkeypatch.setattr(sqlite3, "connect", watching)
