@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
 from iris_harness.foundation.clock import utc_now
-from iris_harness.foundation.persistence import connect, data_path
+from iris_harness.foundation.persistence import data_path, sqlite_conn
 from iris_harness.foundation.persistence.sqlite import ensure_columns
 from iris_harness.services.rag.models import DocumentChunk, DocumentSource, SourceKind
 from iris_harness.services.rag.sensitivity import ratchet
@@ -65,9 +66,12 @@ class DocumentStore:
             on_added=_backfill_when_classification_added,
         )
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = connect(self.db_path, row_factory=sqlite3.Row)
-        return conn
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     # ── sources ───────────────────────────────────────────────────────
 

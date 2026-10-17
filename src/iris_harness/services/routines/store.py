@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime, tzinfo
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from iris_harness.foundation.persistence import connect
+from iris_harness.foundation.persistence import sqlite_conn
 
 from .models import (
     RoutineApprovalRequest,
@@ -76,9 +78,12 @@ class RoutineStore:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
 
-    def _connect(self) -> sqlite3.Connection:
-        conn = connect(self.db_path, row_factory=sqlite3.Row)
-        return conn
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     @staticmethod
     def _json_tuple(value: tuple[str, ...]) -> str:

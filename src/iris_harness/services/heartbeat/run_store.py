@@ -23,12 +23,14 @@ from __future__ import annotations
 import json
 import logging
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Protocol
 
-from iris_harness.foundation.persistence import connect, data_path
+from iris_harness.foundation.persistence import data_path, sqlite_conn
 
 from .models import HeartbeatRun, HeartbeatStatus
 
@@ -156,8 +158,12 @@ class HeartbeatRunStore:
             conn.executescript(_SCHEMA)
         self._ready = True
 
-    def _connect(self) -> sqlite3.Connection:
-        return connect(self.db_path, row_factory=sqlite3.Row)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     # -- writes ----------------------------------------------------------------
 
