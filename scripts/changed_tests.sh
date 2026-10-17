@@ -142,7 +142,14 @@ mirror_target() {
 while IFS= read -r path; do
   case "$path" in
     tests/*.py)
-      add_target "$path" ;;
+      # Only a test file is a target. A conftest or helper module (a fake server, shared
+      # fixtures) holds no tests -- pytest given only it exits 5, "no tests ran" -- so its
+      # directory's tests are what it can break. The root conftest is a full-suite trigger,
+      # not a target: under NO_FULL the smoke run stands in, as for any trigger.
+      case "$(basename "$path")" in
+        test_*.py) add_target "$path" ;;
+        *) [[ "$(dirname "$path")" == "tests" ]] || add_target "$(dirname "$path")" ;;
+      esac ;;
     tests/*)
       ;;  # non-python test assets: covered by their directory's tests below
     src/*)
