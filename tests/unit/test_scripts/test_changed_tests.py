@@ -248,6 +248,25 @@ def test_every_full_suite_trigger_matches_a_tracked_file(
     )
 
 
+def _running(plan: str) -> list[str]:
+    """The targets under the plan's "running:" line (the trigger list is indented too)."""
+    lines = plan.splitlines()
+    start = next((i for i, line in enumerate(lines) if line.endswith("running:")), len(lines))
+    return [line.strip() for line in lines[start + 1 :] if line.startswith("    ")]
+
+
+def test_a_changed_conftest_or_helper_is_never_a_target_of_its_own() -> None:
+    """pytest given only a file with no tests exits 5: a PR that changed the root conftest
+    alone failed its test job that way. A helper's directory runs instead."""
+    root = _plan("tests/conftest.py", no_full=True)
+    assert "tests/conftest.py" not in _running(root)
+    assert "-m smoke" in root or "smoke marker only" in root
+    helper = _plan("tests/unit/iris_personal/test_connections/fake_google.py", no_full=True)
+    assert _running(helper) == ["tests/unit/iris_personal/test_connections"]
+    test_file = "tests/unit/iris_harness/memory/test_facts/test_fact_keys.py"
+    assert _running(_plan(test_file, no_full=True)) == [test_file]
+
+
 def test_trigger_fires_through_the_script() -> None:
     plan = _plan("src/iris_harness/runtime/bootstrap.py")
     assert "core file changed" in plan and "full suite" in plan
