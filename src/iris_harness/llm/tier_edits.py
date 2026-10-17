@@ -12,6 +12,12 @@ Only the fields that differ are stored, so a later deploy still changes the ones
 owner never touched. An edit applies to the live router at once, so the next turn uses
 it; helpers that built their client at startup pick it up after a restart.
 
+A third key, ``model_set``, records which of ``doctor.yaml``'s model sets ``iris doctor
+--fix`` applied (the set's name, whether it was forced, and the tiers it wrote) so a
+later doctor run can tell the active set from the one the host fits, and a change of
+set can reset the tiers the old set touched. A set is written as ordinary ``tier:``
+edits (:func:`apply_model_set`), so everything above applies to it unchanged.
+
 Guarded (the owner confirms, and the API enforces it): changing a tier's provider — its
 route — and moving an intent to a tier on a different provider. Either can change where
 a prompt goes, and on the VM the providers are routes with different privacy.
@@ -20,7 +26,8 @@ a prompt goes, and on the VM the providers are routes with different privacy.
 from __future__ import annotations
 
 import logging
-from dataclasses import replace
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -30,6 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 SETTINGS_SECTION = "llm_tiers"
+MODEL_SET_KEY = "model_set"
 EDITABLE_FIELDS = ("provider", "model", "max_tokens", "temperature", "timeout_seconds", "think")
 PROVIDERS = ("ollama", "lmstudio", "anthropic", "openrouter", "github")
 _LIMITS = {
@@ -202,3 +210,73 @@ def reset_intent(router: TierRouter, store: SettingsStore, intent: str, *, actor
     if declared is None:
         raise KeyError(intent)
     return move_intent(router, store, intent, declared, actor=actor)
+
+
+# ── model sets (doctor.yaml) ────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class RecordedModelSet:
+    """The ``model_set`` row: what ``iris doctor --fix`` last applied."""
+
+    name: str
+    forced: bool
+    #: The tiers that set wrote, so the next set can reset the ones it does not touch.
+    tiers: tuple[str, ...] = ()
+
+
+def recorded_model_set(store: SettingsStore) -> RecordedModelSet | None:
+    """The applied set, or ``None`` when no set was ever applied (the file's tiers)."""
+    try:
+        raw = store.get(SETTINGS_SECTION, MODEL_SET_KEY)
+    except Exception:  # a broken store reads as "nothing applied"
+        logger.exception("llm tiers: could not read the applied model set")
+        return None
+    if not isinstance(raw, dict) or not raw.get("name"):
+        return None
+    tiers = raw.get("tiers") or ()
+    return RecordedModelSet(
+        name=str(raw["name"]),
+        forced=bool(raw.get("forced", False)),
+        tiers=tuple(str(t) for t in tiers),
+    )
+
+
+def apply_model_set(
+    router: TierRouter,
+    store: SettingsStore,
+    name: str,
+    tiers: Mapping[str, Mapping[str, Any]],
+    *,
+    forced: bool,
+    actor: str,
+) -> RecordedModelSet:
+    """Write a model set: each of its ``tiers`` as a tier edit, and tiers the previous
+    set wrote but this one does not back to the file. Then record the set.
+
+    The set's tiers replace the owner's own edits on those tiers: choosing a set is a
+    deliberate move of the install, and the owner can still edit a tier afterwards.
+    Raises ``KeyError`` for a tier the file does not have and :class:`TierEditError`
+    for a field that does not fit, before anything is written.
+    """
+    validated = {tier: validate_fields(dict(fields)) for tier, fields in tiers.items()}
+    for tier in validated:
+        if tier not in router._declared_tiers:
+            raise KeyError(tier)
+    previous = recorded_model_set(store)
+    stale = () if previous is None else tuple(t for t in previous.tiers if t not in validated)
+    for tier in stale:
+        if tier in router._declared_tiers:
+            reset_tier(router, store, tier, actor=actor)
+    for tier, fields in validated.items():
+        declared = router._declared_tiers[tier]
+        update_tier(router, store, tier, {**_fields(declared), **fields}, actor=actor)
+    record = RecordedModelSet(name=name, forced=forced, tiers=tuple(validated))
+    store.set(
+        SETTINGS_SECTION,
+        MODEL_SET_KEY,
+        {"name": record.name, "forced": record.forced, "tiers": list(record.tiers)},
+        old=None if previous is None else {"name": previous.name, "forced": previous.forced},
+        actor=actor,
+    )
+    return record

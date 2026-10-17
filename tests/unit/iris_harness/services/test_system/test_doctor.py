@@ -21,15 +21,24 @@ from iris_harness.services.system import doctor as dr
 
 _GIB = 1024**3
 _STARTER = (dr.StarterModel("qwen2.5:7b-instruct", 4.7),)
+_LITE_STARTER = (dr.StarterModel("tiny:1b", 0.8),)
+# lite is forced-only (auto=False), as the shipped file has it until the holdout run.
+_LITE = dr.ModelSet(
+    "lite", 8, _LITE_STARTER, tiers={"email_judge": {"model": "tiny:1b"}}, auto=False
+)
+_STANDARD = dr.ModelSet("standard", 16, _STARTER)
 _CONFIG = dr.DoctorConfig(
-    ram_floor_gb=16,
     ram_demo_gb=8,
     platforms={"darwin": ("arm64",), "linux": ("x86_64", "aarch64")},
     data_headroom_gb=2,
     warn_free_gb=20,
-    starter_models=_STARTER,
+    model_sets=(_LITE, _STANDARD),
     optional_extras=(dr.OptionalExtra("ml", "sentence_transformers", "semantic discovery"),),
 )
+
+
+def _choice(gib: float, **kw: Any) -> dr.ModelSetChoice:
+    return dr.choose_model_set(_CONFIG, int(gib * _GIB), **kw)
 
 
 def _host(**overrides: Any) -> dr.HostFacts:
@@ -83,11 +92,13 @@ def facts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
         "free": 100 * 10**9,
         "spec": ">=3.12,<3.14",
         "tiers": ("qwen2.5:7b-instruct",),
+        "recorded": None,
     }
     monkeypatch.setattr(dr, "host_facts", lambda: state["host"])
     monkeypatch.setattr(dr, "disk_free_bytes", lambda p: (tmp_path, state["free"]))
     monkeypatch.setattr(dr, "requires_python", lambda: state["spec"])
-    monkeypatch.setattr(dr, "configured_ollama_models", lambda: state["tiers"])
+    monkeypatch.setattr(dr, "configured_ollama_models", lambda overrides=None: state["tiers"])
+    monkeypatch.setattr(dr, "recorded_model_set", lambda: state["recorded"])
     monkeypatch.setattr(dr, "extra_installed", lambda module: False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://ollama.test:11434")
     monkeypatch.delenv(vault_keys.MASTER_KEY_ENV, raising=False)
@@ -107,19 +118,137 @@ def _row(report: dr.DoctorReport, name: str) -> dr.DoctorCheck:
 # ── config ──────────────────────────────────────────────────────────────────────
 
 
-def test_shipped_config_loads_the_fallback_starter() -> None:
+def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     cfg = dr.load_doctor_config()
-    assert [m.name for m in cfg.starter_models] == ["qwen2.5:7b-instruct"]
-    assert cfg.ram_floor_gb == 16
+    assert [s.name for s in cfg.model_sets] == ["lite", "standard"]
+    standard = cfg.model_set("standard")
+    assert standard is not None
+    assert [m.name for m in standard.starter_models] == ["qwen2.5:7b-instruct"]
+    assert standard.tiers == {}
+    lite = cfg.model_set("lite")
+    assert lite is not None
+    assert not lite.auto  # forced only until tier 2 on the small model is measured
+    # The judge is not overridden: every smaller judge failed the holdout (ADR decision 7).
+    assert set(lite.tiers) == {"router", "tier2"}
+    assert lite.tiers["tier2"]["think"] is False
+    # Every model the lite tiers point at, and the shipped judge, is in the lite starter set.
+    lite_starters = {m.name for m in lite.starter_models}
+    assert {f["model"] for f in lite.tiers.values()} <= lite_starters
+    assert "qwen3.5:4b-q4_K_M" in lite_starters
+    assert cfg.ram_floor_gb == 16  # the smallest automatic set
     assert cfg.ram_demo_gb == 8
     assert {"email", "ml"} <= {e.name for e in cfg.optional_extras}
 
 
+def test_shipped_lite_tiers_exist_in_llm_tiers_yaml() -> None:
+    """A set that names a tier the file lacks would fail only at ``--fix``."""
+    import yaml
+
+    from iris_harness.foundation.paths import config_path
+
+    tiers = yaml.safe_load(config_path("llm_tiers.yaml").read_text(encoding="utf-8"))["tiers"]
+    for model_set in dr.load_doctor_config().model_sets:
+        assert set(model_set.tiers) <= set(tiers), model_set.name
+
+
+_BASE_YAML = "ram: {demo_gb: 8}\nplatforms: {linux: [x86_64]}\ndisk: {data_headroom_gb: 2, warn_free_gb: 20}\n"
+
+
+@pytest.mark.parametrize(
+    ("sets", "message"),
+    [
+        ("", "model_sets is required"),
+        ("model_sets: {a: {fits_when: {ram_gb: 8}, starter_models: []}}", "starter_models"),
+        ("model_sets: {a: {starter_models: [{name: x, size_gb: 1}]}}", "fits_when.ram_gb"),
+        (
+            "model_sets: {a: {fits_when: {ram_gb: 8, vram_gb: 4}, "
+            "starter_models: [{name: x, size_gb: 1}]}}",
+            "unknown keys",
+        ),
+        (
+            "model_sets: {a: {fits_when: {ram_gb: 8}, starter_models: [{name: x, size_gb: 1}], "
+            "tiers: {tier1: {num_ctx: 4096}}}}",
+            "tiers.tier1",
+        ),
+        (
+            "model_sets:\n"
+            "  big: {fits_when: {ram_gb: 16}, starter_models: [{name: x, size_gb: 1}]}\n"
+            "  small: {fits_when: {ram_gb: 8}, starter_models: [{name: x, size_gb: 1}]}\n",
+            "smallest to largest",
+        ),
+        (
+            "model_sets: {a: {fits_when: {ram_gb: 8}, auto: false, "
+            "starter_models: [{name: x, size_gb: 1}]}}",
+            "automatic",
+        ),
+    ],
+)
+def test_config_errors_name_what_is_wrong(tmp_path: Path, sets: str, message: str) -> None:
+    path = tmp_path / "doctor.yaml"
+    path.write_text(_BASE_YAML + sets)
+    with pytest.raises(dr.DoctorConfigError, match=message):
+        dr.load_doctor_config(path)
+
+
 def test_config_without_a_threshold_is_an_error(tmp_path: Path) -> None:
     path = tmp_path / "doctor.yaml"
-    path.write_text("ram: {floor_gb: 16}\nplatforms: {linux: [x86_64]}\nstarter_models: []\n")
-    with pytest.raises(dr.DoctorConfigError, match="starter_models"):
+    path.write_text(
+        "platforms: {linux: [x86_64]}\n"
+        "model_sets: {a: {fits_when: {ram_gb: 8}, starter_models: [{name: x, size_gb: 1}]}}\n"
+    )
+    with pytest.raises(dr.DoctorConfigError, match="ram.demo_gb"):
         dr.load_doctor_config(path)
+
+
+# ── the model set ───────────────────────────────────────────────────────────────
+
+
+def test_the_largest_automatic_set_the_host_fits_is_chosen() -> None:
+    big = _choice(32)
+    assert big.name == "standard" and big.fits and not big.forced
+    assert "32.0 GB RAM fits" in big.reason
+    assert _choice(15.6).name == "standard"  # a 16 GB Linux box
+    small = _choice(8)
+    assert small.name == "standard" and not small.fits  # lite is not automatic
+    assert "no set fits" in small.reason and "lite" not in small.reason
+
+
+def test_a_forced_set_is_taken_as_named() -> None:
+    lite = _choice(8, force="lite")
+    assert lite.name == "lite" and lite.fits and lite.forced
+    too_big = _choice(8, force="standard")
+    assert not too_big.fits and "needs 16 GB" in too_big.reason
+    with pytest.raises(KeyError):
+        _choice(8, force="huge")
+
+
+def test_apply_needed_follows_the_recorded_set() -> None:
+    from iris_harness.llm.tier_edits import RecordedModelSet
+
+    assert not _choice(32).apply_needed  # standard = the file's tiers, nothing recorded
+    assert _choice(8, force="lite").apply_needed  # lite changes tiers, nothing recorded
+    applied = RecordedModelSet("lite", True, ("email_judge",))
+    assert not _choice(8, force="lite", recorded=applied).apply_needed
+    assert _choice(32, recorded=applied).apply_needed  # back to standard: reset lite's tiers
+
+
+def test_model_set_row_states() -> None:
+    from iris_harness.llm.tier_edits import RecordedModelSet
+
+    info = dr.check_model_set(_choice(32))
+    assert info.state is HealthState.GREY
+    assert "standard: the largest set" in info.detail and "the shipped tiers" in info.detail
+    pending = dr.check_model_set(_choice(8, force="lite"))
+    assert pending.state is HealthState.YELLOW
+    assert "email_judge -> tiny:1b" in pending.detail and "not applied yet" in pending.detail
+    assert "--fix" in (pending.fix or "")
+    moved = dr.check_model_set(_choice(32, recorded=RecordedModelSet("lite", True, ())))
+    assert moved.state is HealthState.YELLOW
+    assert "applied: lite" in moved.detail
+    assert "--model-set lite" in (moved.fix or "")
+    done = dr.check_model_set(_choice(8, force="lite", recorded=RecordedModelSet("lite", True)))
+    assert done.state is HealthState.GREY
+    assert done.detail.endswith("applied")
 
 
 # ── each check ──────────────────────────────────────────────────────────────────
@@ -171,9 +300,34 @@ def test_platforms() -> None:
     ],
 )
 def test_ram_floor(gib: float, state: HealthState, blocks: str) -> None:
-    check = dr.check_ram(int(gib * _GIB), _CONFIG)
+    check = dr.check_ram(int(gib * _GIB), _CONFIG, _choice(gib))
     assert check.state is state
     assert check.blocks == blocks
+
+
+def test_ram_short_of_the_set_points_at_the_smaller_set_or_a_bigger_machine() -> None:
+    eight = int(8 * _GIB)
+    short = dr.check_ram(eight, _CONFIG, _choice(8))
+    assert "below the 16 GB the standard model set needs" in short.detail
+    assert "iris doctor --model-set lite" in (short.fix or "")
+    forced = dr.check_ram(eight, _CONFIG, _choice(8, force="standard"))
+    assert "Use a machine with 16 GB" in (forced.fix or "")
+    fits = dr.check_ram(eight, _CONFIG, _choice(8, force="lite"))
+    assert fits.state is HealthState.GREEN
+    assert "lite model set" in fits.detail
+
+
+def test_configured_models_take_the_set_overrides(tmp_path: Path) -> None:
+    path = tmp_path / "llm_tiers.yaml"
+    path.write_text(
+        "tiers:\n"
+        "  a: {provider: ollama, model: big:7b}\n"
+        "  b: {provider: lmstudio, model: x/y}\n"
+        "  c: {provider: ollama, model: judge:4b}\n"
+    )
+    assert dr.configured_ollama_models(path) == ("big:7b", "judge:4b")
+    overrides = {"a": {"model": "small:1b"}, "b": {"provider": "ollama", "model": "z:1b"}}
+    assert dr.configured_ollama_models(path, overrides) == ("small:1b", "z:1b", "judge:4b")
 
 
 def test_disk_needs_missing_models_plus_headroom(tmp_path: Path) -> None:
@@ -284,6 +438,87 @@ def test_verdict_demo_only_when_models_missing(facts: dict[str, Any], tmp_path: 
     assert report.fixable
 
 
+def test_a_forced_lite_set_makes_an_8gb_host_ready(facts: dict[str, Any], tmp_path: Path) -> None:
+    """The lite set sizes every check: memory passes, the lite starter is what is
+    missing, and the set itself is the one fix left once the model is pulled."""
+    from iris_harness.llm.tier_edits import RecordedModelSet
+
+    facts["host"] = _host(ram_total_bytes=8 * _GIB)
+    report = _run(tmp_path, _ollama([]), model_set="lite")
+    assert _row(report, "Memory").state is HealthState.GREEN
+    assert report.missing_models == _LITE_STARTER
+    assert report.model_set is not None and report.model_set.name == "lite"
+
+    pulled = _run(tmp_path, _ollama(["tiny:1b"]), model_set="lite")
+    assert pulled.verdict is dr.Verdict.READY  # the pending set is a warning, not a block
+    assert _row(pulled, "Model set").state is HealthState.YELLOW
+    assert pulled.fixable
+
+    facts["recorded"] = RecordedModelSet("lite", True, ("email_judge",))
+    applied = _run(tmp_path, _ollama(["tiny:1b"]), model_set="lite")
+    assert _row(applied, "Model set").state is HealthState.GREY
+    assert not applied.fixable
+
+
+def test_a_recorded_set_the_host_outgrew_is_a_warning(
+    facts: dict[str, Any], tmp_path: Path
+) -> None:
+    from iris_harness.llm.tier_edits import RecordedModelSet
+
+    facts["recorded"] = RecordedModelSet("lite", True, ("email_judge",))
+    report = _run(tmp_path, _ollama(["qwen2.5:7b-instruct"]))
+    row = _row(report, "Model set")
+    assert row.state is HealthState.YELLOW
+    assert "applied: lite" in row.detail
+    assert report.verdict is dr.Verdict.READY
+    assert report.fixable
+    assert report.as_dict()["model_set"]["apply_needed"] is True
+
+
+def test_an_unknown_forced_set_is_a_key_error(facts: dict[str, Any], tmp_path: Path) -> None:
+    with pytest.raises(KeyError):
+        _run(tmp_path, _ollama([]), model_set="huge")
+
+
+def test_apply_model_set_writes_and_resets_tier_edits(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Against the shipped files: lite's tiers land as tier edits, a reload of the
+    router sees them, and moving back to standard clears them."""
+    from iris_harness.foundation.paths import config_path
+    from iris_harness.foundation.settings import SettingsStore
+    from iris_harness.llm import tier_edits
+    from iris_harness.llm.tier_router import TierRouter
+
+    db = tmp_path / "settings.db"
+    monkeypatch.setattr(dr, "settings_store", lambda: SettingsStore(db_path=db))
+    cfg = dr.load_doctor_config()
+
+    line = dr.apply_model_set(dr.choose_model_set(cfg, 8 * _GIB, force="lite"))
+    assert line.startswith("model set lite applied")
+    store = SettingsStore(db_path=db)
+    assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
+        "lite", True, ("router", "tier2")
+    )
+    router = TierRouter.load_from_yaml(config_path("llm_tiers.yaml"), settings=store)
+    assert router.get_tier_by_name("tier2").model == "qwen3:4b"
+    assert router.get_tier_by_name("tier2").think is False
+    # The judge is the file's: lite does not touch it (ADR decision 7).
+    judge = router.get_tier_by_name("email_judge")
+    assert judge.model == router._declared_tiers["email_judge"].model
+    assert router.get_tier_by_name("tier1").model == router._declared_tiers["tier1"].model
+
+    recorded = tier_edits.recorded_model_set(store)
+    dr.apply_model_set(dr.choose_model_set(cfg, 32 * _GIB, recorded=recorded))
+    store = SettingsStore(db_path=db)
+    assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
+        "standard", False, ()
+    )
+    assert {k for k in store.section("llm_tiers") if k.startswith("tier:")} == set()
+    again = TierRouter.load_from_yaml(config_path("llm_tiers.yaml"), settings=store)
+    assert again.get_tier_by_name("tier2").model == again._declared_tiers["tier2"].model
+
+
 def test_verdict_demo_only_without_a_key(facts: dict[str, Any], tmp_path: Path) -> None:
     """The owner's vault key is a real-use requirement: `iris email demo` runs in its
     own home with a throwaway key, so a missing key must not read as 'not ready'."""
@@ -336,6 +571,9 @@ def test_report_as_dict_is_json(facts: dict[str, Any], tmp_path: Path) -> None:
     assert body["verdict"] == "demo_only"
     assert body["missing_models"] == [{"name": "qwen2.5:7b-instruct", "size_gb": 4.7}]
     assert {c["status"] for c in body["checks"]} <= {"pass", "warn", "fail", "info"}
+    assert body["model_set"]["name"] == "standard"
+    assert body["model_set"]["forced"] is False
+    assert body["model_set"]["recorded"] is None
 
 
 # ── fixes ───────────────────────────────────────────────────────────────────────
