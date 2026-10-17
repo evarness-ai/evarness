@@ -170,6 +170,10 @@ echo "IRIS_AUTH_SECRET=$(openssl rand -hex 32)" >> .env   # once; .env is git-ig
 docker compose up        # Ollama, the Governor and the IRIS API, on 127.0.0.1 only
 ```
 
+On Windows, the snippet is bash: in PowerShell use the one in the
+[Windows guide](https://evarness-ai.github.io/iris-harness/guides/windows/), which writes
+`.env` as ASCII (Windows PowerShell's `>>` writes UTF-16, which Compose cannot read).
+
 The first start pulls about 6 GB of model weights. Containerized Ollama is CPU-only, so on a
 Mac with Ollama already installed, run `make up-host` instead: it starts the Governor and the
 IRIS API against your native Ollama and skips the pull. Open the console at
@@ -194,6 +198,9 @@ starts healthy and a deterministic turn answers, but a turn that needs the 7B mo
 (`qwen2.5:7b-instruct`) failed twice with `llama-server process has terminated: signal:
 killed`, and Docker reported the Ollama container `OOMKilled`. Whether more memory fixes it
 has not been tested.
+On Windows 11 (Docker Desktop 28.3.2) against Ollama for Windows, the image builds, the
+Governor and the IRIS API come up healthy and `/chat` answers a deterministic turn; a model
+turn was not checked there.
 
 The [email assistant guide](https://evarness-ai.github.io/iris-harness/guides/email/)
 shows how to run the API from an install and pair the web console.
