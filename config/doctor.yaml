@@ -36,11 +36,14 @@ disk:
 # forced. Sets are listed smallest to largest. `size_gb` is the download size shown
 # before a pull (Ollama's API cannot say it before the pull starts).
 model_sets:
-  # CPU laptops with 8 to 16 GB. Forced only until the email judge's accuracy on
-  # qwen3:1.7b is measured against the holdout and recorded in the ADR (decision 7);
-  # then `auto: true` makes it the choice for those machines.
+  # CPU laptops with 8 to 16 GB. The email judge stays on the shipped 4B model: on the
+  # 50-email holdout (2026-10-17, ADR decision 7) every smaller judge tried
+  # (qwen3:1.7b, qwen3:4b, granite4.2:3b, llama3.2:3b) agreed with it on at most 30/50
+  # and called promotions and notifications bills or events. Only the router and tier 2
+  # shrink. Forced only until tier 2 on qwen3:4b is measured; then `auto: true` makes
+  # it the choice for those machines.
   lite:
-    description: 8 to 16 GB of RAM, no GPU; small models, about 4 GB resident
+    description: 8 to 16 GB of RAM, no GPU; a 1B router and a 4B tier 2, about 6 GB resident
     fits_when:
       ram_gb: 8
     auto: false
@@ -50,15 +53,13 @@ model_sets:
       tier2:
         model: qwen3:4b
         think: false     # a reasoning model; the agentic loop needs the answer, not the thinking
-      email_judge:
-        model: qwen3:1.7b
     starter_models:
       - name: llama3.2:1b
         size_gb: 1.3
-      - name: qwen3:1.7b
-        size_gb: 1.4
       - name: qwen3:4b
         size_gb: 2.6
+      - name: qwen3.5:4b-q4_K_M   # the email judge (llm_tiers.yaml), unchanged from standard
+        size_gb: 2.5
 
   # `llm_tiers.yaml` as shipped. R5 plans a single-model `starter` set gated on the
   # models-by-capability ADR's proof (draft, not merged); until that lands the starter
