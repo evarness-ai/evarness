@@ -42,9 +42,15 @@ def test_no_network_refuses_outbound_connections_and_restores_them() -> None:
     assert socket.socket.connect is real
 
 
-def test_no_network_lets_an_event_loop_make_its_self_pipe() -> None:
+def test_no_network_lets_an_event_loop_make_its_self_pipe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     # On Windows socket.socketpair() connects over loopback, and every new event loop
-    # makes one; refusing it failed every async turn under no_network() there.
+    # makes one; refusing it failed every async turn under no_network() there. Where the OS
+    # has a native pair, use CPython's loopback fallback, so this runs Windows' path anywhere.
+    fallback = getattr(socket, "_fallback_socketpair", None)
+    if fallback is not None:
+        monkeypatch.setattr(socket, "socketpair", fallback)
     real = socket.socketpair
     with no_network() as attempted:
         left, right = socket.socketpair()
