@@ -69,6 +69,8 @@ model_sets:
     starter_models:
       - name: qwen2.5:7b-instruct
         size_gb: 4.7
+      - name: qwen3.5:4b-q4_K_M    # the email judge: `iris email setup` stops without it
+        size_gb: 2.5
 
 # Optional extras: reported as information, never a failure. `module` is what is
 # importable when the extra is installed.

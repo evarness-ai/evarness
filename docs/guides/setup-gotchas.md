@@ -47,12 +47,18 @@ it goes in the Keychain. On Linux with no keyring (WSL2, a headless server) it p
 `export IRIS_VAULT_MASTER_KEY=...` line: put it in your shell profile and keep a copy,
 because the vault cannot be read without the key.
 
-**`--fix` did not pull the email judge's model.** It pulls only the general starter model.
-The email judge is pinned to a smaller one that `iris doctor` does not check. Without it,
-the "Classify" step of `iris email setup` stops with
-`the email_judge model is unavailable (model 'qwen3.5:4b-q4_K_M' is not pulled: run
-'ollama pull ...')`. Run `ollama pull qwen3.5:4b-q4_K_M` and run `iris email setup` again.
-The demo is unaffected.
+**The email judge's model is missing.** The "Classify" step of `iris email setup` stops
+with `the email_judge model is unavailable (model 'qwen3.5:4b-q4_K_M' is not pulled: run
+'ollama pull ...')`. Run `iris doctor --fix` and `iris email setup` again: the judge's
+model is in every model set's starters, so `--fix` pulls it (before 0.1.6 it pulled only
+the general starter model, and `ollama pull qwen3.5:4b-q4_K_M` was the fix). The demo is
+unaffected.
+
+**"Model set" says `lite` on a 16 GB machine, or `standard` on an 8 GB one.** Doctor sizes
+by total RAM in whole GiB; a 16 GB Linux box that reports 15.6 GiB counts as 16. If it
+chose wrong for you, `iris doctor --model-set <name> --fix` forces a set; the choice is
+saved, and a later plain `iris doctor` warns when the set it would pick differs from the
+one applied, with the command to keep or move.
 
 **Setup on 0.1.0 to 0.1.2 marked every email Unsure.** Those releases did not stop at a
 missing judge model. Ollama answered `404 model not found` for each email, setup printed a

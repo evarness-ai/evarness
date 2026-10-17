@@ -88,14 +88,17 @@ The `DataClassifierHook` (`PreClassify`, priority 10) tags content; the `ToolPol
 | Tier | Current default (see config) | When used | Provider |
 |---|---|---|---|
 | `router` | `llama3.2:3b` | Intent/label classification only (decoupled from Tier 1, 2026-05-20) | Ollama local |
-| 1 | `granite4:latest` | Fast simple replies, orchestration, system turns | Ollama local |
-| 2 | `qwen2.5:7b-instruct` | Code, reasoning, structured extraction, brief rendering, routine authoring | Ollama local |
+| 1 | `granite4.2:3b` | Fast simple replies, orchestration, system turns | Ollama local |
+| 2 | `qwen2.5:7b-instruct` (`lite`: `qwen3.5:4b-q4_K_M`) | Code, reasoning, structured extraction, brief rendering, routine authoring, the agentic email/finance/planner turns | Ollama local |
 | 3 | `qwen/qwen3.6-35b-a3b` | Complex reasoning the user explicitly opted into (35B-A3B MoE) | LM Studio (MLX) / Ollama; cloud only for coding agent |
-| `code_exec` | `llama3.2:3b` | Sandboxed code execution from the ReAct loop | Ollama local |
+| `code_exec` | `qwen2.5-coder:7b` | Sandboxed code execution from the ReAct loop | Ollama local |
+| `email_judge` | `qwen3.5:4b-q4_K_M` | One schema-constrained verdict per email (pinned: never downshifted) | Ollama local |
 | `gemma` | `google/gemma-4-e4b` | Optional Apple Silicon path via LM Studio | LM Studio local |
 | `fallback` | `granite4:latest` | Hot tier-1 substitute when degraded | Ollama local |
 
 Config: `config/llm_tiers.yaml`. Intent → tier mapping under each tier's `use_for:` list. **Prefer cheaper / local tiers** — only escalate when the lower tier's confidence is below threshold or the task explicitly needs it.
+
+**Model sets (per host):** `config/doctor.yaml` names sets sized to the machine, each with the RAM it fits, its starter models and a sparse override of the tiers above. `iris doctor` picks the largest set the host fits (`standard` at 16 GB is the table as shipped; `lite` at 8 GB moves tier 2 onto the judge's 4B model, measured in the model-sets ADR) and `--fix` pulls the set's models and writes its overrides through the tier-edit store (`llm/tier_edits.py`, the settings section `llm_tiers`), so they survive an upgrade and the owner can still edit one tier afterwards. `--model-set <name>` forces a set.
 
 **Adaptive selection:** `TierRouter` may be wrapped by `OllamaArbiter` + `ResourceGovernor`, which downshift the chosen tier under host pressure (memory/load) — opt in via `IRIS_ADAPTIVE_TIERS`, disable via `IRIS_DISABLE_ARBITER`.
 

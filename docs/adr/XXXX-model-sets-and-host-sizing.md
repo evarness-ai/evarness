@@ -196,9 +196,10 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
 1. A user on an 8-16 GB machine gets a working email assistant with a 4.5 GB pull and
    about 5 GB resident with the router and the one 4B model warm, instead of a refusal,
-   and `iris doctor` picks it without being asked. `standard`'s starter list does not
-   include the judge (its tier-models check warns about it); `lite`'s does, since the
-   same model is its tier 2. A user on a big machine sees no change.
+   and `iris doctor` picks it without being asked. Both sets list the judge's model among
+   their starters (`standard` did not at first; `iris email setup` stops without it, and
+   every page told the owner to pull it by hand), so `--fix` leaves nothing to pull. A user
+   on a big machine sees no change beyond that pull.
 2. `doctor.yaml` gains a schema (`model_sets`, `fits_when`, per-set `starter_models`);
    `services/system/doctor.py` gains host sizing and a `--model-set` flag; `tier_edits`
    gains the `model_set` key; `iris system status` prints the set. Tests:

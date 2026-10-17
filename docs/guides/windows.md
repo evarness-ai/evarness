@@ -39,7 +39,8 @@ docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up -d --no-de
 ```
 
 This is what `make up-host` runs; `make` is usually not installed on Windows. Pull the models
-`config/llm_tiers.yaml` names with `ollama pull` first.
+`config/llm_tiers.yaml` names with `ollama pull` first (the stack runs the `standard` model
+set; `iris doctor --fix` on a native install pulls the set the machine fits).
 
 ## Develop natively
 

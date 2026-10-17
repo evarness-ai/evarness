@@ -60,7 +60,10 @@ providers.py`, published as `iris_harness.sdk.research`). Every provider joins i
 `PluginAPI.register_search_provider(name, provider, priority=None)` -- the research
 plugin's five built-ins in its `setup`, and any other plugin's the same way -- so a
 plugin's provider gets the same guards (finance refusal, owner-identifier stripping:
-both run in the tool, before the chain), cache, rerank and audit. The order is
+both run in the tool, before the chain; the finance refusal reads the turn's own
+question as well as the query the model wrote, since a model rewriting "which payments
+are due according to my inbox" as "payments due soon" drops the possessive that marks
+it as the owner's money), cache, rerank and audit. The order is
 `config/search_providers.yaml` (priority, lower first; `enabled: false` drops one); a
 provider it does not name runs at its registered `priority`, else `default_priority`
 (500: after the keyed built-ins, before DuckDuckGo at 1000). The file is read per call.
