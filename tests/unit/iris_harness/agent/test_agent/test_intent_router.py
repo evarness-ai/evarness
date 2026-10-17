@@ -538,6 +538,12 @@ def test_router_json_parser_strips_think_blocks() -> None:
     parsed = _parse_router_json(leaky)
     assert parsed is not None and parsed["intent"] == "calendar"
 
+    # No opening tag at all (Ollama's qwen3:4b with think=false, 2026-10-17): the
+    # thinking, with its JSON-looking musings, ends at the bare closer.
+    bare = 'maybe {"intent": "weather", "agent_type": "system"}?\n</think>\n' + valid
+    parsed = _parse_router_json(bare)
+    assert parsed is not None and parsed["intent"] == "calendar"
+
 
 def test_keyword_search_routes_to_web_capable_system() -> None:
     """Web/factual lookups must reach the system handler (research), not rag."""

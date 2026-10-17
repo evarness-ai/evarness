@@ -52,17 +52,14 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
    ```yaml
    model_sets:
-     lite:        # CPU laptops, 8-16 GB RAM; forced only until tier 2 is measured
+     lite:        # CPU laptops, 8-16 GB RAM; measured, so automatic (decision 7)
        fits_when: { ram_gb: 8 }
-       auto: false
        tiers:
-         router:      { model: llama3.2:1b }
-         tier2:       { model: qwen3:4b, think: false }
-         # email_judge is NOT overridden: see decision 7
+         tier2:       { model: qwen3.5:4b-q4_K_M, think: false }   # the judge's model
+         # router and email_judge are NOT overridden: see decision 7
        starter_models:
-         - { name: llama3.2:1b,       size_gb: 1.3 }
-         - { name: qwen3:4b,          size_gb: 2.6 }
-         - { name: qwen3.5:4b-q4_K_M, size_gb: 2.5 }   # the judge, same as standard
+         - { name: llama3.2:3b,       size_gb: 2.0 }   # the router, same as standard
+         - { name: qwen3.5:4b-q4_K_M, size_gb: 2.5 }   # tier 2 here; the judge everywhere
      standard:    # today's llm_tiers.yaml, unchanged
        fits_when: { ram_gb: 16 }
        tiers: {}
@@ -78,8 +75,8 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
    The top-level `starter_models` list moves under `standard`. `tier1` (`granite4.2:3b`)
    is already small and is the governor's downshift target; `lite` leaves it alone.
    `auto: false` keeps a set out of the automatic choice until it is measured; it is
-   then applied only when forced. The judge in `lite` is the measured result of decision
-   7; tier 2 on `qwen3:4b` is still a proposal (consequence 3).
+   then applied only when forced. Everything `lite` changes is now measured (decision
+   7), so it is automatic: an 8-16 GB host lands on it without being asked.
 
 2. **`iris doctor` picks the largest set the host satisfies and says why.**
    `fits_when` is a conjunction of minimums; sets are ordered smallest to largest and
@@ -142,15 +139,41 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
    up to 4000 characters of body; here every model saw the snippet, so absolute numbers
    shift with bodies, but every model saw the same text and the gap is not close.
 
-   *Decision:* the judge is not where the memory goes (about 2.5 GB resident), so `lite`
-   keeps `qwen3.5:4b-q4_K_M` and shrinks only the router and tier 2. `qwen3:1.7b` is out.
-   A smaller judge is revisited only with a smaller model that passes this table.
-   The option of running tier 2 and the judge on the one 4B model (about 3.8 GB resident
-   in all) was considered and not taken: tier 2 on `qwen3.5:4b` is unmeasured and the
-   tier 1 log of 2026-05-19 records it regressing tool calls.
+   *Decision on the judge:* the judge is not where the memory goes (about 2.5 GB
+   resident), so `lite` keeps `qwen3.5:4b-q4_K_M`. `qwen3:1.7b` is out. A smaller judge
+   is revisited only with a smaller model that passes this table.
 
-   *Still open before `auto: true`:* tier 2 on `qwen3:4b` (chat, tool calls, the agentic
-   loop) against the standard tier 2.
+   *Tier 2, measured 2026-10-17.* A 12-scenario suite over the demo mailbox (200
+   synthetic emails, judged): inbox search, bills due, appointments, who is waiting on a
+   reply, a digest, a count, the planner, the profile, code generation, a numbered plan.
+   Each turn ran through the real runtime with the governed tools, with the model set
+   applied through the tier-edit store, two passes per variant in its own copy of the
+   demo home. A run passes when the turn reached the agent loop without error, the
+   answer names the right sender or fact, and nothing was web-searched.
+
+   | Tier 2 model | Router | Passed | Web-search detours | Thinking leaked | p50 / mean turn |
+   |---|---|---|---|---|---|
+   | `qwen2.5:7b-instruct` (standard) | 3B | 18/24 | 2 | 0 | 7.0 s / 7.8 s |
+   | `qwen3:4b` (first lite proposal) | 3B | 16/24 | 0 | 10 | 28.8 s / 58 s, one timeout |
+   | `qwen3:4b` with the `llama3.2:1b` router | 1B | 14/24 | 0 | 11 | 21.2 s / 34 s |
+   | `qwen3.5:4b-q4_K_M` (the judge's model) | 3B | 21/24 | 0 | 0 | 7.2 s / 7.7 s |
+   | `granite4.2:3b` (tier 1) | 3B | 18/24 | 0 | 0 | 5.0 s / 5.9 s |
+
+   `qwen3:4b` fails for a reason outside the model's judgment: the harness sends Ollama
+   `think: false` (verified at the request), and this model tag ignores it, returning
+   its thinking inline with no opening tag, which the harness's stripper did not match
+   (fixed with this measurement). Every no-tool answer carried a chain of thought and
+   turns took four to eight times longer. `qwen3.5:4b-q4_K_M` and `granite4.2:3b`
+   honour the flag. The 7B's two web-search detours were on "which payments are due":
+   its search query dropped the possessive, so the research guard (ADR-0102) did not
+   fire; the guard now also reads the turn's own question (fixed with this measurement).
+
+   *Decision on tier 2:* `lite` runs tier 2 on `qwen3.5:4b-q4_K_M`, the judge's model,
+   and keeps the shipped 3B router. One 4B model resident serves both, about 5 GB with
+   the router and the embedder. It beat the 7B on this suite at the same latency. The
+   tier 1 log of 2026-05-19 recorded this model regressing tool calls as tier 1; on
+   this suite it called the right tool more often than the 7B (14 tool-using runs to
+   12). Nothing `lite` changes is unmeasured, so `lite` is automatic.
 
 8. **Not decided here, recorded so they are not lost.** Two follow-ups that the research
    behind this ADR supports, each its own decision:
@@ -171,12 +194,11 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
 ## Consequences
 
-1. A user on an 8-16 GB machine gets a working email assistant with a 6.4 GB pull and
-   about 6 GB resident with the router, tier 2 and the judge all warm, instead of a
-   refusal. The pull is larger than `standard`'s 4.7 GB because `standard`'s starter
-   list does not include the judge (its tier-models check warns about it); the resident
-   figure, not the download, is what the 8 GB floor is about. A user on a big machine
-   sees no change.
+1. A user on an 8-16 GB machine gets a working email assistant with a 4.5 GB pull and
+   about 5 GB resident with the router and the one 4B model warm, instead of a refusal,
+   and `iris doctor` picks it without being asked. `standard`'s starter list does not
+   include the judge (its tier-models check warns about it); `lite`'s does, since the
+   same model is its tier 2. A user on a big machine sees no change.
 2. `doctor.yaml` gains a schema (`model_sets`, `fits_when`, per-set `starter_models`);
    `services/system/doctor.py` gains host sizing and a `--model-set` flag; `tier_edits`
    gains the `model_set` key; `iris system status` prints the set. Tests:

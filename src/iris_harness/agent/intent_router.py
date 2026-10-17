@@ -712,10 +712,11 @@ class LLMRouterClassifier:
 
 _JSON_OBJECT_RE = re.compile(r"\{.*\}", re.DOTALL)
 # Thinking-by-default models (qwen3.x family) wrap output in <think> blocks;
-# under a tight num_predict the closing tag may never arrive. Strip both
-# forms BEFORE JSON extraction — exp-005 measured 100% silent keyword
-# fallback (at 5.4s/request) without this.
-_THINK_BLOCK_RE = re.compile(r"<think>.*?(?:</think>|\Z)", re.DOTALL)
+# under a tight num_predict the closing tag may never arrive, and Ollama's
+# qwen3:4b told ``think: false`` returns its thinking with no opening tag at all
+# (llm/client.py has the same pattern). Strip every form BEFORE JSON extraction
+# — exp-005 measured 100% silent keyword fallback (at 5.4s/request) without this.
+_THINK_BLOCK_RE = re.compile(r"<think>.*?(?:</think>|\Z)|\A(?:(?!<think>).)*?</think>", re.DOTALL)
 
 
 def _parse_router_json(raw: str) -> dict[str, Any] | None:

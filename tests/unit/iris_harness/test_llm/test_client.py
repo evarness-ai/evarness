@@ -230,6 +230,16 @@ def test_coerce_invocation_response_strips_think_blocks() -> None:
     untouched = _coerce_invocation_response(_Msg("plain answer, no thinking"))
     assert untouched.content == "plain answer, no thinking"
 
+    # Ollama's qwen3:4b told think=false: thinking inline with only the closing tag
+    # (2026-10-17, tier 2 suite). Everything before the first closer is thinking.
+    bare = _coerce_invocation_response(
+        _Msg("Okay, the user asked for a plan. Let me think.\n</think>\n\n1. Brush. 2. Floss.")
+    )
+    assert bare.content == "1. Brush. 2. Floss."
+    # But an opening tag later in the text says where the thinking starts: keep the lead.
+    lead = _coerce_invocation_response(_Msg("Sure.<think>hmm</think> Here it is."))
+    assert lead.content == "Sure. Here it is."
+
 
 def test_stripped_public_content_downgrade_only_for_web_synthesis() -> None:
     """The cloud search-synthesis client downgrades a 'personal' classification (PII in
