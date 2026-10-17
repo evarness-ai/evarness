@@ -85,16 +85,17 @@ back.
 
 ### The safe fixes: `iris doctor --fix`
 
-<!-- ci: skip downloads the starter model (about 4.7 GB) from Ollama -->
+<!-- ci: skip downloads the starter models (4.5 to 7.2 GB) from Ollama -->
 ```bash
 iris doctor --fix
 ```
 
-`--fix` applies only two kinds of fix, and asks before each: it pulls a missing starter
-model through Ollama, and it creates a vault master key if there is none. It never
-overwrites a stored key, since your secrets are encrypted under it. Add `--yes` to
-skip the questions. `--json` prints the report as JSON for scripts, and applies no
-fixes.
+`--fix` applies only three kinds of fix, and asks before each: it points the tiers at
+the model set's models when that set is not the one applied, it pulls the set's missing
+starter models through Ollama (the general model and the email judge's), and it creates
+a vault master key if there is none. It never overwrites a stored key, since your
+secrets are encrypted under it. Add `--yes` to skip the questions. `--json` prints the
+report as JSON for scripts, and applies no fixes.
 
 **The vault master key.** Every governed tool call needs it, so without it IRIS
 refuses them. On macOS, `--fix` stores the key in the Keychain. On Linux with no
@@ -102,18 +103,18 @@ keyring (WSL2, a headless server), it prints an `export IRIS_VAULT_MASTER_KEY=..
 line instead. Put that line in your shell profile, and keep a copy somewhere safe,
 because the vault cannot be read without the key.
 
-**The email judge needs its own model, separately.** `--fix` pulls only the general
-starter model above; the email assistant's judge is pinned to a specific, smaller one
-(`config/llm_tiers.yaml`'s `email_judge` tier) that `iris doctor` does not check or
-pull. Before [connecting your mailbox](connect-your-mailbox.md), also run:
+**The email judge's model.** The email assistant's judge is pinned to one small model
+(`config/llm_tiers.yaml`'s `email_judge` tier, `qwen3.5:4b-q4_K_M`), and every model
+set lists it among its starters, so `--fix` pulls it. On an install from before 0.1.6,
+or if `iris email setup`'s "Classify" step stops with "model 'qwen3.5:4b-q4_K_M' is not
+pulled", pull it yourself:
 
 <!-- ci: skip downloads the email judge's model (about 2.5 GB) from Ollama -->
 ```bash
 ollama pull qwen3.5:4b-q4_K_M
 ```
 
-Without it, `iris email setup`'s "Classify" step blocks with "no local email_judge
-model tier is configured" — the demo is unaffected, since it runs on a scripted model.
+The demo is unaffected either way, since it runs on a scripted model.
 
 ## Guided setup: `iris setup`
 

@@ -57,6 +57,15 @@ secret data never leaves the local tiers, whatever the intent asks for. The clou
 is off until you configure it, and even then it sees only data the egress gate lets
 out ([governance](governance.md)).
 
+The tiers are sized to the machine by a **model set** (`config/doctor.yaml`). A set names
+the RAM it fits, the models to pull and a sparse override of the tiers. `iris doctor`
+picks the largest set the host fits, `standard` (the shipped tiers, 16 GB) or `lite`
+(8 GB: one 4B model, the email judge's, serves tier 2 as well), and `--fix` pulls that
+set's models and saves its overrides as settings, the same tier edits the console
+makes, so an upgrade keeps them and you can still change one tier afterwards. Separate
+from that install-time sizing, the resource governor (opt-in, `IRIS_ADAPTIVE_TIERS`)
+downshifts a turn to tier 1 when the host is under memory or thermal pressure.
+
 ## Services
 
 | Service | Port | Module |

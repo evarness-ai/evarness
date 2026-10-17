@@ -122,6 +122,12 @@ tiers:
     #   2026-05-19 qwen2.5:7b-instruct (this commit) — general-purpose
     #     instruct variant, better at prose / chat / prompt fidelity
     #     for identity questions. Same size, comparable VRAM footprint.
+    #   2026-10-17 on an 8-16 GB host the `lite` model set (config/doctor.yaml,
+    #     applied by `iris doctor --fix` as a tier edit, not here) moves this tier
+    #     to qwen3.5:4b-q4_K_M, the email judge's model, think off: 21/24 on the
+    #     tier 2 suite over the demo mailbox against this model's 18/24, same
+    #     latency (model-sets ADR, decision 7). qwen3:4b was rejected: it ignores
+    #     think=false and thinks inline.
     model: "qwen2.5:7b-instruct"
     max_tokens: 4096
     num_ctx: 16384          # ReAct prompt + tool catalog + iterations, and >= 4x max_tokens
@@ -199,7 +205,9 @@ tiers:
   # with a JSON-schema reply (CodingLLMClient.invoke_json: governed, think=false), one
   # governed call per email. Always the Mac's Ollama and always this model: `pinned` stops the resource governor's downshift and any
   # learned prior from moving it, because the judge's accuracy is only comparable run
-  # to run on one model. A 4B reasoning model — the call turns thinking off. The reply
+  # to run on one model (a model set may move it deliberately; none does today, and
+  # the `lite` set runs tier 2 on this same model, so one 4B model is resident for
+  # both). A 4B reasoning model — the call turns thinking off. The reply
   # is one small JSON object; 768 tokens leaves headroom past a typical verdict (or the
   # namer's root.branch.leaf + one-sentence rationale, same tier -- issue #68) so an
   # unusually verbose reply doesn't get cut before the closing brace. 8192 holds the

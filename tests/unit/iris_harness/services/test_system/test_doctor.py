@@ -123,7 +123,12 @@ def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     assert [s.name for s in cfg.model_sets] == ["lite", "standard"]
     standard = cfg.model_set("standard")
     assert standard is not None
-    assert [m.name for m in standard.starter_models] == ["qwen2.5:7b-instruct"]
+    # Tier 2 and the judge: `iris email setup` stops without the judge's model, so
+    # --fix pulls it in every set.
+    assert [m.name for m in standard.starter_models] == [
+        "qwen2.5:7b-instruct",
+        "qwen3.5:4b-q4_K_M",
+    ]
     assert standard.tiers == {}
     lite = cfg.model_set("lite")
     assert lite is not None

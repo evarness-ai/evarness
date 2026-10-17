@@ -42,7 +42,10 @@ stack started and a plain turn answered, but a turn that needed `qwen2.5:7b-inst
 killed`, and `docker inspect` showed the Ollama container `OOMKilled=true`. The 3B router
 model loaded fine. Give Docker more memory (Docker Desktop, Settings, Resources), or use
 `make up-host` and let a native Ollama run the models. We have not measured how much
-memory the 7B tier needs, so treat anything above 8 GB as untested.
+memory the 7B tier needs, so treat anything above 8 GB as untested. The `lite` model set
+that `iris doctor` picks for an 8 GB machine (one 4B model for tier 2 and the email
+judge) is a native-install path: `ollama-init` pulls the shipped tiers, not a set, and
+running the stack on `lite` has not been tried.
 
 If you see `signal: killed` from Ollama, check `docker inspect <ollama container> --format
 '{{.State.OOMKilled}}'` first.
@@ -107,8 +110,9 @@ gets a 401, as does any data call without the bearer token.
 
 ## Models
 
-`ollama-init` pulls the models `config/llm_tiers.yaml` routes to. To change them, edit
-both that file and the `ollama-init` command in `docker-compose.yml`, or pull by hand:
+`ollama-init` pulls the models `config/llm_tiers.yaml` routes to (the `standard` model
+set; `iris doctor`'s host sizing does not run in the stack). To change them, edit both
+that file and the `ollama-init` command in `docker-compose.yml`, or pull by hand:
 
 ```bash
 docker compose exec ollama ollama pull <model>

@@ -29,7 +29,7 @@ that is already connected:
 
 ```bash
 iris auth imap login --user you@example.com    # an app password; or: iris auth gmail login --user you@gmail.com
-ollama pull qwen3.5:4b-q4_K_M                  # the email judge's model; iris doctor --fix does not pull it
+iris doctor --fix                              # pulls the models for the set your machine fits, the email judge's included
 iris email setup                               # fetch, classify, preview labels, ask before any write
 ```
 
@@ -50,7 +50,8 @@ If an install or setup stops:
   project, so in a clone it builds an empty environment and installs nothing. Install the
   package with the commands above; to work on the code, use Poetry (see below).
 - **The email judge's model.** If `iris email setup` stops with `model 'qwen3.5:4b-q4_K_M' is
-  not pulled`, run `ollama pull qwen3.5:4b-q4_K_M` and run setup again. On 0.1.0 to 0.1.2 a
+  not pulled`, run `iris doctor --fix` (or `ollama pull qwen3.5:4b-q4_K_M`) and run setup
+  again; before 0.1.6 `--fix` did not pull the judge's model. On 0.1.0 to 0.1.2 a
   missing model instead printed a 404 traceback per email and marked every email Unsure.
   Upgrade, then judge them again:
 
@@ -139,7 +140,7 @@ with the governance decision at every hook. Both are from `iris email demo`:
 
 | Part | Where |
 |---|---|
-| The agentic core: router, planner, ReAct loop, executor, curator, with tiered model routing (a router model, local tiers on Ollama or LM Studio, an opt-in cloud tier) | `src/iris_harness/agent/`, `config/llm_tiers.yaml` |
+| The agentic core: router, planner, ReAct loop, executor, curator, with tiered model routing (a router model, local tiers on Ollama or LM Studio, an opt-in cloud tier) and model sets sized to the host (`iris doctor` picks one; its tier overrides are saved as settings) | `src/iris_harness/agent/`, `config/llm_tiers.yaml`, `config/doctor.yaml` |
 | The governance kernel: classification, the egress gate, a Fernet vault, tool policy, approvals, an out-of-process evaluator, the audit ledger | `src/iris_harness/kernel/governance/` |
 | The plugin SDK and host | `src/iris_harness/sdk/`, `src/iris_harness/runtime/plugin_host/` |
 | Reference plugins: `system`, `research`, `code_exec`, and the Telegram, web and web-push channels | `src/iris_harness/plugins_builtin/` |
@@ -198,7 +199,8 @@ deterministic turn and a model turn, and the console loads. With the bundled Oll
 starts healthy and a deterministic turn answers, but a turn that needs the 7B model
 (`qwen2.5:7b-instruct`) failed twice with `llama-server process has terminated: signal:
 killed`, and Docker reported the Ollama container `OOMKilled`. Whether more memory fixes it
-has not been tested.
+has not been tested, and the `lite` model set (one 4B model, for 8 GB hosts) has not been
+tried inside Docker: `ollama-init` pulls the shipped tiers, not a set.
 On Windows 11 (Docker Desktop 28.3.2) against Ollama for Windows, the image builds, the
 Governor and the IRIS API come up healthy and `/chat` answers a deterministic turn; a model
 turn was not checked there.
