@@ -11,6 +11,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -137,7 +138,7 @@ def test_the_audit_row_lands_in_the_ledger_with_the_session_stamped(tmp_path: Pa
     set_reentry_recorder(audit_recorder(log))
     with session_scope("sess-145"):
         reenter_text(f"a {RAW}", reader="memory_search", origin="sessions", role="assistant")
-    with sqlite3.connect(tmp_path / "audit.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "audit.db")) as conn, conn:
         rows = conn.execute(
             "SELECT hook_point, plugin, payload_json FROM audit_log WHERE plugin = 'reentry'"
         ).fetchall()

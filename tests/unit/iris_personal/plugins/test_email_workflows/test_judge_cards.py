@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -161,7 +162,7 @@ def test_the_card_shows_the_models_own_guess_when_it_was_not_sure_enough(
 ) -> None:
     import sqlite3
 
-    with sqlite3.connect(inbox.judgments.db_path) as conn:
+    with closing(sqlite3.connect(inbox.judgments.db_path)) as conn, conn:
         conn.execute(
             "UPDATE email_judgments SET fields = json_set(fields, '$.guess', 'fyi') "
             "WHERE message_id = 'm-plan'"

@@ -7,6 +7,7 @@ in ``IRIS_TZ``, rendered with the digest's sections/caps/channel, and every run 
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -346,7 +347,7 @@ def test_a_real_digest_run_ages_missed_reminders_but_a_dry_run_does_not(
         remind_at=datetime(2026, 9, 21, 13, tzinfo=UTC),
         note="Take out the recycling",
     )
-    with sqlite3.connect(tmp_path / "tasks.db") as conn:
+    with closing(sqlite3.connect(tmp_path / "tasks.db")) as conn, conn:
         conn.execute("UPDATE notification_reminders SET status = 'failed' WHERE id = ?", (row.id,))
     runtime, _ = _runtime(tmp_path)
     _seed(runtime)

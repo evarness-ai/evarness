@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -224,10 +225,10 @@ def test_the_facts_fingerprint_moves_on_a_status_flip(store: MemoryStore) -> Non
     store.add_fact_proposal(key="phone", value="+1 555 999 0000", confidence=0.9, source="t")
     source = _facts_source(store)
     before = source.fingerprint()
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         rows = conn.execute("SELECT COUNT(*) FROM memris_statements").fetchone()
     MemoryStore(db_path=store.db_path).set_fact_confirmed("phone")
-    with sqlite3.connect(store.db_path) as conn:
+    with closing(sqlite3.connect(store.db_path)) as conn, conn:
         assert conn.execute("SELECT COUNT(*) FROM memris_statements").fetchone() == rows
     assert source.fingerprint() != before
 

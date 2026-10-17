@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -50,7 +51,7 @@ class _Legacy:
         MemoryStore(db_path=path)._ensure_tables()  # the tables only — no migration
 
     def _sql(self, sql: str, args: tuple) -> None:  # type: ignore[type-arg]
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             conn.execute(sql, args)
 
     def _history(
@@ -65,7 +66,7 @@ class _Legacy:
     def capture(
         self, key: str, value: str, *, at: datetime = T0, confirmed: bool = True, conf: float = 0.9
     ) -> None:
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             prior = conn.execute("SELECT value FROM user_facts WHERE key = ?", (key,)).fetchone()
         self._sql(
             "INSERT OR REPLACE INTO user_facts(key, value, confidence, source, first_seen, "
@@ -78,7 +79,7 @@ class _Legacy:
             self._history(key, prior[0], value, "supersede", at)
 
     def forget(self, key: str, at: datetime = T0) -> None:
-        with sqlite3.connect(self.path) as conn:
+        with closing(sqlite3.connect(self.path)) as conn, conn:
             (value,) = conn.execute("SELECT value FROM user_facts WHERE key = ?", (key,)).fetchone()
             conn.execute("DELETE FROM user_facts WHERE key = ?", (key,))
         self._history(key, value, None, "forget", at)

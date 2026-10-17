@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -331,7 +332,7 @@ def test_while_throttled_a_correct_code_is_not_checked_and_no_attempt_is_charged
     # The right code is refused too — a 200 here would be the oracle.
     assert _claim(client, code).status_code == 429
 
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         attempts = conn.execute(
             "SELECT attempts FROM pairing_codes WHERE used_at IS NULL"
         ).fetchall()
@@ -391,7 +392,7 @@ def test_me_for_the_service_principal(client: TestClient) -> None:
 def test_no_token_or_hash_in_any_list_or_me_response(client: TestClient, db_path: Path) -> None:
     device_id, bearer = _app_device(client)
     token = bearer["Authorization"].removeprefix("Bearer ")
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         (token_hash,) = conn.execute(
             "SELECT token_hash FROM devices WHERE device_id = ?", (device_id,)
         ).fetchone()

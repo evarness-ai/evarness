@@ -8,6 +8,7 @@ send is retried at +5, +10, +15 minutes and then the row is ``failed``.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -61,7 +62,7 @@ def _gateway(
 
 
 def _calendar(data_dir: Path, event_id: str, summary: str) -> None:
-    with sqlite3.connect(data_dir / "calendar.db") as conn:
+    with closing(sqlite3.connect(data_dir / "calendar.db")) as conn, conn:
         conn.execute("CREATE TABLE IF NOT EXISTS calendar_events (id TEXT, summary TEXT)")
         conn.execute("INSERT INTO calendar_events VALUES (?, ?)", (event_id, summary))
 

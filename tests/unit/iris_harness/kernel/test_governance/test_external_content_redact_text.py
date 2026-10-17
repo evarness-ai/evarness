@@ -15,6 +15,7 @@ import json
 import logging
 import sqlite3
 import time
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -39,7 +40,7 @@ def _own_ledger(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _rows() -> list[dict[str, Any]]:
-    with sqlite3.connect(AuditLog().db_path) as conn:
+    with closing(sqlite3.connect(AuditLog().db_path)) as conn, conn:
         rows = conn.execute(
             "SELECT payload_json, hook_point, decision FROM audit_log "
             "WHERE plugin = 'external_content_floor'"

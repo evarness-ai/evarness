@@ -8,6 +8,7 @@ meta counters, per-metric volume, and the combined health summary
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from iris_harness.services.learning.store import LearningMetricsStore
@@ -45,7 +46,7 @@ def test_record_signal_persists_correlation_fields(tmp_path: Path) -> None:
 def test_ensure_schema_migrates_legacy_signals_table(tmp_path: Path) -> None:
     # Simulate a pre-L1 DB: signals table without the correlation columns.
     db_path = tmp_path / "learning.db"
-    with sqlite3.connect(db_path) as conn:
+    with closing(sqlite3.connect(db_path)) as conn, conn:
         conn.execute(
             "CREATE TABLE signals (id INTEGER PRIMARY KEY AUTOINCREMENT, ts TEXT NOT NULL,"
             " source TEXT NOT NULL, metric_name TEXT NOT NULL, value REAL NOT NULL,"

@@ -13,6 +13,7 @@ plugins outside it), so calendar event titles are declared where those tools are
 from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -161,7 +162,7 @@ def test_the_model_reads_a_task_title_inside_the_envelope_through_both_entries(
         else:
             assert h.chat_stream(QUESTION).answered
         calls = h.model_calls()
-        with sqlite3.connect(h.audit_db) as conn:
+        with closing(sqlite3.connect(h.audit_db)) as conn, conn:
             rows = conn.execute(
                 "SELECT payload_json FROM audit_log WHERE plugin = 'external_content_floor'"
             ).fetchall()

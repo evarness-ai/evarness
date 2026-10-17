@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import closing
 from typing import Any
 
 import pytest
@@ -118,7 +119,7 @@ def _harness(env: dict[str, str] | None = None) -> Any:
 
 
 def _reentry_rows(h: Any) -> list[dict[str, Any]]:
-    with sqlite3.connect(h.audit_db) as conn:
+    with closing(sqlite3.connect(h.audit_db)) as conn, conn:
         rows = conn.execute(
             "SELECT payload_json FROM audit_log WHERE plugin = 'reentry'"
         ).fetchall()

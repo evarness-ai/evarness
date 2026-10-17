@@ -15,6 +15,7 @@ import json
 import logging
 import sqlite3
 import time
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -455,7 +456,7 @@ async def test_the_audit_row_has_pattern_ids_tool_and_source_never_the_content(
         tool_plugin="skill:web-fetch",
     )
     await kernel.fire(HookPoint.POST_TOOL_USE, ctx)
-    with sqlite3.connect(db) as conn:
+    with closing(sqlite3.connect(db)) as conn, conn:
         rows = conn.execute(
             "SELECT plugin, decision, severity, reason, payload_json FROM audit_log "
             "WHERE plugin = 'external_content_floor'"
