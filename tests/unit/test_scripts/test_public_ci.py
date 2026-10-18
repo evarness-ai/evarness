@@ -355,3 +355,14 @@ def test_the_smoke_tests_run_in_the_test_job() -> None:
     assert "playground" not in jobs
     runs = [step.get("run", "") for step in jobs["test"]["steps"]]
     assert "poetry run pytest --no-cov -n auto -q -m smoke" in runs
+
+
+def test_the_suite_also_runs_on_windows() -> None:
+    """Native Windows is supported for development (docs/guides/windows.md): the same
+    changed scope and smoke tests as `test`, on windows-latest, under the runner's bash."""
+    job = _load(WORKFLOWS / "ci.yml")["jobs"]["test-windows"]
+    assert job["runs-on"] == "windows-latest"
+    assert job["defaults"]["run"]["shell"] == "bash"
+    runs = "\n".join(step.get("run", "") for step in job["steps"])
+    assert "bash scripts/changed_tests.sh" in runs
+    assert "poetry run pytest --no-cov -n auto -q -m smoke" in runs
