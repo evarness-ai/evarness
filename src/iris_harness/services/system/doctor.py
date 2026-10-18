@@ -35,6 +35,7 @@ from __future__ import annotations
 import importlib.metadata
 import importlib.util
 import json
+import logging
 import os
 import platform
 import shutil
@@ -56,6 +57,8 @@ from iris_harness.llm import tier_edits
 from iris_harness.services.health.models import HealthState
 
 _GIB = 1024**3
+
+logger = logging.getLogger(__name__)
 _DIST_NAME = "iris-harness"
 _OLLAMA_TIMEOUT_S = 3.0
 _PULL_TIMEOUT_S = 60.0 * 60
@@ -418,17 +421,45 @@ class HostFacts:
     machine: str  # platform.machine(), e.g. arm64 / x86_64
     release: str  # platform.release(); "microsoft" in it = WSL
     ram_total_bytes: int
+    #: Where ``ram_total_bytes`` came from when it is not this machine's (see
+    #: :data:`MODEL_HOST_RAM_ENV`); ``None`` when it was measured here.
+    ram_source: str | None = None
+
+
+#: The RAM, in GB as doctor shows it, of the machine the models run on, when that is not
+#: the one doctor runs on: IRIS in a container against the host's Ollama sees only the
+#: container VM's memory, and the model set is sized for the host. The Windows Docker
+#: setup (setup-windows.ps1) writes it to .env.
+MODEL_HOST_RAM_ENV = "IRIS_MODEL_HOST_RAM_GB"
+
+
+def _model_host_ram_bytes() -> int | None:
+    raw = os.environ.get(MODEL_HOST_RAM_ENV, "").strip()
+    if not raw:
+        return None
+    try:
+        gb = float(raw)
+    except ValueError:
+        gb = 0.0
+    if gb <= 0:
+        logger.warning(
+            "%s=%r is not a positive number of GB; measuring here", MODEL_HOST_RAM_ENV, raw
+        )
+        return None
+    return int(gb * _GIB)
 
 
 def host_facts() -> HostFacts:
     import psutil
 
+    model_host = _model_host_ram_bytes()
     return HostFacts(
         python_version=platform.python_version(),
         system=platform.system(),
         machine=platform.machine(),
         release=platform.release(),
-        ram_total_bytes=int(psutil.virtual_memory().total),
+        ram_total_bytes=int(psutil.virtual_memory().total) if model_host is None else model_host,
+        ram_source=None if model_host is None else f"the model host's, {MODEL_HOST_RAM_ENV}",
     )
 
 
@@ -608,11 +639,14 @@ def check_platform(facts: HostFacts, config: DoctorConfig) -> DoctorCheck:
     )
 
 
-def check_ram(total_bytes: int, config: DoctorConfig, choice: ModelSetChoice) -> DoctorCheck:
+def check_ram(
+    total_bytes: int, config: DoctorConfig, choice: ModelSetChoice, source: str | None = None
+) -> DoctorCheck:
     """Total RAM against the chosen model set. Rounded to whole GiB: a 16 GB Linux box
-    reports ~15.6 GiB after the kernel's reservations, and it is a 16 GB machine."""
+    reports ~15.6 GiB after the kernel's reservations, and it is a 16 GB machine.
+    ``source`` names where the figure came from when it is not this machine's."""
     gib = total_bytes / _GIB
-    shown = f"{gib:.1f} GB RAM"
+    shown = f"{gib:.1f} GB RAM" + (f" ({source})" if source else "")
     if round(gib) < config.ram_demo_gb:
         return DoctorCheck(
             "Memory",
@@ -878,7 +912,7 @@ def run_doctor(
     checks: list[DoctorCheck] = [
         check_python(facts.python_version, spec),
         check_platform(facts, cfg),
-        check_ram(facts.ram_total_bytes, cfg, choice),
+        check_ram(facts.ram_total_bytes, cfg, choice, facts.ram_source),
         check_model_set(choice),
         check_disk(volume, free, missing, cfg),
         check_home(home_dir),
