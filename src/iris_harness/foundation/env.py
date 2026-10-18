@@ -27,6 +27,7 @@ it: there is one answer for the empty string now, so there is nothing to pass.
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 
 _FALSE_VALUES = frozenset({"", "0", "false", "no", "off"})
 
@@ -72,3 +73,39 @@ def env_flag_on(name: str) -> bool:
 
 
 __all__ = ["env_flag", "env_flag_on", "probe_host"]
+
+
+#: What Windows itself needs in a child process's environment. Without SYSTEMROOT, Winsock
+#: cannot load and a child that opens a socket -- asyncio does, for its event loop -- fails
+#: with WinError 10106. OS paths, not credentials: the counterparts of HOME and TMPDIR.
+#: Windows treats environment names case-insensitively; these are upper-cased.
+WINDOWS_CHILD_ENV = frozenset(
+    {
+        "SYSTEMROOT",
+        "WINDIR",
+        "SYSTEMDRIVE",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "HOMEDRIVE",
+        "HOMEPATH",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "PROGRAMDATA",
+        "PROGRAMFILES",
+    }
+)
+
+
+def os_child_env(
+    host: Mapping[str, str] | None = None, *, windows: bool = os.name == "nt"
+) -> dict[str, str]:
+    """The variables the OS needs in a child process started with an otherwise minimal
+    environment: :data:`WINDOWS_CHILD_ENV` from ``host`` (``os.environ`` by default) on
+    Windows, matched case-insensitively; nothing on POSIX."""
+    if not windows:
+        return {}
+    host = os.environ if host is None else host
+    return {k: v for k, v in host.items() if k.upper() in WINDOWS_CHILD_ENV}
