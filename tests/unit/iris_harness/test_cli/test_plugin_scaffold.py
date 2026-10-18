@@ -134,7 +134,8 @@ def test_the_templates_are_held_to_the_stable_tier() -> None:
     root = Path(__file__).resolve()
     while not (root / "src" / "iris_harness").is_dir():
         root = root.parent
-    assert str(TEMPLATE_ROOT.relative_to(root)) in stable_tier().enforced_roots
+    # The declaration holds POSIX paths; on Windows str() of a relative path uses backslashes.
+    assert TEMPLATE_ROOT.relative_to(root).as_posix() in stable_tier().enforced_roots
 
 
 @pytest.mark.parametrize(
