@@ -211,7 +211,11 @@ def test_health_doctor_serves_the_preflight_without_reading_the_keyring(
     assert body["key"]["source"] == "not_read"
     rows = {c["name"]: c for c in body["checks"]}
     assert rows["Starter models"]["status"] == "fail"
-    assert body["missing_models"][0]["name"] == "qwen2.5:7b-instruct"
+    # Every starter of the set a 32 GB host fits, as doctor.yaml declares it (the order and
+    # the names are the config's, not this test's).
+    standard = dr.load_doctor_config().model_set("standard")
+    assert standard is not None
+    assert [m["name"] for m in body["missing_models"]] == [m.name for m in standard.starter_models]
 
 
 # ── the setup wizard's own progress, for the web UI's Setup screen ──────────
