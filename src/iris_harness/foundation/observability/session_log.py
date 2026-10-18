@@ -22,6 +22,7 @@ import contextvars
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping
@@ -104,16 +105,51 @@ def subscribe_events(callback: Any) -> Any:
     return _unsubscribe
 
 
-def session_log_path(session_id: str) -> Path:
+#: What a Windows file name cannot hold, percent-encoded there (and ``%`` itself, so the
+#: name decodes). A Telegram session id is ``telegram:<chat id>``: NTFS reads
+#: ``session-telegram:42.jsonl`` as the stream ``42.jsonl`` of a file named
+#: ``session-telegram``, so every such log vanished from the listings.
+_WINDOWS_UNSAFE = frozenset('<>:"|?*%')
+_PERCENT = re.compile(r"%([0-9A-Fa-f]{2})")
+
+
+def _file_part(session_id: str, *, windows: bool) -> str:
+    if not windows:
+        return session_id
+    return "".join(f"%{ord(c):02X}" if c in _WINDOWS_UNSAFE else c for c in session_id)
+
+
+def session_id_from_log_path(path: Path, *, windows: bool = os.name == "nt") -> str:
+    """The session id a log file was named for: the inverse of :func:`session_log_path`."""
+    stem = path.name.removeprefix("session-").removesuffix(".jsonl")
+    if not windows:
+        return stem
+
+    def decode(m: re.Match[str]) -> str:
+        char = chr(int(m.group(1), 16))
+        return char if char in _WINDOWS_UNSAFE else m.group(0)
+
+    return _PERCENT.sub(decode, stem)
+
+
+def session_log_name(session_id: str, *, windows: bool = os.name == "nt") -> str:
+    """The file name a session's log has: ``session-<id>.jsonl``, with what a Windows file
+    name cannot hold percent-encoded there. No path check: see :func:`session_log_path`."""
+    return f"session-{_file_part(session_id, windows=windows)}.jsonl"
+
+
+def session_log_path(session_id: str, *, windows: bool = os.name == "nt") -> Path:
     """The log file for one session.
 
     ``session_id`` reaches here from request paths and trace ids, so it is untrusted: a
     separator or ``..`` in it would name a file outside the log directory. An id is one file
     name: it may hold no separator, and the joined path must stay inside
-    ``session_log_dir()``; else ``ValueError``.
+    ``session_log_dir()``; else ``ValueError``. On Windows the characters a file name there
+    cannot hold are percent-encoded (:func:`session_id_from_log_path` reads them back).
     """
     base = os.path.normpath(os.fspath(session_log_dir()))
-    candidate = os.path.normpath(os.path.join(base, f"session-{session_id}.jsonl"))
+    name = session_log_name(session_id, windows=windows)
+    candidate = os.path.normpath(os.path.join(base, name))
     if any(c in session_id for c in ("/", "\\", "\x00")) or not candidate.startswith(base + os.sep):
         raise ValueError("session id does not name a file in the session log directory")
     return Path(candidate)

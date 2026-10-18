@@ -49,7 +49,8 @@ def _session(log_dir: Path, session_id: str, text: str) -> None:
             "total_duration_ms": 10.0,
         },
     ]
-    (log_dir / f"session-{session_id}.jsonl").write_text(
+    # As IRIS names it: on Windows the colon in "eval:case-7" is encoded.
+    session_log.session_log_path(session_id).write_text(
         "\n".join(json.dumps(e) for e in events) + "\n", encoding="utf-8"
     )
 
