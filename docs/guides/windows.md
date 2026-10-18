@@ -1,46 +1,87 @@
 # Windows
 
-On Windows, run IRIS with Docker Desktop. To work on the code, a native checkout works too:
-the CLI, the test suite and the local gate run on Windows directly, and `iris doctor` warns on
-the platform row instead of refusing. WSL2 remains an option for either, the same as Linux.
+On Windows, run IRIS with Docker Desktop: one script sets it up. To work on the code, a
+native checkout works too: the CLI, the test suite and the local gate run on Windows directly,
+and `iris doctor` warns on the platform row instead of refusing. WSL2 remains an option for
+either, the same as Linux.
 
 The commands below are for PowerShell unless they say Git Bash.
 
 ## Run IRIS with Docker Desktop
 
-Install [Docker Desktop](https://docs.docker.com/desktop/setup/install/windows-install/) and
-start it. Then, from a clone of the repository:
+IRIS runs in Docker Desktop and the models run on
+[Ollama for Windows](https://ollama.com/download/windows). The models are not in a
+container because Docker Desktop passes only NVIDIA GPUs to one, while Ollama for Windows uses
+NVIDIA (CUDA), AMD (ROCm) and integrated Intel or AMD graphics (Vulkan), and the CPU when there
+is no GPU.
+
+From a clone of the repository:
 
 ```powershell
-# A long random secret in .env, which Compose reads for every command.
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+
+It asks before it installs or changes anything; `-Yes` answers yes to every question. In order:
+
+1. **Docker Desktop.** Installs it with winget if it is missing, and starts it.
+2. **Ollama for Windows.** The same.
+3. **The GPU.** Ollama decides which GPUs it can use and logs it. An NVIDIA or AMD GPU needs
+   nothing. Ollama skips an integrated GPU unless `OLLAMA_IGPU_ENABLE=1` is set, and logs
+   `dropping integrated GPU` when it does; the script then offers to set it for your user and
+   restart Ollama. It ends by saying what runs the models.
+4. **`.env`** (git-ignored). `IRIS_AUTH_SECRET`, the bearer token every API call carries, and
+   `IRIS_VAULT_MASTER_KEY`, which governed tool calls need (a container has no OS keyring),
+   are created once and never replaced: your secrets are encrypted under the key. It also
+   writes `IRIS_MODEL_HOST_RAM_GB`, this machine's RAM, because `iris doctor` in the container
+   would otherwise size the model set for the Docker VM's memory instead of the machine the
+   models run on. The file is written as ASCII: Windows PowerShell's `>` and `Out-File` write
+   UTF-16, which Compose cannot read.
+5. **IRIS.** Builds the image from your checkout and starts the Governor and the IRIS API
+   against Ollama for Windows (`docker-compose.hostllm.yml`). It always rebuilds and
+   recreates: `./config` is mounted from the checkout, and an old image reading new config
+   fails.
+6. **Models.** Runs `iris doctor --fix` in the container: it picks the model set your RAM fits
+   (`config/doctor.yaml`), points the tiers at it and downloads its models (4.5 to 11.4 GB).
+   `-ModelSet lite` forces a set; `-SkipModels` leaves the models alone.
+7. **A first answer.** Asks IRIS "hi, how are you?" and prints the reply and how long it took.
+
+Then open http://127.0.0.1:8003/. To start again, or after a `git pull`, run the script again.
+`.\setup-windows.ps1 -Stop` stops IRIS; the data volume stays.
+
+### How fast
+
+Measured on a Core Ultra 7 155H laptop (32 GB, integrated Arc graphics), the `standard` set:
+
+| | A short answer |
+|---|---|
+| On the CPU (Ollama's default for integrated graphics) | 1.5 to 2 minutes |
+| On the integrated GPU (`OLLAMA_IGPU_ENABLE=1`) | about 37 seconds |
+| The first answer after a start, on the integrated GPU (the models load) | 80 to 100 seconds |
+
+Nearly all of it is the model reading IRIS's prompt, not writing the answer; a discrete GPU is
+faster still. A run of the script after the first takes about two minutes before that first
+answer: the image rebuilds from cache, the containers restart, and doctor finds nothing to
+download.
+
+### By hand
+
+Without the script, the same setup is:
+
+```powershell
+# .env: the secret, written as ASCII (create it once; Compose reads it for every command).
 $bytes = New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 "IRIS_AUTH_SECRET=$(-join ($bytes | ForEach-Object { $_.ToString('x2') }))" |
     Set-Content -Encoding ascii .env
 
-docker compose up
+# IRIS against Ollama for Windows; never the bundled Ollama.
+docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up -d --build --force-recreate --no-deps governor iris-api
+docker compose exec iris-api iris doctor --fix
 ```
 
-Write `.env` as ASCII as shown: Windows PowerShell 5.1 writes UTF-16 by default (`>` and
-`Out-File`), and Compose cannot read that. Compose needs `IRIS_AUTH_SECRET` for every command,
-`build`, `logs` and `exec` included, so keeping it in `.env` beats setting it in one session.
-
-The rest is the same as [Run with Docker](docker.md): the services, the ports (all bound to
-`127.0.0.1`) and the first start, which pulls about 6 GB of models.
-
-### With Ollama for Windows
-
-If [Ollama for Windows](https://ollama.com/download/windows) already runs on the machine, IRIS
-in Docker can use it instead of starting its own, which saves the model download when the
-models are already pulled:
-
-```powershell
-docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up -d --no-deps governor iris-api
-```
-
-This is what `make up-host` runs; `make` is usually not installed on Windows. Pull the models
-`config/llm_tiers.yaml` names with `ollama pull` first (the stack runs the `standard` model
-set; `iris doctor --fix` on a native install pulls the set the machine fits).
+Do not use plain `docker compose up` while Ollama for Windows runs: it starts a second Ollama,
+which fails with `bind: Only one usage of each socket address ... 127.0.0.1:11434`. The rest
+of the stack is as in [Run with Docker](docker.md).
 
 ## Develop natively
 

@@ -203,7 +203,7 @@ while IFS= read -r path; do
       add_target "tests/unit/test_docs" ;;
     # The image and the local stack; the console's wiring; the owner's server kit
     # (private: the public tree has neither deploy/ nor its tests).
-    Dockerfile|docker-compose*.yml|.dockerignore)
+    Dockerfile|docker-compose*.yml|.dockerignore|setup-windows.ps1)
       add_target "tests/unit/test_container" ;;
     webui/*)
       add_target "tests/unit/test_webui" ;;

@@ -16,6 +16,8 @@ Documentation: **https://evarness-ai.github.io/iris-harness/**
 
 ## Try it in three minutes
 
+On Windows, skip to [On Windows](#on-windows): one script sets everything up.
+
 You need [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/); neither ships with Python, and `pip install uv` is the shortest route ([details](https://evarness-ai.github.io/iris-harness/getting-started/install/)).
 
 ```bash
@@ -67,6 +69,38 @@ digest, and ends with what it did, audit rows included. For your own mail you ne
 `iris doctor --fix` pulls the models for the set your machine fits. Step by step:
 [Getting started](https://evarness-ai.github.io/iris-harness/getting-started/install/);
 if something does not work, see the [common setup gotchas](https://evarness-ai.github.io/iris-harness/guides/setup-gotchas/).
+
+### On Windows
+
+One script sets up IRIS in Docker Desktop with the models on Ollama for Windows, sized for
+your machine. Install [Git for Windows](https://git-scm.com/download/win), then in
+PowerShell:
+
+```powershell
+git clone https://github.com/evarness-ai/iris-harness.git
+cd iris-harness
+powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
+```
+
+It asks before it installs or changes anything (`-Yes` answers for you), and:
+
+1. installs and starts Docker Desktop and Ollama for Windows if they are missing;
+2. lets Ollama use your GPU: NVIDIA and AMD work as they are, and an integrated Intel or
+   AMD GPU, which Ollama skips by default, is turned on when Ollama reports skipping it;
+3. writes `.env` with the API secret and the vault key, created once and never replaced;
+4. builds IRIS from your checkout and starts it;
+5. runs `iris doctor --fix`, which picks the model set your RAM fits and downloads it;
+6. asks IRIS "hi, how are you?" to show it answers.
+
+The first run builds the image and downloads 4.5 to 11.4 GB of models, so it takes a
+while; later runs take about two minutes, plus the first answer while the models load. Then
+open http://127.0.0.1:8003/.
+
+- Start again, or after a `git pull` (it rebuilds): `.\setup-windows.ps1`
+- Stop: `.\setup-windows.ps1 -Stop`
+
+The [Windows guide](https://evarness-ai.github.io/iris-harness/guides/windows/) has what
+each step does, how fast to expect it, and working on the code natively.
 
 ## Build on it
 
@@ -172,9 +206,9 @@ echo "IRIS_AUTH_SECRET=$(openssl rand -hex 32)" >> .env   # once; .env is git-ig
 docker compose up        # Ollama, the Governor and the IRIS API, on 127.0.0.1 only
 ```
 
-On Windows, the snippet is bash: in PowerShell use the one in the
-[Windows guide](https://evarness-ai.github.io/iris-harness/guides/windows/), which writes
-`.env` as ASCII (Windows PowerShell's `>>` writes UTF-16, which Compose cannot read).
+On Windows, use `setup-windows.ps1` instead ([On Windows](#on-windows)): the snippet is
+bash, and plain `docker compose up` starts a second Ollama that collides with Ollama for
+Windows on port 11434.
 
 The first start pulls about 6 GB of model weights. Containerized Ollama is CPU-only, so on a
 Mac with Ollama already installed, run `make up-host` instead: it starts the Governor and the
@@ -201,9 +235,10 @@ starts healthy and a deterministic turn answers, but a turn that needs the 7B mo
 killed`, and Docker reported the Ollama container `OOMKilled`. Whether more memory fixes it
 has not been tested, and the `lite` model set (one 4B model, for 8 GB hosts) has not been
 tried inside Docker: `ollama-init` pulls the shipped tiers, not a set.
-On Windows 11 (Docker Desktop 28.3.2) against Ollama for Windows, the image builds, the
-Governor and the IRIS API come up healthy and `/chat` answers a deterministic turn; a model
-turn was not checked there.
+On Windows 11 (Docker Desktop 28.3.2, Ollama for Windows 0.40.5 on integrated Arc graphics),
+`setup-windows.ps1` ran end to end from a checkout: it built and started the stack, applied
+the standard set, pulled its models and got a model answer (`granite4.2:3b`, 82 s just after
+the start, about 37 s once the models were loaded).
 
 The [email assistant guide](https://evarness-ai.github.io/iris-harness/guides/email/)
 shows how to run the API from an install and pair the web console.

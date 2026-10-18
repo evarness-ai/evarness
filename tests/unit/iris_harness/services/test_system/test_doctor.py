@@ -339,6 +339,31 @@ def test_ram_floor(gib: float, state: HealthState, blocks: str) -> None:
     assert check.blocks == blocks
 
 
+def test_the_model_hosts_ram_sizes_the_set_when_doctor_runs_elsewhere(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """IRIS in a container against the host's Ollama: the container sees the VM's memory
+    (15.4 GB on a 31.5 GB Windows laptop picked lite), so the host's RAM is passed in."""
+    monkeypatch.setenv(dr.MODEL_HOST_RAM_ENV, "31.5")
+    facts = dr.host_facts()
+    assert facts.ram_total_bytes == int(31.5 * _GIB)
+    assert facts.ram_source and dr.MODEL_HOST_RAM_ENV in facts.ram_source
+    choice = dr.choose_model_set(dr.load_doctor_config(), facts.ram_total_bytes)
+    assert choice.name == "standard"
+    row = dr.check_ram(facts.ram_total_bytes, _CONFIG, _choice(31.5), facts.ram_source)
+    assert row.detail.startswith("31.5 GB RAM (the model host's, IRIS_MODEL_HOST_RAM_GB)")
+
+
+@pytest.mark.parametrize("raw", ["", "lots", "0", "-4"])
+def test_no_or_a_bad_model_host_ram_measures_this_machine(
+    monkeypatch: pytest.MonkeyPatch, raw: str
+) -> None:
+    monkeypatch.setenv(dr.MODEL_HOST_RAM_ENV, raw)
+    facts = dr.host_facts()
+    assert facts.ram_source is None
+    assert facts.ram_total_bytes > 0
+
+
 def test_ram_short_of_the_set_points_at_the_smaller_set_or_a_bigger_machine() -> None:
     eight = int(8 * _GIB)
     short = dr.check_ram(eight, _CONFIG, _choice(8))

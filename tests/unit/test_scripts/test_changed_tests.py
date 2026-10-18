@@ -224,6 +224,7 @@ def test_the_image_the_console_and_the_server_kit_reach_their_tests() -> None:
     tree has it: the public one does not)."""
     assert "tests/unit/test_container" in _plan("Dockerfile")
     assert "tests/unit/test_container" in _plan("docker-compose.yml")
+    assert "tests/unit/test_container" in _plan("setup-windows.ps1")  # the Windows setup
     assert "tests/unit/test_webui" in _plan("webui/src/lib/client.ts")
     if (ROOT / "tests" / "unit" / "test_deploy").is_dir():
         assert "tests/unit/test_deploy" in _plan("deploy/compose.server.yml")
