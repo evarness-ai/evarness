@@ -10,8 +10,12 @@ other guard's literal set is exactly the documents-only one.
 
 from __future__ import annotations
 
+import ast
 import logging
+import os
 import sqlite3
+import subprocess
+import sys
 from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
@@ -306,7 +310,7 @@ def test_the_runtime_points_the_facts_source_at_its_store(
         root.use_memory_db(store.db_path)
         assert root._FACTS.path() == store.db_path
     finally:
-        root._FACTS.db_path = saved
+        root._FACTS.use(saved)  # closes the probe this test opened
 
 
 def test_pointing_the_facts_source_elsewhere_closes_the_old_database(store: MemoryStore) -> None:
@@ -321,12 +325,21 @@ def test_pointing_the_facts_source_elsewhere_closes_the_old_database(store: Memo
 
 
 def test_the_composition_root_registers_every_source() -> None:
-    import importlib
-
-    from iris_harness.kernel.governance.identity_redaction import owner_identity_sources
-
-    importlib.reload(root)
-    assert {"documents", root.USER_MD_SOURCE, root.FACTS_SOURCE} <= set(owner_identity_sources())
+    """Importing the module registers its sources. Checked in a fresh interpreter: a reload
+    here made a second ``_FACTS``, and the stale one held a later harness's memory.db open
+    (Windows then could not remove the home)."""
+    code = (
+        "import iris_harness.runtime.identity_redaction as root\n"
+        "from iris_harness.kernel.governance.identity_redaction import owner_identity_sources\n"
+        "print(sorted(owner_identity_sources()))\n"
+    )
+    env = {**os.environ, "IRIS_AUTH_SECRET": "x"}
+    done = subprocess.run(  # noqa: S603 - this interpreter, fixed code
+        [sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120
+    )
+    assert done.returncode == 0, done.stderr
+    registered = set(ast.literal_eval(done.stdout.strip().splitlines()[-1]))
+    assert {"documents", root.USER_MD_SOURCE, root.FACTS_SOURCE} <= registered
 
 
 # -- what the sources change at the guards ------------------------------------------------

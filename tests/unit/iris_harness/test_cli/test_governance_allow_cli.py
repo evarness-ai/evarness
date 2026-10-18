@@ -97,7 +97,9 @@ def test_a_refused_entry_exits_non_zero_and_writes_nothing(
 def test_a_file_the_floor_ignores_is_reported_not_hidden(_own_files: Path) -> None:
     _own_files.write_text("allow:\n  - {pattern: '*', source: mcp:docs, reason: x}\n")
     result = runner.invoke(governance_app, ["allow", "list"])
-    assert result.exit_code == 1 and "nothing is allowed" in result.output
+    # A human message: Rich wraps it at the terminal's width, and a long (Windows) path
+    # can put the break inside the phrase.
+    assert result.exit_code == 1 and "nothing is allowed" in " ".join(result.output.split())
 
 
 def test_redactions_lists_pattern_ids_counts_and_the_use_but_never_the_text() -> None:
