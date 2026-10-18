@@ -74,6 +74,11 @@ _SERVER = textwrap.dedent(r"""
         text = "x" * int(sys.argv[2])
         big = line({"jsonrpc": "2.0", "id": call["id"], "result": {"text": text}})
         send(init_reply + big)
+    elif mode == "event_loop":
+        import asyncio
+
+        asyncio.run(asyncio.sleep(0))  # Winsock, for the loop's self-pipe on Windows
+        send(init_reply + call_reply)
     elif mode == "silent":
         time.sleep(30)
     """)
@@ -183,6 +188,12 @@ def test_a_timeout_carries_what_the_server_wrote_to_stderr(tmp_path: Path) -> No
 
 def test_a_content_length_framed_server_is_still_read(tmp_path: Path) -> None:
     assert _call(tmp_path, "framed") == {"tools": [{"name": "t"}]}
+
+
+def test_a_server_that_starts_an_event_loop_is_read(tmp_path: Path) -> None:
+    # On Windows a child without SystemRoot cannot load Winsock, so asyncio failed there
+    # with WinError 10106 before the server answered.
+    assert _call(tmp_path, "event_loop") == {"tools": [{"name": "t"}]}
 
 
 def test_the_exchange_does_not_wait_on_the_pipe_with_select(
