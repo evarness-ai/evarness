@@ -153,7 +153,7 @@ def render_json(
         "steps": [_row_to_json(row) for row in rows],
         "checkpoint": _checkpoint_to_json(checkpoint),
     }
-    console.print(json.dumps(payload, indent=2, sort_keys=True))
+    console.print_json(json.dumps(payload, indent=2, sort_keys=True))
 
 
 def _summarise(

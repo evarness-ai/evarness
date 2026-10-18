@@ -868,6 +868,25 @@ def test_the_endpoint_is_capped_and_says_when_it_cut_the_read(
     assert all("reason" not in r and "payload_json" not in r for r in ok["records"])
 
 
+def test_the_json_output_parses_on_a_narrow_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--json went through Rich's layout, which wrapped a long value mid-string, so the
+    output did not parse (a Windows temp path was long enough to show it)."""
+    from typer.testing import CliRunner
+
+    from iris_harness.main import app
+
+    monkeypatch.setenv("COLUMNS", "40")
+    db = _db(tmp_path)
+    _writer_rows(db, "W1")
+    for seq in (1, 2, 4):
+        _put(db, writer="W1", seq=seq, hook="pre_llm_call")
+    args = ["audit", "replay", "--session", "s1", "--db", str(db), "--no-archive"]
+    out = CliRunner().invoke(app, [*args, "--json", "--no-fail"]).stdout
+    assert json.loads(out)["gaps"][0]["class"] == "sequence_hole"
+
+
 def test_the_cli_exit_code_is_one_for_a_gap_and_zero_otherwise(tmp_path: Path) -> None:
     from typer.testing import CliRunner
 

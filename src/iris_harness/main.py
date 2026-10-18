@@ -1357,7 +1357,7 @@ def cmd_audit_replay(
         raise typer.Exit(2) from exc
 
     if as_json:
-        console.print(_json.dumps(result.as_dict(), indent=2, sort_keys=True, default=str))
+        console.print_json(_json.dumps(result.as_dict(), indent=2, sort_keys=True, default=str))
     else:
         console.print(f"  session {result.session_id}: {len(result.records)} record(s)")
         for rec in result.records:
@@ -1480,7 +1480,7 @@ def cmd_audit_query(
 
     if output_format == "json":
         payload = [dict(zip(result.columns, row, strict=True)) for row in result.rows]
-        console.print(_json.dumps(payload, indent=2, sort_keys=True, default=str))
+        console.print_json(_json.dumps(payload, indent=2, sort_keys=True, default=str))
         return
 
     table = Table(show_header=True, header_style="bold cyan")
@@ -1731,7 +1731,7 @@ def cmd_evaluator_status(
         status["error"] = str(exc)
 
     if output_format == "json":
-        console.print(_json.dumps(status, indent=2, sort_keys=True, default=str))
+        console.print_json(_json.dumps(status, indent=2, sort_keys=True, default=str))
         return
 
     pid_cell = f"pid=[cyan]{pid}[/cyan]" if pid else "[dim]no pidfile[/dim]"
