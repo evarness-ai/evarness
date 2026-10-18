@@ -33,6 +33,7 @@ from __future__ import annotations
 import os
 import socket
 import sys
+import threading
 import uuid
 from collections import Counter
 from collections.abc import Iterator
@@ -110,22 +111,38 @@ def require_demo_environment() -> Path:
 
 @contextmanager
 def _offline() -> Iterator[list[Any]]:
-    """Refuse every non-Unix socket connection for the block (the demo is offline)."""
+    """Refuse every non-Unix socket connection for the block (the demo is offline).
+
+    :func:`socket.socketpair` is let through too: where the OS has no native pair (Windows)
+    Python builds one by connecting to a loopback listener it opened in the same call, and
+    every asyncio event loop makes one, so refusing it stopped the demo there.
+    """
     attempts: list[Any] = []
     real = socket.socket.connect
+    real_socketpair = socket.socketpair
+    pairing = threading.local()
 
     def connect(self: socket.socket, address: Any) -> None:
-        if self.family == getattr(socket, "AF_UNIX", None):
+        if self.family == getattr(socket, "AF_UNIX", None) or getattr(pairing, "on", False):
             real(self, address)
             return
         attempts.append(address)
         raise OSError(f"the email demo runs offline; refused a connection to {address!r}")
 
+    def socketpair(*args: Any, **kwargs: Any) -> tuple[socket.socket, socket.socket]:
+        pairing.on = True
+        try:
+            return real_socketpair(*args, **kwargs)
+        finally:
+            pairing.on = False
+
     socket.socket.connect = connect  # type: ignore[method-assign,assignment]
+    socket.socketpair = socketpair
     try:
         yield attempts
     finally:
         socket.socket.connect = real  # type: ignore[method-assign]
+        socket.socketpair = real_socketpair
 
 
 def _ensure_account() -> None:
