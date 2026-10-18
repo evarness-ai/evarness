@@ -47,7 +47,9 @@ SECRET_TEXT = (
 
 def _write(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    # LF on every OS: sizes and offsets below are counted in these bytes, and Windows'
+    # text mode would write each newline as CRLF.
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 
@@ -883,7 +885,7 @@ def test_resume_is_not_valid_across_a_changed_chunk_size(tree: Path, tmp_path, m
 def _rewrite_in_place(path: Path, new: str) -> None:
     st = path.stat()
     assert len(new.encode()) == st.st_size
-    path.write_text(new, encoding="utf-8")  # truncates + rewrites the same inode
+    path.write_text(new, encoding="utf-8", newline="\n")  # truncates + rewrites the same inode
     os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))  # put the mtime back
 
 

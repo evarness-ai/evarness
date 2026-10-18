@@ -83,7 +83,7 @@ def test_list_due_returns_only_past_unfired(store: ReminderStore) -> None:
     assert dismissed.id not in {r.id for r in due}
 
 
-def test_fire_marks_row_and_emits_event() -> None:
+def test_fire_marks_row_and_emits_event(tmp_path: Path) -> None:
     bus = EventBus()
     received: list[ReminderFiredPayload] = []
 
@@ -93,20 +93,17 @@ def test_fire_marks_row_and_emits_event() -> None:
 
     bus.on(REMINDER_FIRED, _capture)
 
-    store = ReminderStore(db_path=Path(":memory:"), bus=bus)
-    # :memory: doesn't survive across new connections; use a real file via tmp.
-    import tempfile
-
-    with tempfile.NamedTemporaryFile(suffix=".db") as tmpf:
-        store = ReminderStore(db_path=Path(tmpf.name), bus=bus)
-        store.ensure_schema()
-        r = store.create(target_kind="task", target_id="t1", remind_at=_at(-30), channel="telegram")
-        fired = store.fire(r.id)
-        assert fired.fired_at is not None
-        assert len(received) == 1
-        assert received[0].reminder_id == r.id
-        assert received[0].target_id == "t1"
-        assert received[0].channel == "telegram"
+    # :memory: doesn't survive across new connections, so a real file. Not a
+    # NamedTemporaryFile: Windows keeps that locked while it is open.
+    store = ReminderStore(db_path=tmp_path / "reminders.db", bus=bus)
+    store.ensure_schema()
+    r = store.create(target_kind="task", target_id="t1", remind_at=_at(-30), channel="telegram")
+    fired = store.fire(r.id)
+    assert fired.fired_at is not None
+    assert len(received) == 1
+    assert received[0].reminder_id == r.id
+    assert received[0].target_id == "t1"
+    assert received[0].channel == "telegram"
 
 
 def test_fire_is_idempotent(store: ReminderStore) -> None:
