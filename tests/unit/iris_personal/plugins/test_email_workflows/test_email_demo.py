@@ -488,3 +488,23 @@ def test_iris_email_demo_prints_the_digest_and_what_iris_did(
     assert result.exit_code == 0, result.output
     assert (home / "governance" / "audit.db").is_file()
     assert (home / KEY_FILENAME).is_file()
+
+
+def test_offline_lets_an_event_loop_make_its_self_pipe(monkeypatch: pytest.MonkeyPatch) -> None:
+    """On Windows socket.socketpair() connects over loopback, and every event loop makes one:
+    refusing it stopped the demo there. CPython's loopback fallback runs Windows' path here."""
+    import asyncio
+    import socket
+
+    from iris_personal.plugins.email_workflows.demo.run import _offline
+
+    fallback = getattr(socket, "_fallback_socketpair", None)
+    if fallback is not None:
+        monkeypatch.setattr(socket, "socketpair", fallback)
+    real = socket.socketpair
+    with _offline() as attempts:
+        assert asyncio.run(asyncio.sleep(0, result="ran")) == "ran"
+        with pytest.raises(OSError, match="runs offline"):
+            socket.create_connection(("192.0.2.1", 80), timeout=1)
+    assert attempts == [("192.0.2.1", 80)]
+    assert socket.socketpair is real
