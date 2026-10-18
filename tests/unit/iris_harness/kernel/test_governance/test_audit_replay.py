@@ -23,6 +23,8 @@ from typing import Any
 
 import pytest
 
+from iris_harness.foundation.env import os_child_env
+
 pq = pytest.importorskip("pyarrow.parquet")
 pytest.importorskip("duckdb")
 
@@ -593,6 +595,7 @@ def test_a_call_killed_mid_way_is_an_open_call_and_its_writer_ended_without_clos
             "PYTHONPATH": SRC,
             "IRIS_AUTH_SECRET": "x",
             "PATH": "/usr/bin:/bin",
+            **os_child_env(),
             "IRIS_SESSION_LOG_DIR": str(logs),
         },
     )

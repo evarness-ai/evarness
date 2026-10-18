@@ -22,6 +22,8 @@ from typing import Any
 
 import pytest
 
+from iris_harness.foundation.env import os_child_env
+
 pq = pytest.importorskip("pyarrow.parquet")
 pa = pytest.importorskip("pyarrow")
 pytest.importorskip("duckdb")
@@ -121,7 +123,7 @@ def _run(code: str, *args: Path, check: bool = True) -> subprocess.CompletedProc
         capture_output=True,
         text=True,
         timeout=180,
-        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin", **os_child_env()},
     )
     if check:
         assert proc.returncode == 0, proc.stderr[-800:]
@@ -526,7 +528,7 @@ def test_two_interpreters_compacting_at_once_neither_lose_nor_duplicate(
     _release_shaped_db(db, 40)
     AuditLog(db_path=db)  # migrate once, as a running install would have
     gate = tmp_path / "go"
-    env = {"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"}
+    env = {"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin", **os_child_env()}
     procs = [
         subprocess.Popen(
             [sys.executable, "-c", textwrap.dedent(_RACE), str(db), str(root), str(gate)],

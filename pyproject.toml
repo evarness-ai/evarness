@@ -377,6 +377,8 @@ markers = [
     "real_llm: Test hits a live Ollama or cloud LLM (excluded from default run)",
     "real_embeddings: Test loads ChromaDB / sentence-transformers (excluded from default run)",
     "smoke: End-to-end playground run against a real in-process runtime (excluded from default run; scripts/ci_local.sh --smoke)",
+    "posix(reason): Asserts POSIX-only behaviour (file modes, fork, euid, bash scripts); skipped on Windows with the reason (tests/conftest.py)",
+    "symlinks: Creates symlinks; skipped where the process may not (Windows without Developer Mode) (tests/conftest.py)",
     "minilm: Test asserts on real all-MiniLM-L6-v2 similarities (the semantic routers); runs when chromadb's copy of the model is on disk, skips otherwise (the suite never downloads it)",
 ]
 

@@ -25,6 +25,7 @@ from typing import Any
 import pytest
 
 import iris_harness
+from iris_harness.foundation.env import os_child_env
 from iris_harness.kernel.governance import GovernanceKernel
 from iris_harness.kernel.governance.audit import AuditLog, sequence, spool
 from iris_harness.kernel.governance.audit.write_health import write_health
@@ -472,7 +473,12 @@ def test_several_writer_processes_each_keep_a_gapless_sequence(db: Path) -> None
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": SRC,
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for tag in ("a", "b", "c")
     ]
@@ -544,7 +550,7 @@ def _run(code: str, db: Path, *, check: bool = True) -> int:
         capture_output=True,
         text=True,
         timeout=120,
-        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin", **os_child_env()},
     )
     if check:
         assert proc.returncode == 0, proc.stderr[-500:]
