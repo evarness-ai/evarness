@@ -49,6 +49,11 @@ model_sets:
     fits_when:
       ram_gb: 8
     tiers:
+      # tier1 (Fast) takes the same model: a first chat answers on tier 1, and a second
+      # model would break "one 4B model". Same think: false, for the same reason.
+      tier1:
+        model: qwen3.5:4b-q4_K_M
+        think: false
       tier2:
         model: qwen3.5:4b-q4_K_M
         think: false     # a reasoning model; the agentic loop needs the answer, not the thinking
@@ -66,8 +71,15 @@ model_sets:
     fits_when:
       ram_gb: 16
     tiers: {}
+    # What a first chat calls: the router, tier 1 (Fast) and tier 2 (Advanced) as
+    # llm_tiers.yaml ships them, then the judge. Without the router's and tier 1's models
+    # a plain "hi" failed with "model not found" after --fix.
     starter_models:
-      - name: qwen2.5:7b-instruct
+      - name: llama3.2:3b          # the router
+        size_gb: 2.0
+      - name: granite4.2:3b        # tier 1, Fast
+        size_gb: 2.2
+      - name: qwen2.5:7b-instruct  # tier 2, Advanced
         size_gb: 4.7
       - name: qwen3.5:4b-q4_K_M    # the email judge: `iris email setup` stops without it
         size_gb: 2.5

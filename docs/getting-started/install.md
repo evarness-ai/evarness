@@ -85,14 +85,15 @@ back.
 
 ### The safe fixes: `iris doctor --fix`
 
-<!-- ci: skip downloads the starter models (4.5 to 7.2 GB) from Ollama -->
+<!-- ci: skip downloads the starter models (4.5 to 11.4 GB) from Ollama -->
 ```bash
 iris doctor --fix
 ```
 
 `--fix` applies only three kinds of fix, and asks before each: it points the tiers at
 the model set's models when that set is not the one applied, it pulls the set's missing
-starter models through Ollama (the general model and the email judge's), and it creates
+starter models through Ollama (every model a first chat calls, the router and tiers 1
+and 2, and the email judge's), and it creates
 a vault master key if there is none. It never overwrites a stored key, since your
 secrets are encrypted under it. Add `--yes` to skip the questions. `--json` prints the
 report as JSON for scripts, and applies no fixes.

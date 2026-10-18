@@ -12,9 +12,11 @@ from typing import Any
 import httpx
 import keyring
 import pytest
+import yaml
 from cryptography.fernet import Fernet
 from keyring.backends import fail
 
+from iris_harness.foundation.paths import config_path
 from iris_harness.kernel.governance.vault import keys as vault_keys
 from iris_harness.services.health.models import HealthState
 from iris_harness.services.system import doctor as dr
@@ -123,9 +125,11 @@ def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     assert [s.name for s in cfg.model_sets] == ["lite", "standard"]
     standard = cfg.model_set("standard")
     assert standard is not None
-    # Tier 2 and the judge: `iris email setup` stops without the judge's model, so
-    # --fix pulls it in every set.
+    # The router, tier 1 and tier 2, then the judge: `iris email setup` stops without
+    # the judge's model, so --fix pulls it in every set.
     assert [m.name for m in standard.starter_models] == [
+        "llama3.2:3b",
+        "granite4.2:3b",
         "qwen2.5:7b-instruct",
         "qwen3.5:4b-q4_K_M",
     ]
@@ -133,11 +137,13 @@ def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     lite = cfg.model_set("lite")
     assert lite is not None
     assert lite.auto  # measured on the holdout and the tier 2 suite (ADR decision 7)
-    # Only tier 2 moves, onto the shipped judge's model: every smaller judge failed the
-    # holdout, and the 1B router cost scenarios on the tier 2 suite.
-    assert set(lite.tiers) == {"tier2"}
-    assert lite.tiers["tier2"]["model"] == "qwen3.5:4b-q4_K_M"
-    assert lite.tiers["tier2"]["think"] is False
+    # Tiers 1 and 2 move onto the shipped judge's model, so lite stays one 4B model:
+    # every smaller judge failed the holdout, and the 1B router cost scenarios on the
+    # tier 2 suite.
+    assert set(lite.tiers) == {"tier1", "tier2"}
+    for tier in ("tier1", "tier2"):
+        assert lite.tiers[tier]["model"] == "qwen3.5:4b-q4_K_M"
+        assert lite.tiers[tier]["think"] is False
     # Every model the lite tiers point at, and the shipped judge, is in the lite starter set.
     lite_starters = {m.name for m in lite.starter_models}
     assert {f["model"] for f in lite.tiers.values()} <= lite_starters
@@ -145,6 +151,24 @@ def test_shipped_config_has_a_lite_and_a_standard_set() -> None:
     assert cfg.ram_floor_gb == 8  # the smallest automatic set
     assert cfg.ram_demo_gb == 8
     assert {"email", "ml"} <= {e.name for e in cfg.optional_extras}
+
+
+#: The tiers a first chat calls: the router labels it, tier 1 or tier 2 answers.
+_FIRST_CHAT_TIERS = ("router", "tier1", "tier2")
+
+
+@pytest.mark.parametrize("set_name", ["lite", "standard"])
+def test_every_set_pulls_what_a_first_chat_calls(set_name: str) -> None:
+    """`--fix` pulls a set's starters and nothing else, so they must include the model
+    each first-chat tier resolves to once the set is applied. The standard set once
+    lacked the router's and tier 1's: a plain "hi" then failed with "model not found"."""
+    model_set = dr.load_doctor_config().model_set(set_name)
+    assert model_set is not None
+    shipped = yaml.safe_load(config_path("llm_tiers.yaml").read_text(encoding="utf-8"))["tiers"]
+    starters = {m.name for m in model_set.starter_models}
+    for tier in _FIRST_CHAT_TIERS:
+        model = {**shipped[tier], **(model_set.tiers.get(tier) or {})}["model"]
+        assert model in starters, f"{set_name}: {tier} routes to {model}, which --fix never pulls"
 
 
 def test_shipped_lite_tiers_exist_in_llm_tiers_yaml() -> None:
@@ -508,7 +532,7 @@ def test_apply_model_set_writes_and_resets_tier_edits(
     assert line.startswith("model set lite applied")
     store = SettingsStore(db_path=db)
     assert tier_edits.recorded_model_set(store) == tier_edits.RecordedModelSet(
-        "lite", True, ("tier2",)
+        "lite", True, ("tier1", "tier2")
     )
     router = TierRouter.load_from_yaml(config_path("llm_tiers.yaml"), settings=store)
     assert router.get_tier_by_name("tier2").model == "qwen3.5:4b-q4_K_M"
@@ -517,7 +541,9 @@ def test_apply_model_set_writes_and_resets_tier_edits(
     # The judge is the file's: lite does not touch it (ADR decision 7).
     judge = router.get_tier_by_name("email_judge")
     assert judge.model == router._declared_tiers["email_judge"].model
-    assert router.get_tier_by_name("tier1").model == router._declared_tiers["tier1"].model
+    # Tier 1 takes the same 4B, so lite stays one model (and a first chat has its model).
+    assert router.get_tier_by_name("tier1").model == "qwen3.5:4b-q4_K_M"
+    assert router.get_tier_by_name("tier1").think is False
 
     recorded = tier_edits.recorded_model_set(store)
     dr.apply_model_set(dr.choose_model_set(cfg, 32 * _GIB, recorded=recorded))
