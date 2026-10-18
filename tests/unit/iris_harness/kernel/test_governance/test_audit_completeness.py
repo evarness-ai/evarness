@@ -19,6 +19,7 @@ import subprocess
 import sys
 import textwrap
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
@@ -519,9 +520,10 @@ def test_a_database_a_release_created_gets_the_columns_and_one_sequence_boundary
     conn.close()
     AuditLog(db_path=db)
     AuditLog(db_path=db)  # twice: nothing more to add
-    cols = {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(audit_log)")}
+    with closing(sqlite3.connect(db)) as conn:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(audit_log)")}
+        meta = dict(conn.execute("SELECT key, value FROM audit_meta").fetchall())
     assert {"writer_id", "writer_seq", "kind", "record_id"} <= cols
-    meta = dict(sqlite3.connect(db).execute("SELECT key, value FROM audit_meta").fetchall())
     boundary = json.loads(meta["sequence"])
     assert boundary["first_sequenced_row_id"] == 2  # the one old row is before the sequence
     old = AuditLog(db_path=db).query()[0]

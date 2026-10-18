@@ -269,9 +269,9 @@ def test_governed_text_that_is_not_the_tools_json_is_shown_as_text_and_records_n
     assert "[withheld by governance]" in text
     assert meta["pending_actions_recorded"] == 0
     assert any("not JSON" in r.getMessage() for r in caplog.records)
-    assert not (tmp_path / "tasks.db").exists() or sqlite3.connect(tmp_path / "tasks.db").execute(
-        "SELECT COUNT(*) FROM tasks"
-    ).fetchone() == (0,)
+    if (tmp_path / "tasks.db").exists():
+        with closing(sqlite3.connect(tmp_path / "tasks.db")) as conn:
+            assert conn.execute("SELECT COUNT(*) FROM tasks").fetchone() == (0,)
 
 
 class _Deny:
