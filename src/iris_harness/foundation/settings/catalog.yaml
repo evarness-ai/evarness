@@ -1132,6 +1132,18 @@ settings:
     description: When truthy, successful multi-step turns and recurring episodic patterns are proposed
       as pending missions awaiting approval.
     tab: features
+  IRIS_MODEL_HOST_RAM_GB:
+    kind: float
+    default: null
+    applies: now
+    label: RAM of the machine the models run on
+    description: The RAM, in GB, of the machine the models run on, when that is not the one IRIS runs
+      on. iris doctor sizes the model set from it instead of measuring; in Docker against the host's
+      Ollama it would otherwise see only the container VM's memory. Unset measures this machine.
+      setup-windows.ps1 writes it to .env.
+    tab: none
+    editable: false
+    not_editable_reason: read by iris doctor, which runs before the app; set it in .env
   IRIS_OBSERVABILITY_METRICS_ENABLED:
     kind: bool
     default: false
