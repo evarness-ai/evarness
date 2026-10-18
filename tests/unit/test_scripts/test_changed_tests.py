@@ -17,6 +17,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.posix("the CI scripts are bash; CI runs them on Linux")
+
 ROOT = Path(__file__).resolve().parents[3]
 # Every subprocess below runs our own literal script or `git` with a pinned PATH, hence
 # the S603/S607 waivers (waived per file in pyproject, as for tests/integration).

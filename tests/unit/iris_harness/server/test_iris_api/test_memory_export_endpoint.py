@@ -41,7 +41,8 @@ def test_a_good_name_writes_under_the_root(client: TestClient, root: Path) -> No
     assert resp.status_code == 200, resp.text
     assert (root / "vault" / "index.md").is_file()
     assert Path(resp.json()["out_dir"]) == (root / "vault").resolve()
-    assert root.stat().st_mode & 0o777 == 0o700
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert root.stat().st_mode & 0o777 == 0o700
 
 
 @pytest.mark.parametrize(
@@ -56,6 +57,7 @@ def test_names_that_are_not_one_plain_folder_name_are_refused(
     assert not (root.parent / "escape").exists()
 
 
+@pytest.mark.symlinks
 def test_a_symlink_that_leaves_the_root_is_refused(
     client: TestClient, root: Path, tmp_path: Path
 ) -> None:

@@ -146,7 +146,7 @@ def test_the_debt_list_shrank_by_the_four_urllib_pairs_issue_172_moved() -> None
 
 
 def _pairs(paths: list[Path]) -> set[tuple[str, str]]:
-    return {(str(v.path.relative_to(_ROOT)), v.module) for v in check_network_imports(paths)}
+    return {(v.path.relative_to(_ROOT).as_posix(), v.module) for v in check_network_imports(paths)}
 
 
 def test_first_party_plugins_import_raw_network_libraries_only_where_listed() -> None:

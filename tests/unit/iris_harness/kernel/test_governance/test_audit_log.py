@@ -5,6 +5,8 @@ import stat
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
+
 from iris_harness.kernel.governance import (
     GovernanceKernel,
     HookContext,
@@ -60,6 +62,7 @@ def _ctx() -> HookContext:
     )
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_init_creates_schema_and_chmod_0o600(tmp_path: Path) -> None:
     db_path = tmp_path / "audit.db"
     AuditLog(db_path=db_path)

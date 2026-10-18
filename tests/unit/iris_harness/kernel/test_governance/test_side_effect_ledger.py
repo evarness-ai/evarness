@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from iris_harness.kernel.governance.side_effects import SideEffectLedger, SideEffectRow
 
 
@@ -161,6 +163,7 @@ def test_list_by_run_returns_all(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_db_file_created_with_restricted_perms(tmp_path: Path) -> None:
     ledger = _make_ledger(tmp_path)
     ledger.record(run_id="r1", step_id=1, tool="git_commit", verification_probe="git_commit")

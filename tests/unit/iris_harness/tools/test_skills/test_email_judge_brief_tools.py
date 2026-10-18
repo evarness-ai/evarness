@@ -63,12 +63,12 @@ def _judged(data_dir: Path, mid: str, sender: str, subject: str, bucket: str, at
 
 def test_the_brief_declares_both_slots_in_the_inbox_group() -> None:
     manifest = yaml.safe_load(
-        (REPO / "config/skills/builtin/morning-briefing/manifest.yaml").read_text()
+        (REPO / "config/skills/builtin/morning-briefing/manifest.yaml").read_text(encoding="utf-8")
     )
     slots = manifest["brief"]["slots"]
     assert slots["needs_reply"]["tool"] == "email_needs_reply"
     assert slots["judged_yesterday"]["tool"] == "email_judged_yesterday"
-    digest = yaml.safe_load((REPO / "config/digest.yaml").read_text())
+    digest = yaml.safe_load((REPO / "config/digest.yaml").read_text(encoding="utf-8"))
     (inbox,) = (g for g in digest["groups"] if g["id"] == "inbox")
     assert inbox["sections"][:3] == ["needs_reply", "focus", "judged_yesterday"]
     assert inbox["push"] == "Focus {focus}"  # the push headline is unchanged

@@ -68,7 +68,7 @@ def _try_has_side_effect(try_node: ast.Try) -> bool:
 
 
 def _violations(path: Path) -> list[str]:
-    src = path.read_text()
+    src = path.read_text(encoding="utf-8")
     lines = src.splitlines()
     out: list[str] = []
     for node in ast.walk(ast.parse(src)):
@@ -163,7 +163,7 @@ def _is_broad(handler: ast.ExceptHandler) -> bool:
 
 
 def _silent_broad_handlers(path: Path) -> list[str]:
-    src = path.read_text()
+    src = path.read_text(encoding="utf-8")
     lines = src.splitlines()
     out: list[str] = []
     for node in ast.walk(ast.parse(src)):

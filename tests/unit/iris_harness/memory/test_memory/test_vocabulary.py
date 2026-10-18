@@ -177,7 +177,10 @@ class TestSurfaces:
         capture.extract_and_store_facts("I sing in a choir", "s1")
         return store
 
-    def test_the_cli_lists_promotes_exports_and_rejects(self, learned: MemoryStore) -> None:
+    def test_the_cli_lists_promotes_exports_and_rejects(
+        self, learned: MemoryStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("COLUMNS", "200")  # the table cuts a term to fit a narrow one
         db = ["--db-path", str(learned.db_path)]
         run = CliRunner().invoke
 

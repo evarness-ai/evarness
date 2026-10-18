@@ -64,6 +64,7 @@ def test_iter_secret_values_returns_decrypted_pairs(tmp_path: Path, master_key: 
     ]
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_db_file_is_chmod_0o600_on_create(tmp_path: Path, master_key: str) -> None:
     db_path = tmp_path / "vault.db"
     VaultStore(db_path=db_path)
@@ -72,6 +73,7 @@ def test_db_file_is_chmod_0o600_on_create(tmp_path: Path, master_key: str) -> No
     assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_db_file_perms_are_reasserted_on_every_open(tmp_path: Path, master_key: str) -> None:
     """An operator who accidentally widens perms gets them tightened back."""
     db_path = tmp_path / "vault.db"

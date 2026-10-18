@@ -460,6 +460,7 @@ async def test_invariant_9_orchestrator_cannot_directly_invoke_tools() -> None:
         assert "delegation-only" in decision.reason
 
 
+@pytest.mark.symlinks
 async def test_invariant_10_fs_jail_resolves_symlinks(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
     (workspace_root / "src" / "iris").mkdir(parents=True)

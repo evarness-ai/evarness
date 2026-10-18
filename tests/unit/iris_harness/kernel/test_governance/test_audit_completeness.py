@@ -334,7 +334,8 @@ def test_the_spool_and_the_ledger_share_a_directory_and_a_permission_model(
     down.on = False
     path = spool.spool_path_for(db)
     assert path.parent == db.parent  # beside the database it belongs to
-    assert (path.stat().st_mode & 0o777) == 0o600 == (db.stat().st_mode & 0o777)
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert (path.stat().st_mode & 0o777) == 0o600 == (db.stat().st_mode & 0o777)
 
 
 # --------------------------------------------------------------------- the effectful tier
@@ -431,6 +432,7 @@ async def test_kernel_rows_of_a_tool_call_and_a_capability_call_are_numbered(db:
 
 
 # -------------------------------------------------------- processes: fork, and several writers
+@pytest.mark.posix("os.fork")
 def test_a_forked_child_is_a_new_writer_and_does_not_disturb_the_parent(db: Path) -> None:
     log = AuditLog(db_path=db)
     log.record(**_row(1))

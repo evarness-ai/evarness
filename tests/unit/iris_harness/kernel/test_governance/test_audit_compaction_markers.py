@@ -606,7 +606,7 @@ def test_readers_of_the_archive_are_the_query_engine_only() -> None:
     """
     src = Path(iris_harness.__file__).resolve().parent
     hits = sorted(
-        str(p.relative_to(src))
+        p.relative_to(src).as_posix()
         for p in src.rglob("*.py")
         if "read_parquet" in p.read_text(encoding="utf-8")
         or "audit-archive" in p.read_text(encoding="utf-8")

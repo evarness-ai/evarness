@@ -42,7 +42,9 @@ def _violations(path: Path) -> list[str]:
 
 
 def test_nothing_reads_the_machine_clock_for_the_owner() -> None:
-    files = [p for p in (_ROOT / "src").rglob("*.py") if str(p.relative_to(_ROOT)) not in ALLOWED]
+    files = [
+        p for p in (_ROOT / "src").rglob("*.py") if p.relative_to(_ROOT).as_posix() not in ALLOWED
+    ]
     assert files, "no source found -- the guard checked nothing"
     found = [v for p in files for v in _violations(p)]
     assert not found, (

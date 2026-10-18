@@ -77,7 +77,11 @@ async def test_ac1_developer_write_inside_jail_allowed(tmp_path: Path) -> None:
 
     assert decision.outcome == "allow"
     assert decision.audit_metadata["requested_path"] == "src/iris_harness/foo.py"
-    assert decision.audit_metadata["resolved_path"].endswith("src/iris_harness/foo.py")
+    assert (
+        Path(decision.audit_metadata["resolved_path"])
+        .as_posix()
+        .endswith("src/iris_harness/foo.py")
+    )
 
 
 async def test_ac2_path_traversal_outside_jail_denied_with_prefix_mismatch(
@@ -94,6 +98,7 @@ async def test_ac2_path_traversal_outside_jail_denied_with_prefix_mismatch(
     assert "prefix_mismatch" in decision.reason
 
 
+@pytest.mark.symlinks
 async def test_ac3_symlink_escape_denied(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
     (workspace_root / "src").mkdir(parents=True)
@@ -153,7 +158,11 @@ async def test_ac6_brand_new_leaf_under_existing_parent_allowed(tmp_path: Path) 
     decision = await jail(_ctx(workspace_root=workspace_root, path="src/iris_harness/brand_new.py"))
 
     assert decision.outcome == "allow"
-    assert decision.audit_metadata["resolved_path"].endswith("src/iris_harness/brand_new.py")
+    assert (
+        Path(decision.audit_metadata["resolved_path"])
+        .as_posix()
+        .endswith("src/iris_harness/brand_new.py")
+    )
 
 
 async def test_flat_payload_path_shape_is_supported(tmp_path: Path) -> None:

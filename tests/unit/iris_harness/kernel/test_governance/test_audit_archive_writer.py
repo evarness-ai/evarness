@@ -146,6 +146,7 @@ def test_write_uses_zstd_compression(tmp_path: Path, sample_rows: list[AuditRow]
     assert metadata.row_group(0).column(0).compression.upper() == "ZSTD"
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_partition_dir_permissions_are_restricted(
     tmp_path: Path, sample_rows: list[AuditRow]
 ) -> None:
