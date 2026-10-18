@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -181,13 +182,22 @@ register_probe("github_create_pr", _probe_github_create_pr)
 # metadata = {}
 # ---------------------------------------------------------------------------
 
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+
+
+def _split_write_file_id(side_effect_id: str) -> tuple[str, str]:
+    """``(path, sha)`` from ``"<path>:<sha>"`` or a bare path. The sha is the part after the
+    LAST colon, and only when it is a sha256: a path holds colons of its own (a Windows
+    drive such as ``C:``, or a POSIX name like ``notes:v2.txt``), so splitting at the first
+    colon read ``C`` as the path and called a finished write ``not_completed``."""
+    path_str, sep, tail = side_effect_id.rpartition(":")
+    if sep and (tail == "" or _SHA256_HEX.fullmatch(tail)):
+        return path_str, tail
+    return side_effect_id, ""
+
 
 def _probe_write_file(side_effect_id: str, metadata: dict[str, Any]) -> ProbeResult:
-    if ":" in side_effect_id:
-        path_str, expected_sha = side_effect_id.split(":", 1)
-    else:
-        path_str = side_effect_id
-        expected_sha = ""
+    path_str, expected_sha = _split_write_file_id(side_effect_id)
 
     path = Path(path_str)
     if not path.exists():

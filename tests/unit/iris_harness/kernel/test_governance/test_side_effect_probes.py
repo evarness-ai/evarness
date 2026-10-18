@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from iris_harness.kernel.governance.side_effects.probes import (
     get_probe,
@@ -187,6 +190,30 @@ def test_write_file_ambiguous_when_sha_mismatch(tmp_path: Path) -> None:
 
     result = run_probe("write_file", f"{f}:{wrong_sha}", {})
     assert result == "ambiguous"
+
+
+def test_a_write_file_id_splits_at_its_last_colon_and_only_before_a_sha() -> None:
+    """A path holds colons of its own: a Windows drive read as ``C`` called every write
+    there ``not_completed``."""
+    from iris_harness.kernel.governance.side_effects.probes import _split_write_file_id
+
+    sha = "a" * 64
+    assert _split_write_file_id(rf"C:\work\out.txt:{sha}") == (r"C:\work\out.txt", sha)
+    assert _split_write_file_id(r"C:\work\out.txt") == (r"C:\work\out.txt", "")
+    assert _split_write_file_id(r"C:\work\out.txt:") == (r"C:\work\out.txt", "")
+    assert _split_write_file_id(f"/srv/notes:v2.txt:{sha}") == ("/srv/notes:v2.txt", sha)
+    assert _split_write_file_id("/srv/notes:v2.txt") == ("/srv/notes:v2.txt", "")
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a Windows file name cannot hold a colon")
+def test_write_file_completed_for_a_path_with_a_colon(tmp_path: Path) -> None:
+    content = b"v2"
+    f = tmp_path / "notes:v2.txt"
+    f.write_bytes(content)
+    sha = hashlib.sha256(content).hexdigest()
+
+    assert run_probe("write_file", f"{f}:{sha}", {}) == "completed"
+    assert run_probe("write_file", str(f), {}) == "completed"
 
 
 def test_write_file_completed_without_sha(tmp_path: Path) -> None:
