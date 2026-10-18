@@ -24,6 +24,7 @@ from langchain_core.tools import BaseTool
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from iris_harness import __version__
+from iris_harness.foundation.env import WINDOWS_CHILD_ENV
 from iris_harness.foundation.ids import new_ulid
 from iris_harness.foundation.observability.logging_setup import log_egress
 from iris_harness.kernel.governance.call_context import register_call
@@ -82,6 +83,8 @@ _APPROVAL_KEYS = frozenset({"approval_granted", "approved"})
 # Anything else (every ``IRIS_*`` setting, ``IRIS_VAULT_MASTER_KEY``, provider keys, tokens
 # in the owner's shell) stays behind unless the entry names it in ``inherit_env``.
 _CHILD_ENV_BASE = frozenset({"PATH", "HOME", "USER", "LOGNAME", "LANG", "TERM", "TMPDIR", "TZ"})
+# On Windows, plus what the OS needs in a child (foundation.env.WINDOWS_CHILD_ENV): without
+# SYSTEMROOT a server that opens a socket, as asyncio and the MCP SDK do, cannot start.
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
 _CREDENTIAL_WORDS = (
     "KEY",
@@ -99,13 +102,23 @@ _CREDENTIAL_WORDS = (
 
 
 def child_environment(
-    server: MCPServerConfig, host: Mapping[str, str] | None = None
+    server: MCPServerConfig,
+    host: Mapping[str, str] | None = None,
+    *,
+    windows: bool = os.name == "nt",
 ) -> dict[str, str]:
-    """The environment a stdio server starts with: the base names, the locale (``LC_*``), the
-    variables its entry lists in ``inherit_env``, then its own ``env:`` on top."""
+    """The environment a stdio server starts with: the base names (and on Windows the ones the
+    OS needs), the locale (``LC_*``), the variables its entry lists in ``inherit_env``, then
+    its own ``env:`` on top. Windows names are case-insensitive, so they match that way."""
     host = os.environ if host is None else host
-    allowed = _CHILD_ENV_BASE | set(server.inherit_env)
-    environment = {k: v for k, v in host.items() if k in allowed or k.startswith("LC_")}
+    allowed: set[str] = set(_CHILD_ENV_BASE) | set(server.inherit_env)
+    if windows:
+        allowed = {name.upper() for name in allowed | WINDOWS_CHILD_ENV}
+
+    def passes(name: str) -> bool:
+        return (name.upper() if windows else name) in allowed or name.startswith("LC_")
+
+    environment = {k: v for k, v in host.items() if passes(k)}
     environment.update(server.env)
     return environment
 

@@ -396,6 +396,27 @@ def test_child_environment_is_an_allow_list_with_the_declared_env_on_top() -> No
     }
 
 
+def test_on_windows_the_child_keeps_what_the_os_needs_and_nothing_secret() -> None:
+    """Without SystemRoot a Windows child cannot load Winsock: any server that opens a socket
+    (asyncio, the MCP SDK) failed with WinError 10106."""
+    host = {
+        "Path": r"C:\Windows",
+        "SystemRoot": r"C:\Windows",
+        "TEMP": r"C:\t",
+        "ComSpec": "cmd.exe",
+        "API_TOKEN": "s",
+        "IRIS_X": "1",
+    }
+    env = child_environment(_server(), host, windows=True)
+    assert env == {
+        "Path": r"C:\Windows",
+        "SystemRoot": r"C:\Windows",
+        "TEMP": r"C:\t",
+        "ComSpec": "cmd.exe",
+    }
+    assert "SystemRoot" not in child_environment(_server(), host, windows=False)
+
+
 def test_a_declared_iris_value_is_passed_because_the_owner_typed_it() -> None:
     assert child_environment(_server(env={"IRIS_FOO": "v"}), {})["IRIS_FOO"] == "v"
 
