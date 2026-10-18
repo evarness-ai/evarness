@@ -12,6 +12,7 @@ their modules (core/SDK boundary plan, PR 2).
 from __future__ import annotations
 
 import sqlite3
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,8 @@ import pytest
 
 from iris_personal.email.accounts import EmailAccountStore
 from iris_personal.email.category_store import CategoryStore
+from iris_personal.email.store import EmailStore
+from iris_personal.plugins.email_workflows.judgments import JudgmentStore
 
 
 def _categories(path: Path) -> Any:
@@ -34,9 +37,25 @@ def _email_accounts(path: Path) -> Any:
     return store
 
 
+def _email(path: Path) -> Any:
+    # Wrapped a bare connection in ``with``: committed, never closed. Schema and a read.
+    store = EmailStore(db_path=path)
+    store.ensure_schema()
+    store.get_cursor("p", "a", "c")
+    return store
+
+
+def _judgments(path: Path) -> Any:
+    store = JudgmentStore(db_path=path)
+    store.ensure_schema()
+    return store
+
+
 STORES: dict[str, Callable[[Path], Any]] = {
     "categories": _categories,
+    "email": _email,
     "email_accounts": _email_accounts,
+    "judgments": _judgments,
 }
 
 
@@ -46,10 +65,14 @@ def test_the_store_is_wal_and_leaves_no_handle_open(
 ) -> None:
     opened: list[sqlite3.Connection] = []
     real_connect = sqlite3.connect
+    this_thread = threading.get_ident()
 
     def watching(*args: Any, **kwargs: Any) -> sqlite3.Connection:
         conn = real_connect(*args, **kwargs)
-        opened.append(conn)
+        # The patch is process-wide: a thread an earlier test left running can open one
+        # meanwhile, and it is not this store's, nor checkable from this thread.
+        if threading.get_ident() == this_thread:
+            opened.append(conn)
         return conn
 
     monkeypatch.setattr(sqlite3, "connect", watching)

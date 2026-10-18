@@ -19,13 +19,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from iris_harness.sdk.persistence import connect, data_path
+from iris_harness.sdk.persistence import data_path, sqlite_conn
 
 # Row status. ``judged`` rows carry a bucket; ``waiting`` rows do not yet.
 WAITING = "waiting"
@@ -135,8 +136,12 @@ class JudgmentStore:
         with self._connect() as conn:
             conn.executescript(_SCHEMA)
 
-    def _connect(self) -> sqlite3.Connection:
-        return connect(self.db_path, row_factory=sqlite3.Row)
+    @contextmanager
+    def _connect(self) -> Iterator[sqlite3.Connection]:
+        # Commits on success, rolls back on error, and closes: a bare connection in a
+        # ``with`` block commits but stays open until it is garbage-collected.
+        with sqlite_conn(self.db_path, row_factory=sqlite3.Row) as conn:
+            yield conn
 
     # -- writes ---------------------------------------------------------------
 
