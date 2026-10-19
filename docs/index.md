@@ -1,10 +1,13 @@
 # Evarness
 
-Evarness is a governed agent harness for small local models. It runs an agent loop
-(classify, plan, act with tools, curate the answer) on models that fit on a laptop,
-sends every model call and every tool call through a governance kernel you cannot
-unplug, and lets you answer a turn without a model at all when the answer can be
-computed. Everything outside the loop and the kernel is a plugin.
+Evarness is the governed agent harness for small local models: deterministic where it
+can be, governed everywhere, and it learns in the open. It runs an agent loop (classify,
+plan, act with tools, curate the answer) on models that fit on a laptop, sends every
+model call and every tool call in the loop through a governance kernel you cannot unplug
+([nine hook points](concepts/governance.md#hook-points)), answers a turn without a model
+when the answer can be computed, and measures its own routing and tool use to propose
+changes it never applies without you ([learning](concepts/learning.md)). Everything
+outside the loop and the kernel is a plugin.
 
 The email assistant that ships with it is the proof: a private inbox assistant that
 reads, sorts and labels your mail on a local model, writes nothing until you approve
@@ -46,6 +49,10 @@ evarness email setup                        # then your own mailbox, step by ste
 - **Every call is audited.** Each model call, tool call and answer writes a ledger row,
   and the [proof bundle](reference/proof-bundle.md) lets a CI job verify the email
   assistant's invariants offline.
+- **It learns in the open.** Scheduled jobs mine the signals every turn leaves behind,
+  recommend start tiers, and crystallize recurring successes into quarantined skill
+  proposals. Nothing is applied until a documented flag is on, and what is applied goes
+  through the same kernel ([learning](concepts/learning.md)).
 - **The model-free guards hold.** In an adversarial battery of 14 probes against the
   full guard stack, 11 were fully defended; the misses were in model-based judges, and
   the deterministic guards held. That result is why every answer, generated or not,

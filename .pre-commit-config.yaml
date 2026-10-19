@@ -1,0 +1,20 @@
+# The commit-time half of scripts/ci_local.sh: the linters on what you stage, and the DCO
+# sign-off line every commit needs (CONTRIBUTING.md). Install once: `pre-commit install`.
+# Versions track pyproject's dev group; Dependabot does not bump this file, so bump both.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.10
+    hooks:
+      - id: ruff
+        args: [--fix]
+  - repo: https://github.com/psf/black
+    rev: 26.10.0
+    hooks:
+      - id: black
+  - repo: local
+    hooks:
+      - id: dco-sign-off
+        name: DCO sign-off line
+        entry: scripts/check_signoff.sh
+        language: script
+        stages: [commit-msg]
