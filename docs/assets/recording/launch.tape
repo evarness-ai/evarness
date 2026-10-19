@@ -4,7 +4,11 @@
 # Prerequisites: `evarness` on PATH from a wheel (the README install line); no model
 # server needed. The demo runs in its own home under /tmp/evarness-launch-home (the tape
 # sets EVARNESS_DEMO_HOME and wipes the folder first), and the proof bundle is exported
-# from that home's ledger with --db, so the viewer's own ~/.evarness is never touched.
+# from that home's ledger with --db and that home's (empty) session logs with
+# --session-logs. Both flags matter: without --session-logs the export reads the
+# recorder's own ~/.evarness/logs and checks the demo's ledger against someone else's
+# chat sessions, which fails every-call-and-answer-audited for a reason that has nothing
+# to do with the demo.
 #
 # Why two commands and not three: a scripted run leaves the learning loop nothing to learn
 # from, so `evarness learning status` after the demo shows zeros. The loop is described in
@@ -35,7 +39,7 @@ Sleep 500ms
 Enter
 Sleep 9s
 
-Type "evarness governance proof-bundle export --db demo/governance/audit.db --out bundle.json && evarness governance proof-bundle verify bundle.json"
+Type "evarness governance proof-bundle export --db demo/governance/audit.db --session-logs demo/logs --out bundle.json && evarness governance proof-bundle verify bundle.json"
 Sleep 500ms
 Enter
 Sleep 6s
