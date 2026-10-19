@@ -61,7 +61,7 @@ evarness governance proof-bundle export --db ~/.evarness-demo/governance/audit.d
 evarness governance proof-bundle verify bundle.json   # exit 0 verified, 1 a violation
 ```
 
-<img alt="A terminal recording: evarness email demo runs to its summary, then the proof bundle is exported and verified." src="https://github.com/evarness-ai/evarness/releases/latest/download/launch.gif" width="800">
+<img alt="A terminal recording: evarness email demo runs to its summary, then the proof bundle is exported and verified." src="https://github.com/evarness-ai/evarness/raw/main/docs/assets/recording/launch.gif" width="800">
 
 For your own mail you need [Ollama](https://ollama.com/download) and 8 GB of RAM for the
 `lite` model set, 16 GB for `standard`. Connect an account, let `evarness doctor --fix` pull
@@ -72,29 +72,14 @@ the known snags.
 
 ## How it works
 
-```mermaid
-flowchart TD
-    U["CLI, web console, Telegram, MCP clients"] --> S
-    subgraph T["Turn pipeline"]
-        direction TB
-        S["Input screen"] --> D{"A deterministic handler claims the turn?"}
-        D -- yes --> X["Exact answer, no model call"]
-        D -- no --> A["Agent loop: route, plan, act with tools, curate"]
-    end
-    subgraph G["Governance kernel: every model call, tool call and answer"]
-        direction LR
-        C["Classify data"] --> E["Egress gate"] --> P["Tool policy, approvals"] --> L["Audit ledger"]
-    end
-    X --> G
-    A --> G
-    G --> M["Model tiers: router, local tiers on Ollama or LM Studio, opt-in cloud"]
-    G --> PL["Plugins: tools, handlers, channels, mail providers"]
-```
+<img alt="How a turn is governed: the input screen, then either a deterministic handler answers with no model call or the agent loop runs; both paths pass the governance kernel (classify, egress gate, tool policy and approvals, audit ledger) before model tiers or plugins are reached." src="https://github.com/evarness-ai/evarness/raw/main/docs/assets/how-a-turn-is-governed.png" width="800">
 
 The kernel is a passage, not a filter: it runs at
 [nine fixed hook points](https://evarness-ai.github.io/evarness/concepts/governance/#hook-points)
 in every turn, and plugins cannot add, remove or reorder them. The stage-by-stage view is in
-[Architecture](https://evarness-ai.github.io/evarness/concepts/architecture/).
+[Architecture](https://evarness-ai.github.io/evarness/concepts/architecture/); the editable
+source of the drawing is
+[`docs/architecture/how-a-turn-is-governed.excalidraw`](docs/architecture/how-a-turn-is-governed.excalidraw).
 
 ## Three things a bigger model would not give you
 

@@ -15,10 +15,20 @@ hooks, memory model), see [`evarness.md`](./evarness.md); for design rationale s
 
 ![Evarness harness — one agent run](./harness-architecture-diagram.png)
 
-*The rendered image predates the rename and still says IRIS; the editable source below is current. Re-export it from Excalidraw to refresh the image.*
-
 Editable source: [`harness-architecture-diagram.excalidraw`](./harness-architecture-diagram.excalidraw)
-(open at [excalidraw.com](https://excalidraw.com) or with the VS Code Excalidraw extension).
+(open at [excalidraw.com](https://excalidraw.com) or with the VS Code Excalidraw extension;
+export as PNG at 2x with the background on, and commit both files).
+
+## How a turn is governed (hand-drawn)
+
+The README's drawing: the two paths a turn can take and the kernel both pass through. Same
+caveat, conceptual, not a code map; the stages are in
+[Architecture](../concepts/architecture.md) and the hooks in
+[Governance](../concepts/governance.md#hook-points).
+
+![How a turn is governed](../assets/how-a-turn-is-governed.png)
+
+Editable source: [`how-a-turn-is-governed.excalidraw`](./how-a-turn-is-governed.excalidraw).
 
 - **Top box = the ephemeral context window**, rebuilt each turn: inputs (user
   message + `SOUL.md`/`USER.md` system prompt + recent turns) → assembled prompt →
