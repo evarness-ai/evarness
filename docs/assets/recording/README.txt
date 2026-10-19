@@ -10,9 +10,10 @@ brew install vhs                       # or see the VHS README for Linux and Win
 vhs docs/assets/recording/launch.tape  # writes launch.gif, launch.mp4 and launch.webm here
 ```
 
-The outputs are not committed. Attach all three to the GitHub Release: the README embeds
-`https://github.com/evarness-ai/evarness/releases/latest/download/launch.gif`, which
-always resolves to the newest release's asset, the GIF is also what X and LinkedIn take
-(under a few MB), and the MP4 or WebM is for the release notes. Re-run the tape against the
-published wheel for each release, so the recording matches what the install line installs;
-the recording must never show a wheel older than the one it is attached to.
+`launch.gif` is committed: the README embeds it by its `raw/main` URL, which renders on GitHub
+and on PyPI (PyPI's image proxy refuses the release-asset redirect, so the GIF cannot live on
+the release alone). The MP4 and WebM are not committed; attach all three to the GitHub Release
+for the release notes and for X and LinkedIn. Re-run the tape against the published wheel for
+each release and commit the new GIF with the release-prep change, so the recording matches what
+the install line installs; the recording must never show a wheel older than the one it is
+attached to.

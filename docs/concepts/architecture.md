@@ -6,6 +6,8 @@ governance kernel are the core; everything else is a plugin on the SDK.
 The diagram is a conceptual overview, not a code map. The turn it shows is the pipeline in
 `src/evarness/runtime/turn/`, described stage by stage below.
 
+![How a turn is governed: either a deterministic handler answers with no model call or the agent loop runs, and both paths pass the governance kernel before model tiers or plugins are reached](../assets/how-a-turn-is-governed.png)
+
 ```text
   CLI · web console · Telegram · MCP clients
                     │
