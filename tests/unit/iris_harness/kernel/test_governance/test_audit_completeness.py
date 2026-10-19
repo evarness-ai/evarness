@@ -19,12 +19,14 @@ import subprocess
 import sys
 import textwrap
 from collections.abc import Iterator
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 import pytest
 
 import iris_harness
+from iris_harness.foundation.env import os_child_env
 from iris_harness.kernel.governance import GovernanceKernel
 from iris_harness.kernel.governance.audit import AuditLog, sequence, spool
 from iris_harness.kernel.governance.audit.write_health import write_health
@@ -333,7 +335,8 @@ def test_the_spool_and_the_ledger_share_a_directory_and_a_permission_model(
     down.on = False
     path = spool.spool_path_for(db)
     assert path.parent == db.parent  # beside the database it belongs to
-    assert (path.stat().st_mode & 0o777) == 0o600 == (db.stat().st_mode & 0o777)
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert (path.stat().st_mode & 0o777) == 0o600 == (db.stat().st_mode & 0o777)
 
 
 # --------------------------------------------------------------------- the effectful tier
@@ -430,6 +433,7 @@ async def test_kernel_rows_of_a_tool_call_and_a_capability_call_are_numbered(db:
 
 
 # -------------------------------------------------------- processes: fork, and several writers
+@pytest.mark.posix("os.fork")
 def test_a_forked_child_is_a_new_writer_and_does_not_disturb_the_parent(db: Path) -> None:
     log = AuditLog(db_path=db)
     log.record(**_row(1))
@@ -472,7 +476,12 @@ def test_several_writer_processes_each_keep_a_gapless_sequence(db: Path) -> None
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": SRC,
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for tag in ("a", "b", "c")
     ]
@@ -511,9 +520,10 @@ def test_a_database_a_release_created_gets_the_columns_and_one_sequence_boundary
     conn.close()
     AuditLog(db_path=db)
     AuditLog(db_path=db)  # twice: nothing more to add
-    cols = {r[1] for r in sqlite3.connect(db).execute("PRAGMA table_info(audit_log)")}
+    with closing(sqlite3.connect(db)) as conn:
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(audit_log)")}
+        meta = dict(conn.execute("SELECT key, value FROM audit_meta").fetchall())
     assert {"writer_id", "writer_seq", "kind", "record_id"} <= cols
-    meta = dict(sqlite3.connect(db).execute("SELECT key, value FROM audit_meta").fetchall())
     boundary = json.loads(meta["sequence"])
     assert boundary["first_sequenced_row_id"] == 2  # the one old row is before the sequence
     old = AuditLog(db_path=db).query()[0]
@@ -544,7 +554,7 @@ def _run(code: str, db: Path, *, check: bool = True) -> int:
         capture_output=True,
         text=True,
         timeout=120,
-        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+        env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin", **os_child_env()},
     )
     if check:
         assert proc.returncode == 0, proc.stderr[-500:]

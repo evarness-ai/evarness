@@ -23,6 +23,7 @@ from typing import Any
 import pytest
 
 import iris_harness
+from iris_harness.foundation.env import os_child_env
 from iris_harness.kernel.governance.reentry import (
     ENVELOPE_SOURCE,
     REENTRY_MARKER,
@@ -269,7 +270,12 @@ def test_several_interpreters_opening_one_release_memory_db_at_once_all_succeed(
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": SRC,
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for _ in range(6)
     ]

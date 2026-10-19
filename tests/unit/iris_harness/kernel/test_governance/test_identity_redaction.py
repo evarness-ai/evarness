@@ -13,10 +13,13 @@ registration, which is the only way the guard goes quiet.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+
 import pytest
 
 from iris_harness.kernel.governance.identity_redaction import (
-    clear_identity_text_provider,
     has_identity_text_provider,
     identity_texts,
     register_identity_text_provider,
@@ -80,19 +83,27 @@ def test_a_built_runtime_registers_the_provider() -> None:
     If this fails, the exfiltration guard has no corpus in production and denies
     nothing it should deny -- silently. Nothing else in the suite would notice.
     """
-    import iris_harness.kernel.governance.identity_redaction as mod
-
-    clear_identity_text_provider()
-    assert not has_identity_text_provider()
-
-    import importlib
-
-    importlib.reload(importlib.import_module("iris_harness.runtime.identity_redaction"))
-    assert has_identity_text_provider(), (
-        "iris_harness.runtime.identity_redaction did not register a provider; "
-        "the egress guard would redact nothing"
+    # A fresh interpreter starts with an empty seam, so importing the module there is the
+    # whole proof. Not a reload here: that made a second owner-facts source, and the stale
+    # one held a later harness's memory.db open (Windows then could not remove the home).
+    code = (
+        "from iris_harness.kernel.governance import identity_redaction as mod\n"
+        "assert not mod.has_identity_text_provider()\n"
+        "import iris_harness.runtime.identity_redaction\n"
+        "assert mod.has_identity_text_provider() and mod._provider is not None\n"
+        "print('registered')\n"
     )
-    assert mod._provider is not None
+    done = subprocess.run(  # noqa: S603 - this interpreter, fixed code
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        env={**os.environ, "IRIS_AUTH_SECRET": "x"},
+        timeout=120,
+    )
+    assert done.returncode == 0 and "registered" in done.stdout, (
+        "iris_harness.runtime.identity_redaction did not register a provider; "
+        "the egress guard would redact nothing\n" + done.stderr
+    )
 
 
 def test_bootstrap_imports_the_registering_module() -> None:

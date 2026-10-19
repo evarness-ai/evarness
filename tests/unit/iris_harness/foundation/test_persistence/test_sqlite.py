@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sqlite3
 import threading
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -32,12 +33,14 @@ def test_app_stores_are_wal_after_write(tmp_path: Path) -> None:
     ts = TaskStore(db_path=tasks_db)
     ts.ensure_schema()
     ts.create(title="buy milk")
-    assert sqlite3.connect(tasks_db).execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+    with closing(sqlite3.connect(tasks_db)) as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
 
     learn_db = tmp_path / "learning.db"
     ls = LearningMetricsStore(db_path=learn_db)
     ls.ensure_schema()
-    assert sqlite3.connect(learn_db).execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
+    with closing(sqlite3.connect(learn_db)) as conn:
+        assert conn.execute("PRAGMA journal_mode").fetchone()[0].lower() == "wal"
 
 
 def _fact(key: str, value: str) -> UserFact:

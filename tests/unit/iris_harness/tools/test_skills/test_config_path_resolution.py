@@ -68,7 +68,7 @@ def test_expands_tilde_paths(tmp_path: Path) -> None:
 
 def test_absolute_paths_pass_through(tmp_path: Path) -> None:
     """Absolute paths are returned untouched (no repo prefix)."""
-    abs_path = "/etc/iris/something.yaml"
+    abs_path = str(tmp_path / "etc" / "iris" / "something.yaml")  # absolute on this OS
     assert _resolve_config_path(tmp_path, abs_path) == Path(abs_path)
 
 
@@ -118,6 +118,7 @@ def test_validate_prereqs_finds_existing_home_file(
 ) -> None:
     """`~/...` prereqs honor a redirected HOME via expanduser."""
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # what expanduser reads on Windows
     target = tmp_path / ".iris" / "workspace" / "email" / "x" / "proposals.jsonl"
     target.parent.mkdir(parents=True)
     target.write_text("[]")

@@ -211,6 +211,7 @@ def test_asset_lookup_rejects_traversal_whatever_the_client_normalised(dist: Pat
     assert found == assets_root / "index-abc123.js"
 
 
+@pytest.mark.symlinks
 def test_a_symlink_out_of_the_build_is_not_followed(dist: Path, anonymous: TestClient) -> None:
     (dist / "assets" / "leak.txt").symlink_to(dist.parent / "outside.txt")
     resp = anonymous.get("/assets/leak.txt")

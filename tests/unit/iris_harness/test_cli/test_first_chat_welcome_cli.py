@@ -6,6 +6,7 @@ is the one that ran it, and a welcome it cannot fetch never stops the chat.
 
 from __future__ import annotations
 
+import contextlib
 from types import SimpleNamespace
 from typing import Any
 
@@ -107,6 +108,7 @@ def test_the_repl_opens_with_the_welcome_when_it_is_new(
 
     monkeypatch.setattr(repl, "PromptSession", _Prompt)
     monkeypatch.setattr(repl, "FileHistory", lambda *_a, **_k: None)
+    monkeypatch.setattr(repl, "patch_stdout", lambda *_a, **_k: contextlib.nullcontext())
     monkeypatch.setattr(repl, "print_banner", lambda **_k: None)
     monkeypatch.setattr(repl, "fetch_welcome", fetch)
     monkeypatch.setattr(repl, "print_response", lambda text, **_k: printed.append(text))

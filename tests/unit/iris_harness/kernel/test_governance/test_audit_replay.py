@@ -17,11 +17,14 @@ import subprocess
 import sys
 import textwrap
 from collections.abc import Iterator
+from contextlib import closing
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+from iris_harness.foundation.env import os_child_env
 
 pq = pytest.importorskip("pyarrow.parquet")
 pytest.importorskip("duckdb")
@@ -304,11 +307,12 @@ def test_the_same_timeline_comes_back_from_the_cold_tier(entry: str, tmp_path: P
         AuditCompactor(
             audit_log=AuditLog(h.audit_db), archive=AuditArchive(root=archive), retention_days=30
         ).compact(now=FAR_FUTURE)
-        assert (
-            not sqlite3.connect(h.audit_db)
-            .execute("SELECT 1 FROM audit_log WHERE session_id = 'sess-accept'")
-            .fetchall()
-        )  # every session row went cold
+        # Closed before the harness removes its home: Windows cannot delete an open file.
+        with closing(sqlite3.connect(h.audit_db)) as conn:
+            hot_rows = conn.execute(
+                "SELECT 1 FROM audit_log WHERE session_id = 'sess-accept'"
+            ).fetchall()
+        assert not hot_rows  # every session row went cold
         cold = replay_session("sess-accept", sources=_sources(h, archive), include_archive=True)
         no_archive = replay_session("sess-accept", sources=_sources(h), include_archive=False)
 
@@ -593,6 +597,7 @@ def test_a_call_killed_mid_way_is_an_open_call_and_its_writer_ended_without_clos
             "PYTHONPATH": SRC,
             "IRIS_AUTH_SECRET": "x",
             "PATH": "/usr/bin:/bin",
+            **os_child_env(),
             "IRIS_SESSION_LOG_DIR": str(logs),
         },
     )
@@ -981,11 +986,10 @@ def test_writer_start_records_when_the_process_began(tmp_path: Path) -> None:
         reason="x",
         payload={},
     )
-    (body,) = (
-        sqlite3.connect(db)
-        .execute("SELECT payload_json FROM audit_log WHERE hook_point = 'writer.start'")
-        .fetchone()
-    )
+    with closing(sqlite3.connect(db)) as conn:
+        (body,) = conn.execute(
+            "SELECT payload_json FROM audit_log WHERE hook_point = 'writer.start'"
+        ).fetchone()
     payload = json.loads(body)
     assert payload["pid"] == _own_pid()
     assert abs(payload["started"] - psutil.Process().create_time()) < 1.0

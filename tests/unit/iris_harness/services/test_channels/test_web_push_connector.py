@@ -125,6 +125,7 @@ def test_the_keypair_is_stable_across_reads(tmp_path: Path) -> None:
     assert vapid_keys.public_key_b64(path) == first
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_the_private_key_is_written_unreadable_to_others(tmp_path: Path) -> None:
     path = tmp_path / "vapid.pem"
     vapid_keys.load_or_create(path)

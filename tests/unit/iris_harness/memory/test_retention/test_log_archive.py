@@ -57,8 +57,9 @@ def test_the_archive_is_private_and_written_atomically(tmp_path: Path) -> None:
     archive = _archive(tmp_path)
     archive.add([_log(tmp_path / "logs", "session-web-a.jsonl", "x\n", month_ts=JUL)])
     root = tmp_path / "archive"
-    assert stat.S_IMODE(root.stat().st_mode) == 0o700
-    assert stat.S_IMODE((root / "2026-07.tar.gz.enc").stat().st_mode) == 0o600
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert stat.S_IMODE(root.stat().st_mode) == 0o700
+        assert stat.S_IMODE((root / "2026-07.tar.gz.enc").stat().st_mode) == 0o600
     assert not list(root.glob(".*.tmp"))
 
 

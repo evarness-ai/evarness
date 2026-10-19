@@ -27,6 +27,7 @@ from typing import Any
 import pytest
 
 import iris_harness
+from iris_harness.foundation.env import os_child_env
 from iris_harness.foundation.persistence.sqlite import add_columns_if_missing
 from iris_harness.kernel.governance.approvals.store import ApprovalStore
 from iris_harness.kernel.governance.audit.log import (
@@ -406,7 +407,12 @@ def _race(store: str, tmp_path: Path, n: int = 6) -> list[str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": SRC,
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for _ in range(n)
     ]

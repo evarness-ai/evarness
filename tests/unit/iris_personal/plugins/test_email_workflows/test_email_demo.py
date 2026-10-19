@@ -449,7 +449,8 @@ def test_the_environment_is_the_demo_homes_alone(tmp_path: Path) -> None:
     assert Path(env["PYTHONPATH"]).is_absolute()
     key_file = home / KEY_FILENAME
     assert key_file.read_text().strip() == env["IRIS_VAULT_MASTER_KEY"]
-    assert stat.S_IMODE(key_file.stat().st_mode) == 0o600
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert stat.S_IMODE(key_file.stat().st_mode) == 0o600
     assert demo_environment(home, owner)["IRIS_VAULT_MASTER_KEY"] == env["IRIS_VAULT_MASTER_KEY"]
 
 

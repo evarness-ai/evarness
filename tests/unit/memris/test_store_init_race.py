@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 import memris
+from iris_harness.foundation.env import os_child_env
 from memris.store import SQLiteGraphStore
 from memris.store import sqlite as store_module
 
@@ -63,7 +64,7 @@ def _race(path: Path) -> list[str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "PATH": "/usr/bin:/bin"},
+            env={"PYTHONPATH": SRC, "PATH": "/usr/bin:/bin", **os_child_env()},
         )
         for _ in range(PROCESSES)
     ]

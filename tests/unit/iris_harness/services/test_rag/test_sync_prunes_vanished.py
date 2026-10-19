@@ -123,7 +123,8 @@ def test_a_missing_parent_directory_is_not_pruned(store: DocumentStore, tmp_path
     assert store.get_source(sid) is not None and store.count_chunks(sid) > 0
 
 
-@pytest.mark.skipif(os.geteuid() == 0, reason="root reads a mode-000 folder")
+@pytest.mark.posix("chmod 000 makes a folder unreadable")
+@pytest.mark.skipif(os.name == "posix" and os.geteuid() == 0, reason="root reads a mode-000 folder")
 def test_an_unreadable_parent_directory_is_not_pruned(store: DocumentStore, tmp_path: Path) -> None:
     """A parent the owner cannot read cannot show the file is gone (a missing-looking file
     in a denied folder). A guard that only asked "does the file exist" would prune it."""

@@ -27,6 +27,7 @@ def _store(tmp_path: Path) -> ApprovalStore:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_db_created_with_0o600_perms(tmp_path: Path) -> None:
     db_path = tmp_path / "approvals.db"
     ApprovalStore(db_path=db_path)

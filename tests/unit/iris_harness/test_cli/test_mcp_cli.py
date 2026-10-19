@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import yaml
@@ -41,7 +42,8 @@ def test_keygen_writes_private_key_and_trust_entry(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     key_file = keys_dir / "ops.key"
     assert key_file.exists()
-    assert oct(key_file.stat().st_mode)[-3:] == "600"
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert oct(key_file.stat().st_mode)[-3:] == "600"
     doc = yaml.safe_load(trust.read_text())
     assert doc["keys"][0]["key_id"] == "ops"
     assert doc["keys"][0]["public_key"]

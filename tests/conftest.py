@@ -919,3 +919,40 @@ class ScalingCheck:
 @pytest.fixture
 def scaling() -> ScalingCheck:
     return ScalingCheck()
+
+
+# --------------------------------------------------------------------------------
+# Platform markers. A test that asserts POSIX-only behaviour says so, with a reason,
+# and the suite still runs it everywhere that behaviour exists (CI runs Linux).
+# --------------------------------------------------------------------------------
+_CAN_SYMLINK: bool | None = None
+
+
+def _can_symlink() -> bool:
+    """Whether this process may create a symlink (Windows needs Developer Mode or admin)."""
+    global _CAN_SYMLINK
+    if _CAN_SYMLINK is None:
+        with tempfile.TemporaryDirectory() as tmp:
+            try:
+                os.symlink(tmp, os.path.join(tmp, "probe"), target_is_directory=True)
+                _CAN_SYMLINK = True
+            except OSError:
+                _CAN_SYMLINK = False
+    return _CAN_SYMLINK
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """``@pytest.mark.posix("why")`` skips on Windows with the reason; ``@pytest.mark.symlinks``
+    skips where this process may not create a symlink."""
+    for item in items:
+        posix = item.get_closest_marker("posix")
+        if posix is not None and sys.platform == "win32":
+            why = posix.args[0] if posix.args else "asserts POSIX-only behaviour"
+            item.add_marker(pytest.mark.skip(reason=f"POSIX only: {why}"))
+        if item.get_closest_marker("symlinks") is not None and not _can_symlink():
+            item.add_marker(
+                pytest.mark.skip(
+                    reason="creates symlinks, which this process may not "
+                    "(on Windows: Developer Mode)"
+                )
+            )

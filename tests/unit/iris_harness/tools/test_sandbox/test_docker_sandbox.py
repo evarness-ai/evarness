@@ -49,7 +49,7 @@ def test_build_argv_mounts_workspace_rw(sandbox: DockerSandbox, tmp_path: Path) 
     argv = sandbox._build_argv("ls", container_name="iris-sandbox-test")
     mount_idx = argv.index("-v")
     mount_spec = argv[mount_idx + 1]
-    host, container, mode = mount_spec.split(":")
+    host, container, mode = mount_spec.rsplit(":", 2)  # a Windows host path has a drive colon
     assert Path(host) == sandbox.workspace.path
     assert container == "/workspace"
     assert mode == "rw"

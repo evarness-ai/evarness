@@ -19,6 +19,7 @@ import os
 import sqlite3
 import stat
 import sys
+from contextlib import closing
 from pathlib import Path
 
 import pytest
@@ -95,7 +96,8 @@ def test_isolation_helper_works_even_with_writable_file(tmp_path: Path) -> None:
     are wrong, the SQLite URI keeps writes out.
     """
     db_path = tmp_path / "wide_open.db"
-    sqlite3.connect(db_path).executescript("CREATE TABLE t (id INTEGER); INSERT INTO t VALUES (1);")
+    with closing(sqlite3.connect(db_path)) as conn:
+        conn.executescript("CREATE TABLE t (id INTEGER); INSERT INTO t VALUES (1);")
     # Intentionally world-writable to prove the URI mode=ro guard works
     # even when the filesystem layer is misconfigured.
     os.chmod(db_path, _WORLD_WRITABLE)

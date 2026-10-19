@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from iris_harness.foundation.env import os_child_env
 from iris_harness.kernel.governance.threat import availability
 from iris_harness.kernel.governance.threat.availability import model_guard_state
 from iris_harness.services.health import service
@@ -158,7 +159,7 @@ def test_the_probe_loads_neither_torch_nor_transformers() -> None:
         [sys.executable, "-c", code],
         capture_output=True,
         text=True,
-        env={"PYTHONPATH": str(_REPO / "src"), "PATH": "/usr/bin:/bin"},
+        env={"PYTHONPATH": str(_REPO / "src"), "PATH": "/usr/bin:/bin", **os_child_env()},
         check=False,
     )
     assert done.returncode == 0, done.stdout + done.stderr
@@ -167,9 +168,9 @@ def test_the_probe_loads_neither_torch_nor_transformers() -> None:
 def test_every_check_kind_has_a_group_on_the_web_health_screen() -> None:
     """The screen renders a row only under a group for its kind, so a kind with no group is
     invisible there (plugin rows were, before issue #136)."""
-    screen = (_REPO / "webui/src/screens/Health.tsx").read_text()
+    screen = (_REPO / "webui/src/screens/Health.tsx").read_text(encoding="utf-8")
     groups = set(re.findall(r'\{ label: "[^"]+", kind: "(\w+)" \}', screen))
-    types = (_REPO / "webui/src/lib/control.ts").read_text()
+    types = (_REPO / "webui/src/lib/control.ts").read_text(encoding="utf-8")
     union = re.search(r"interface HealthCheck \{\s*target: string;\s*kind: ([^;]+);", types)
     assert union is not None
     declared = set(re.findall(r'"(\w+)"', union.group(1)))

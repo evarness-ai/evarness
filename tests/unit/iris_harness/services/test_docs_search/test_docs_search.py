@@ -47,7 +47,9 @@ SECRET_TEXT = (
 
 def _write(path: Path, text: str) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    # LF on every OS: sizes and offsets below are counted in these bytes, and Windows'
+    # text mode would write each newline as CRLF.
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 
@@ -305,6 +307,7 @@ def test_a_root_that_overlaps_the_owners_home_is_refused(tree: Path, tmp_path, m
     assert _search(tree, query=CANARY) == NOT_PRESENT
 
 
+@pytest.mark.symlinks
 def test_file_symlink_out_of_the_root_is_not_followed(
     tree: Path, tmp_path: Path, reads: list[str]
 ) -> None:
@@ -314,6 +317,7 @@ def test_file_symlink_out_of_the_root_is_not_followed(
     assert os.path.realpath(outside) not in reads
 
 
+@pytest.mark.symlinks
 def test_directory_symlink_out_of_the_root_is_not_followed(
     tree: Path, tmp_path: Path, reads: list[str]
 ) -> None:
@@ -323,6 +327,7 @@ def test_directory_symlink_out_of_the_root_is_not_followed(
     assert os.path.realpath(outside) not in reads
 
 
+@pytest.mark.symlinks
 def test_symlink_to_an_identity_file_is_not_followed(tree: Path, reads: list[str]) -> None:
     soul = _identity_files()[0]
     (tree / "docs/concepts/soul.md").symlink_to(soul)
@@ -330,6 +335,7 @@ def test_symlink_to_an_identity_file_is_not_followed(tree: Path, reads: list[str
     assert os.path.realpath(soul) not in reads
 
 
+@pytest.mark.symlinks
 def test_a_root_that_is_itself_a_symlink_is_refused(tree: Path, tmp_path: Path, monkeypatch, reads: list[str]) -> None:  # type: ignore[no-untyped-def]
     outside = _write(tmp_path / "outside2/secret.md", f"# S\n\n{CANARY}\n")
     (tree / "docs/elsewhere").symlink_to(outside.parent, target_is_directory=True)
@@ -879,7 +885,7 @@ def test_resume_is_not_valid_across_a_changed_chunk_size(tree: Path, tmp_path, m
 def _rewrite_in_place(path: Path, new: str) -> None:
     st = path.stat()
     assert len(new.encode()) == st.st_size
-    path.write_text(new, encoding="utf-8")  # truncates + rewrites the same inode
+    path.write_text(new, encoding="utf-8", newline="\n")  # truncates + rewrites the same inode
     os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))  # put the mtime back
 
 

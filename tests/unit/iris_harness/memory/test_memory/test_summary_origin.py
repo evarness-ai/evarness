@@ -23,6 +23,7 @@ import pytest
 
 import iris_harness
 from iris_harness.agent.agentic_core import _build_react_prompt
+from iris_harness.foundation.env import os_child_env
 from iris_harness.kernel.governance.reentry import ENVELOPE_SOURCE, REENTRY_MARKER
 from iris_harness.memory.compactor import (
     CompactedHistory,
@@ -165,7 +166,12 @@ def test_several_interpreters_opening_one_release_db_with_old_summaries_at_once_
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": SRC, "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": SRC,
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for _ in range(6)
     ]

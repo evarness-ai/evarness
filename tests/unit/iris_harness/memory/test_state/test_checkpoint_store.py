@@ -19,6 +19,7 @@ def _store(tmp_path: Path) -> CheckpointStore:
     return CheckpointStore(db_path=tmp_path / "checkpoints.db")
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_db_chmod_0o600_on_create(tmp_path: Path) -> None:
     db_path = tmp_path / "checkpoints.db"
     CheckpointStore(db_path=db_path)

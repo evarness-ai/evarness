@@ -25,6 +25,7 @@ from typing import Any
 import pytest
 
 import iris_harness
+from iris_harness.foundation.env import os_child_env
 from iris_harness.foundation.persistence import sqlite as persistence
 
 SRC = Path(iris_harness.__file__).resolve().parents[1]
@@ -161,7 +162,12 @@ def _race(db: Path, spec: str, call: str, n: int = 12) -> list[str]:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            env={"PYTHONPATH": str(SRC), "IRIS_AUTH_SECRET": "x", "PATH": "/usr/bin:/bin"},
+            env={
+                "PYTHONPATH": str(SRC),
+                "IRIS_AUTH_SECRET": "x",
+                "PATH": "/usr/bin:/bin",
+                **os_child_env(),
+            },
         )
         for _ in range(n)
     ]

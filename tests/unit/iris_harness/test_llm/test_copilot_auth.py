@@ -78,6 +78,7 @@ def test_assert_copilot_enabled_requires_flag() -> None:
 # ---------- cache --------------------------------------------------------
 
 
+@pytest.mark.posix("POSIX file modes: on Windows the folder's access list protects it")
 def test_write_cache_uses_0600_permissions(tmp_path: Path) -> None:
     cache = tmp_path / "oauth.json"
     _write_cache(

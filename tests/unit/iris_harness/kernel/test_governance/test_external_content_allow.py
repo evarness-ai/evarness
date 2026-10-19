@@ -9,6 +9,7 @@ when used, and not writable by a plugin.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
@@ -123,6 +124,10 @@ def test_an_expired_entry_is_ignored(_own_files: Path) -> None:
     _write(_own_files, _entry(until=yesterday))
     assert allow.allowed_ids("mcp:docs", None) == frozenset()
     _write(_own_files, _entry(until=tomorrow))
+    # The file is cached by mtime, and two writes this close (same size) can share a
+    # timestamp tick under load: move it on, as any later edit would.
+    st = _own_files.stat()
+    os.utime(_own_files, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
     assert allow.allowed_ids("mcp:docs", None) == frozenset({ID})
 
 
