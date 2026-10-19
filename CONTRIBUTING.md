@@ -40,6 +40,27 @@ tier** ([`docs/reference/stable-api.md`](docs/reference/stable-api.md)):
 the `evarness.plugins` entry-point group. Everything else is internal and may change in
 any release. Hold your plugin to the tier with `evarness.testing.check_stable_imports`.
 
+## Where help is wanted
+
+The issues labelled `help wanted` and `good first issue` are current. The ones that would
+change the most for users, in order:
+
+1. **An Outlook and Microsoft 365 mail provider over the Graph API.** The number one limit
+   on the README's list. It is a plugin of kind `mail-provider`, the scaffold exists
+   (`evarness plugins new my-outlook --kind mail-provider`), and the IMAP and Gmail providers
+   under `src/evarness_personal/plugins/` are the two worked examples.
+2. **Govern the brief and digest slots** ([#199](https://github.com/evarness-ai/evarness/issues/199)):
+   they run their skill tools in-process with a redaction pass but no per-call hook, approval
+   or audit row. Kernel work, with a design note on the issue.
+3. **A tamper-evident audit ledger** ([#231](https://github.com/evarness-ai/evarness/issues/231)):
+   the per-writer hash chain is designed and deferred.
+4. **A research provider or a channel** you use and we do not ship: both are plugin kinds
+   with a scaffold and a worked example.
+5. **Docs:** the good-first-issue label holds the pages people ask for.
+
+Say in the issue or in Discussions that you are taking one, so two people do not build the
+same thing.
+
 ## Stable tier and deprecation
 
 A change that removes or renames a stable name, kind, manifest key or command, or changes
@@ -92,6 +113,8 @@ network; use the scripted fake model in `evarness.testing`. New behaviour ships 
 tests; a bug fix ships with the test that would have caught it.
 
 Style: Black (line length 100), Ruff, MyPy strict. No emojis in code, docs or commits.
+`pre-commit install` (after `pip install pre-commit` or `uv tool install pre-commit`) runs
+Ruff, Black and the DCO sign-off check on every commit, from `.pre-commit-config.yaml`.
 
 ## Commits, PRs and sign-off
 

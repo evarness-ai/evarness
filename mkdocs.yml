@@ -26,10 +26,14 @@ exclude_docs: |
   !/guides/
   !/concepts/
   !/reference/
+  !/adr/
   !/assets/
   !/stylesheets/
 
 strict: true
+# The decision records are reached from adr/index.md, not listed one by one in the nav.
+not_in_nav: |
+  /adr/*.md
 validation:
   omitted_files: warn
   absolute_links: warn
@@ -91,8 +95,11 @@ nav:
       - Governance: concepts/governance.md
       - Deterministic handlers: concepts/deterministic-handlers.md
       - Plugins and profiles: concepts/plugins.md
+      - Learning: concepts/learning.md
   - Reference:
       - Stable API: reference/stable-api.md
       - CLI: reference/cli.md
       - Environment variables: reference/environment-variables.md
       - Proof bundle: reference/proof-bundle.md
+  - Decisions:
+      - Architecture decisions: adr/index.md

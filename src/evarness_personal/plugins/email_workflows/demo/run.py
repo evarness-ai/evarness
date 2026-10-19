@@ -370,6 +370,8 @@ def render_summary(report: DemoReport) -> str:
         f"{report.home / 'governance' / 'audit.db'}.",
         f"- Network connections attempted: {report.network_attempts} (the demo refuses "
         "them all).",
+        "- Learning: the signals from this run are recorded for the learning loop, which "
+        "proposes and never applies on its own (`evarness learning status`).",
         "",
         f"Everything is in {report.home}. Run it again: nothing is fetched or judged twice.",
         "Connect your own mailbox with `evarness email setup` when you are ready.",

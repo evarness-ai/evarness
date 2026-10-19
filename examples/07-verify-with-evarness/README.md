@@ -47,8 +47,8 @@ Expected output: `3 passed` in about 31 s (11 s with `--no-cov`):
 
 ## Evarness
 
-R14 makes Evarness Evarness's reference harness, with an Evarness proof bundle for email
-onboarding verified offline in CI. **Evarness is not a dependency of Evarness** (R14:
+R14 makes Evarness the reference harness for Evarness Verify, with a proof bundle for email
+onboarding verified offline in CI. **Evarness Verify is not a dependency of Evarness** (R14:
 optional, dev/CI only, never runtime). The bundle format is Evarness's own, documented and
 versioned, so wiring Evarness in means reading `bundle.json` (or calling
 `verify_bundle`) from its side; nothing here imports it.
