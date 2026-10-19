@@ -96,3 +96,5 @@ nav:
       - CLI: reference/cli.md
       - Environment variables: reference/environment-variables.md
       - Proof bundle: reference/proof-bundle.md
+  - Decisions:
+      - Architecture decisions: adr/index.md
