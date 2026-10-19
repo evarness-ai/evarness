@@ -52,10 +52,12 @@ evarness email demo                 # a synthetic mailbox, a scripted model, no 
 The demo needs no account, no credentials and no model server. It fetches a 200-message
 synthetic mailbox, sorts it, previews and writes labels, prints a first digest, and ends with
 what it did, audit rows included. The demo keeps its own home, `~/.evarness-demo`, and never
-touches yours. Export that home's proof bundle and verify it offline:
+touches yours. Export that home's proof bundle, ledger and session logs both, and verify it
+offline:
 
 ```bash
-evarness governance proof-bundle export --db ~/.evarness-demo/governance/audit.db --out bundle.json
+evarness governance proof-bundle export --db ~/.evarness-demo/governance/audit.db \
+    --session-logs ~/.evarness-demo/logs --out bundle.json
 evarness governance proof-bundle verify bundle.json   # exit 0 verified, 1 a violation
 ```
 
