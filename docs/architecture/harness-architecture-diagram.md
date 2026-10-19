@@ -15,6 +15,8 @@ hooks, memory model), see [`evarness.md`](./evarness.md); for design rationale s
 
 ![Evarness harness — one agent run](./harness-architecture-diagram.png)
 
+*The rendered image predates the rename and still says IRIS; the editable source below is current. Re-export it from Excalidraw to refresh the image.*
+
 Editable source: [`harness-architecture-diagram.excalidraw`](./harness-architecture-diagram.excalidraw)
 (open at [excalidraw.com](https://excalidraw.com) or with the VS Code Excalidraw extension).
 

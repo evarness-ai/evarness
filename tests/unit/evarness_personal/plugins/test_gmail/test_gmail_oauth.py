@@ -23,7 +23,7 @@ from evarness_personal.plugins.gmail import gmail_oauth
 
 
 @pytest.fixture
-def tmp_iris(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+def tmp_evarness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Redirect both credentials.CREDENTIALS_DIR and EmailAccountStore.db_path."""
     cred_dir = tmp_path / "credentials"
     monkeypatch.setattr(credentials, "CREDENTIALS_DIR", cred_dir)
@@ -102,15 +102,15 @@ def _make_fake_credentials(
 
 
 def test_login_missing_client_secrets_raises(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
-    missing = tmp_iris / "no_such_file.json"
+    missing = tmp_evarness / "no_such_file.json"
     with pytest.raises(FileNotFoundError):
         gmail_oauth.login("user@example.com", client_secrets_path=missing)
 
 
 def test_login_authorized_email_mismatch_raises(
-    tmp_iris: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
+    tmp_evarness: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
 ) -> None:
     fake_creds = _make_fake_credentials()
 
@@ -130,7 +130,7 @@ def test_login_authorized_email_mismatch_raises(
 
 
 def test_login_success_persists_token_and_registers_account(
-    tmp_iris: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
+    tmp_evarness: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
 ) -> None:
     fake_creds = _make_fake_credentials()
 
@@ -158,7 +158,7 @@ def test_login_success_persists_token_and_registers_account(
 
 
 def test_login_existing_account_does_not_duplicate(
-    tmp_iris: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
+    tmp_evarness: Path, mock_keyring, stub_email_store, stub_client_secrets: Path
 ) -> None:
     # Pre-existing account row
     stub_email_store.ensure_schema()
@@ -184,11 +184,11 @@ def test_login_existing_account_does_not_duplicate(
 # ─── status() ─────────────────────────────────────────────────────────
 
 
-def test_status_empty_when_no_accounts(tmp_iris: Path, mock_keyring, stub_email_store) -> None:
+def test_status_empty_when_no_accounts(tmp_evarness: Path, mock_keyring, stub_email_store) -> None:
     assert gmail_oauth.status() == []
 
 
-def test_status_reports_missing_token(tmp_iris: Path, mock_keyring, stub_email_store) -> None:
+def test_status_reports_missing_token(tmp_evarness: Path, mock_keyring, stub_email_store) -> None:
     stub_email_store.ensure_schema()
     stub_email_store.add(provider="gmail", address="orphan@gmail.com")
 
@@ -199,7 +199,7 @@ def test_status_reports_missing_token(tmp_iris: Path, mock_keyring, stub_email_s
     assert snaps[0].refresh_token_present is False
 
 
-def test_status_reports_token_details(tmp_iris: Path, mock_keyring, stub_email_store) -> None:
+def test_status_reports_token_details(tmp_evarness: Path, mock_keyring, stub_email_store) -> None:
     stub_email_store.ensure_schema()
     stub_email_store.add(provider="gmail", address="user@gmail.com")
     # Pre-populate keychain with a realistic token blob
@@ -226,7 +226,9 @@ def test_status_reports_token_details(tmp_iris: Path, mock_keyring, stub_email_s
     assert s.scopes == ("https://www.googleapis.com/auth/gmail.readonly",)
 
 
-def test_status_filters_non_gmail_providers(tmp_iris: Path, mock_keyring, stub_email_store) -> None:
+def test_status_filters_non_gmail_providers(
+    tmp_evarness: Path, mock_keyring, stub_email_store
+) -> None:
     stub_email_store.ensure_schema()
     stub_email_store.add(provider="gmail", address="x@gmail.com")
     stub_email_store.add(provider="outlook", address="y@outlook.com")
@@ -239,7 +241,7 @@ def test_status_filters_non_gmail_providers(tmp_iris: Path, mock_keyring, stub_e
 # ─── logout() ─────────────────────────────────────────────────────────
 
 
-def test_logout_removes_keychain_token(tmp_iris: Path, mock_keyring, stub_email_store) -> None:
+def test_logout_removes_keychain_token(tmp_evarness: Path, mock_keyring, stub_email_store) -> None:
     stub_email_store.ensure_schema()
     stub_email_store.add(provider="gmail", address="user@gmail.com")
     credentials.save_token("gmail", "user@gmail.com", '{"token":"x"}')
@@ -250,7 +252,7 @@ def test_logout_removes_keychain_token(tmp_iris: Path, mock_keyring, stub_email_
 
 
 def test_logout_missing_account_returns_false(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     stub_email_store.ensure_schema()
     assert gmail_oauth.logout("ghost@gmail.com") is False
@@ -260,13 +262,13 @@ def test_logout_missing_account_returns_false(
 
 
 def test_load_credentials_missing_returns_none(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     assert gmail_oauth.load_credentials("nobody@gmail.com") is None
 
 
 def test_load_credentials_returns_credentials_when_valid(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     credentials.save_token(
         "gmail",
@@ -295,7 +297,7 @@ def test_load_credentials_returns_credentials_when_valid(
 
 
 def test_load_credentials_refreshes_when_expired(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     credentials.save_token(
         "gmail",
@@ -320,7 +322,7 @@ def test_load_credentials_refreshes_when_expired(
 
 
 def test_load_credentials_raises_a_typed_error_when_refresh_revoked(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     stale = json.dumps({"token": "old", "refresh_token": "rt-1", "scopes": []})
     credentials.save_token("gmail", "user@gmail.com", stale)
@@ -349,7 +351,7 @@ def test_load_credentials_raises_a_typed_error_when_refresh_revoked(
 
 
 def test_a_revoked_token_surfaces_through_a_sync_with_the_fix(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     """The sweep's per-account error now says revoked + the command, not "no credentials"."""
     from evarness_personal.plugins.gmail import gmail_fetch
@@ -377,7 +379,7 @@ def _stored(mock_keyring, *, refresh_token: str | None = "rt-1") -> str:  # noqa
 
 
 def test_force_refresh_refreshes_an_unexpired_token(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     _stored(mock_keyring)
     with patch.object(gmail_oauth, "Credentials") as mock_creds_cls:
@@ -392,7 +394,7 @@ def test_force_refresh_refreshes_an_unexpired_token(
 
 
 def test_force_refresh_reports_a_revoked_token(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     stale = _stored(mock_keyring)
     with patch.object(gmail_oauth, "Credentials") as mock_creds_cls:
@@ -405,7 +407,7 @@ def test_force_refresh_reports_a_revoked_token(
 
 
 def test_force_refresh_without_a_token_is_none(
-    tmp_iris: Path, mock_keyring, stub_email_store
+    tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     assert gmail_oauth.force_refresh("user@gmail.com") is None
     _stored(mock_keyring, refresh_token=None)

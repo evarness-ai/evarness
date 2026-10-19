@@ -66,11 +66,11 @@ def test_every_block_has_a_known_annotation_and_every_page_runs_one() -> None:
 
 
 def test_the_annotation_parser_rejects_what_it_does_not_know() -> None:
-    page = "<!-- ci: maybe -->\n```bash\niris doctor\n```\n"
+    page = "<!-- ci: maybe -->\n```bash\nevarness doctor\n```\n"
     [block] = gs.parse_blocks(page, "x.md")
     with pytest.raises(ValueError, match="unknown annotation"):
         block.action()
-    page = "<!-- ci: exit 0,1 -->\n\n```bash\niris doctor\n```\n```text\nnot shell\n```\n"
+    page = "<!-- ci: exit 0,1 -->\n\n```bash\nevarness doctor\n```\n```text\nnot shell\n```\n"
     [block] = gs.parse_blocks(page, "x.md")
     assert block.action() == ("run", (0, 1), "")
 

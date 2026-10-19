@@ -172,7 +172,7 @@ def test_endpoint_builds_a_batched_otlp_exporter_with_the_service_name(
     assert exporter._headers["x-api-key"] == "abc123"
 
 
-def test_service_name_defaults_to_iris(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_service_name_defaults_to_evarness(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:4318")
     state = initialize_tracing()
     assert state.service_name == "evarness"

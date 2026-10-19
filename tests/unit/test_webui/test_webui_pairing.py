@@ -93,7 +93,7 @@ def test_no_token_ever_reaches_browser_storage() -> None:
     """The cookie is HttpOnly on purpose. Storage calls exist (theme, nav state, chat
     session id); none of them may carry a credential."""
     storage = re.compile(r"(localStorage|sessionStorage|document\.cookie)")
-    secretish = re.compile(r"token|evarness_device|irisd_|secret|bearer", re.IGNORECASE)
+    secretish = re.compile(r"token|evarness_device|evarnessd_|secret|bearer", re.IGNORECASE)
     offenders = [
         f"{path.relative_to(ROOT)}:{number}"
         for path in _sources()

@@ -54,7 +54,7 @@ def store(tmp_path: Path) -> EmailStore:
 # ─── Migration ─────────────────────────────────────────────────────────
 
 
-def test_migration_adds_column_and_stamps_existing_classifications_iris(tmp_path: Path) -> None:
+def test_migration_adds_column_and_stamps_existing_classifications_evarness(tmp_path: Path) -> None:
     """A pre-existing DB gains ``classified_source``; rows triage already classified
     become 'evarness' (so no vendor write can replace them), unclassified stay NULL."""
     db = tmp_path / "email.db"

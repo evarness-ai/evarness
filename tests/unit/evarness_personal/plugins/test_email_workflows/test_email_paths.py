@@ -35,7 +35,7 @@ def places(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]
     return home, cwd
 
 
-def _iris(home: Path) -> typer.Typer:
+def _evarness(home: Path) -> typer.Typer:
     root = typer.Typer()
     register_plugin_commands(PluginCLI(root=root), config_dir=default_config_dir(), home_dir=home)
     return root
@@ -55,7 +55,7 @@ def test_email_commands_keep_their_stores_in_the_home(
     places: tuple[Path, Path], args: list[str], exit_code: int
 ) -> None:
     home, cwd = places
-    result = CliRunner().invoke(_iris(home), args)
+    result = CliRunner().invoke(_evarness(home), args)
     assert result.exit_code == exit_code, result.output
     assert list(cwd.iterdir()) == []
     assert any((home / "data").iterdir())
@@ -83,7 +83,7 @@ def test_evarness_email_demo_writes_only_its_own_home(
     # the machine.
     monkeypatch.setenv("PYTHONPATH", str(SRC))
     demo = home.parent / "demo"
-    result = CliRunner().invoke(_iris(home), ["email", "demo", "--home", str(demo)])
+    result = CliRunner().invoke(_evarness(home), ["email", "demo", "--home", str(demo)])
     assert result.exit_code == 0, result.output
     assert list(cwd.iterdir()) == []
     assert (demo / "data" / "email.db").is_file()
