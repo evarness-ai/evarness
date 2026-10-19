@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `evarness email demo` no longer says the run recorded signals for the learning loop. A scripted run has no corrections or confirmations to learn from, so nothing was recorded; the summary now says where the loop's signals come from.
+
+## [0.2.0] - 2026-10-19
+
+### Added
+
+- The public preview: the README with the hook lifecycle, the three pillars and the limits list; the Learning concept page; the architecture decision log published on the site (120 records, each with a status line from a pass on 2026-10-18); the contributor on-ramp (`CONTRIBUTING.md`, pre-commit, the DCO check); the suite on `windows-latest` in CI; the launch recording as a VHS tape.
+
 ### Upgrade notes
 
 - **IRIS is now Evarness.** The package on PyPI is `evarness` (`uv tool install "evarness[email]"`), the command is `evarness`, the import path is `evarness` (the domains `evarness_personal`), the environment variables are `EVARNESS_*`, and the home is `~/.evarness` (`~/.local/share/evarness` and `~/.config/evarness` for the governance stores). Each 0.1.x name keeps working for one cycle and warns once: `import iris_harness` and `import iris_personal` resolve to the new packages (the same module objects), an `IRIS_*` variable is read as its `EVARNESS_*` name when that is unset, a plugin registered under the `iris_harness.plugins` entry-point group still mounts, and `~/.iris` (and the two governance directories) are read where the new directory does not exist yet. All of it is removed in 0.3.0. The `iris` command is gone: it collided with the InterSystems IRIS instance-control command of the same name. Memory collection names, the `urn:evarness:` ontology ids, the `evarness_doc` tool and the `evarnessd_` device-token marker are renamed with no fallback; a 0.1.x semantic index is rebuilt on first use.
