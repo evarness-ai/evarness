@@ -317,7 +317,9 @@ def _is_session_log(path: Path) -> bool:
 
 
 def _session_id_of(path: Path) -> str:
-    return path.name[len("session-") : -len(".jsonl")]
+    from iris_harness.foundation.observability.session_log import session_id_from_log_path
+
+    return session_id_from_log_path(path)
 
 
 def _copy_truncate(path: Path, now: datetime) -> int:

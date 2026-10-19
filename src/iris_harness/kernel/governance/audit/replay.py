@@ -33,6 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from iris_harness.foundation.observability.audit_view import public_payload
+from iris_harness.foundation.observability.session_log import session_log_name
 from iris_harness.kernel.governance.audit import sequence, spool
 
 #: What the API allows one request to read: rows per store and seconds in all. A replay of a
@@ -436,7 +437,7 @@ def _read_session_log(
 ) -> list[dict[str, Any]]:
     if src.session_log_dir is None:
         return []
-    path = src.session_log_dir / f"session-{session_id}.jsonl"
+    path = src.session_log_dir / session_log_name(session_id)
     if not path.exists():
         notes.append(Note("store_absent", "session_log", "no session log file for this session"))
         return []

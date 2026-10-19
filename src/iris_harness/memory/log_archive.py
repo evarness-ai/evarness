@@ -32,6 +32,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from iris_harness.foundation.observability.session_log import session_log_name
+
 logger = logging.getLogger(__name__)
 
 KEY_PROVIDER = "log-archive"
@@ -185,7 +187,7 @@ class LogArchive:
         """
         if (session is None) == (month is None):
             raise ValueError("give exactly one of session= or month=")
-        wanted = f"session-{session}.jsonl" if session is not None else None
+        wanted = session_log_name(session) if session is not None else None
         months = [month] if month is not None else [m.month for m in self.months()]
         dest.mkdir(parents=True, exist_ok=True)
         restored: list[Path] = []

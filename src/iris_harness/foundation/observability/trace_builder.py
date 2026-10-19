@@ -29,6 +29,7 @@ from iris_harness.foundation.logsafe import log_safe
 from iris_harness.foundation.observability.audit_view import public_payload, tier_locality
 from iris_harness.foundation.observability.session_log import (
     TURN_OPENING_KINDS,
+    session_id_from_log_path,
     session_log_dir,
     session_log_path,
 )
@@ -297,7 +298,7 @@ def list_traces(limit: int = 50) -> list[dict[str, Any]]:
         session_log_dir().glob("session-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
     )
     for path in files:
-        session_id = path.stem.removeprefix("session-")
+        session_id = session_id_from_log_path(path)
         turns = _split_turns(_load_session(path))
         # newest turns within a file first
         for idx in range(len(turns) - 1, -1, -1):
@@ -491,9 +492,9 @@ def list_sessions(
         session_log_dir().glob("session-*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True
     )
     if skip is not None:
-        files = [p for p in files if not skip(p.stem.removeprefix("session-"))]
+        files = [p for p in files if not skip(session_id_from_log_path(p))]
     for path in files[: max(1, limit)]:
-        session_id = path.stem.removeprefix("session-")
+        session_id = session_id_from_log_path(path)
         turns = _split_turns(_load_session(path))
         summaries = [
             _summary(session_id, idx, turn)
