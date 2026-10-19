@@ -295,7 +295,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check:
             stale.append(path.relative_to(ROOT))
         else:
-            path.write_text(text, encoding="utf-8")
+            path.write_text(text, encoding="utf-8", newline="\n")  # LF, as git stores it
             print(f"wrote {path.relative_to(ROOT)}")
     if stale:
         print(
