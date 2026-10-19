@@ -1,7 +1,7 @@
 # Evarness
 
-Evarness is the governed agent harness for small local models: deterministic where it
-can be, governed everywhere, and it learns in the open. It runs an agent loop (classify,
+Evarness is the governed agent harness for small local models: local by default,
+deterministic where it can be, governed before action, and it learns in the open. It runs an agent loop (classify,
 plan, act with tools, curate the answer) on models that fit on a laptop, sends every
 model call and every tool call in the loop through a governance kernel you cannot unplug
 ([nine hook points](concepts/governance.md#hook-points)), answers a turn without a model
