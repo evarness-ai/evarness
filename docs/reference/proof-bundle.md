@@ -3,7 +3,7 @@
 R14 asks Evarness to ship a proof for email onboarding that a CI job can verify offline. The
 proof bundle is that proof: the audit ledger's evidence for three invariants, as one
 versioned JSON document, and a verifier that needs nothing but the document. It has no
-Evarness dependency; it is the format an Evarness integration (or any CI) reads.
+Evarness Verify dependency; it is the format Evarness Verify (or any CI) reads.
 
 ## The invariants
 
