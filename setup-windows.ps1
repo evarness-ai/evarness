@@ -231,6 +231,21 @@ if ($onGpu.Count -gt 0) {
 Step ".env (git-ignored)"
 $envLines = @()
 if (Test-Path -LiteralPath ".env") { $envLines = @(Get-Content -LiteralPath ".env") }
+# A .env written before 0.2.0 holds IRIS_* keys. Carry each over to its EVARNESS_* name
+# when that name is absent, so the secret and the vault master key are kept, not minted
+# again: a new master key would leave the existing vault unreadable. The old lines stay;
+# Evarness reads them with a warning until 0.3.0.
+$carried = @()
+foreach ($line in @($envLines)) {
+    if ($line -match '^IRIS_([A-Z0-9_]+)=(.*)$') {
+        $newName = "EVARNESS_" + $Matches[1]
+        if (-not (Get-EnvValue $envLines $newName)) {
+            $envLines = Set-EnvLine $envLines $newName $Matches[2]
+            $carried += $newName
+        }
+    }
+}
+if ($carried.Count -gt 0) { Info ("Carried over from the 0.1.x names in .env: " + ($carried -join ", ")) }
 if (-not (Get-EnvValue $envLines "EVARNESS_AUTH_SECRET")) {
     $envLines = Set-EnvLine $envLines "EVARNESS_AUTH_SECRET" (-join ((New-RandomBytes 32) | ForEach-Object { $_.ToString("x2") }))
     Info "Created EVARNESS_AUTH_SECRET: the bearer token every API call carries."
