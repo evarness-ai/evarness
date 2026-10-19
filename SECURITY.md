@@ -16,8 +16,8 @@ Evarness is pre-1.0. Security fixes land on the latest release only.
 
 | Version | Supported |
 |---|---|
-| 0.1.x | Yes |
-| < 0.1 | No |
+| 0.2.x | Yes |
+| < 0.2 | No |
 
 ## Scope
 

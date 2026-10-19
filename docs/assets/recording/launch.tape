@@ -1,10 +1,16 @@
-# The launch recording: three commands, no cuts, about 25 seconds. Rendered with VHS
+# The launch recording: two commands, no cuts, about 15 seconds. Rendered with VHS
 # (https://github.com/charmbracelet/vhs): `vhs docs/assets/recording/launch.tape`.
 # It re-records identically on a fresh checkout, so every release can refresh it.
 # Prerequisites: `evarness` on PATH from a wheel (the README install line); no model
 # server needed. The demo runs in its own home under /tmp/evarness-launch-home (the tape
 # sets EVARNESS_DEMO_HOME and wipes the folder first), and the proof bundle is exported
 # from that home's ledger with --db, so the viewer's own ~/.evarness is never touched.
+#
+# Why two commands and not three: a scripted run leaves the learning loop nothing to learn
+# from, so `evarness learning status` after the demo shows zeros. The loop is described in
+# the README and shown on a connected mailbox, not here. The bundle's "model call(s) ...
+# observed" count is 0 as well: the demo records no chat sessions, so the
+# every-call-and-answer-audited invariant has nothing to observe; the README says so.
 
 Output docs/assets/recording/launch.gif
 Output docs/assets/recording/launch.mp4
@@ -30,11 +36,6 @@ Enter
 Sleep 9s
 
 Type "evarness governance proof-bundle export --db demo/governance/audit.db --out bundle.json && evarness governance proof-bundle verify bundle.json"
-Sleep 500ms
-Enter
-Sleep 5s
-
-Type "evarness learning status"
 Sleep 500ms
 Enter
 Sleep 6s
