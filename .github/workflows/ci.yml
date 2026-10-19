@@ -180,6 +180,69 @@ jobs:
       - name: Pytest (smoke marker)
         run: poetry run pytest --no-cov -n auto -q -m smoke
 
+  # Native Windows (docs/guides/windows.md): the same changed scope as `test`, and the full
+  # suite on demand, on windows-latest. A separate job, so `test (3.12)` keeps its name.
+  # The steps run in the runner's Git Bash, as a contributor runs scripts/ci_local.sh.
+  # Tests that assert POSIX-only behaviour are marked `posix` and skip here with the reason.
+  test-windows:
+    name: test (windows, 3.12)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      FULL_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.full }}
+      PYTHONIOENCODING: utf-8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Install Poetry and the project (dev + email)
+        run: |
+          pipx install "poetry==${POETRY_VERSION}"
+          poetry config virtualenvs.in-project true
+          # By path: Windows has no python3.12 on PATH, only python.
+          poetry env use "$(python -c 'import sys; print(sys.executable)')"
+          poetry install --with dev --extras email --no-interaction --no-ansi
+      - name: Pytest (full suite, on demand)
+        if: env.FULL_RUN == 'true'
+        run: poetry run pytest --no-cov -n auto -q
+      - name: Pytest (changed scope)
+        if: env.FULL_RUN != 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+          NO_FULL: "1"
+        run: |
+          case "$EVENT_NAME" in
+            pull_request) BASE="$PR_BASE_SHA" ;;
+            push) BASE="$PUSH_BEFORE_SHA" ;;
+            *) BASE="" ;;
+          esac
+          if [[ -z "$BASE" || "$BASE" =~ ^0+$ ]] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE=$(git merge-base HEAD origin/main 2>/dev/null || true)
+            [[ -n "$BASE" && "$BASE" != "$(git rev-parse HEAD)" ]] || BASE=$(git rev-parse HEAD~1)
+          fi
+          export BASE
+          plan=$(bash scripts/changed_tests.sh --print)
+          {
+            echo "### Changed-scope tests (Windows, Python 3.12)"
+            echo
+            echo '```'
+            echo "$plan"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$plan"
+          bash scripts/changed_tests.sh
+      - name: Pytest (smoke marker)
+        run: poetry run pytest --no-cov -n auto -q -m smoke
+
   quickstart:
     name: quickstart
     runs-on: ubuntu-latest
