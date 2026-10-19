@@ -16,13 +16,13 @@
 ontology:
   # The base IRI is an open item in the plan; this placeholder is stable until it is
   # chosen, and changing it later is a one-line edit because every term is relative.
-  id: urn:iris:ontology:memory
+  id: urn:evarness:ontology:memory
   version: 0.1.0
   default_prefix: mem
   owner_class: Person
 
 prefixes:
-  mem: "urn:iris:ontology:memory#"
+  mem: "urn:evarness:ontology:memory#"
   schema: "https://schema.org/"
   prov: "http://www.w3.org/ns/prov#"
   xsd: "http://www.w3.org/2001/XMLSchema#"
@@ -44,7 +44,7 @@ classes:
   # Episodes are the evidence statements are derived from (decision 5 of the plan).
   Episode:       { subclass_of: Thing, abstract: true, system: true }
   Conversation:  { subclass_of: Episode, system: true }
-  # What IRIS keeps about its own behaviour, drawn on the Map today.
+  # What Evarness keeps about its own behaviour, drawn on the Map today.
   Lesson:        { subclass_of: Thing, system: true, label: "Lesson" }
   Pattern:       { subclass_of: Thing, system: true, label: "Pattern" }
 

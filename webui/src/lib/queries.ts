@@ -195,7 +195,7 @@ export function useChatStatus(sessionId: string) {
   });
 }
 
-/* Capabilities — what the web UI is allowed to do (gated by IRIS_WEBUI_ALLOW_WRITES).
+/* Capabilities — what the web UI is allowed to do (gated by EVARNESS_WEBUI_ALLOW_WRITES).
  * Defaults to read-only (false) until confirmed, so write controls stay hidden
  * unless the server explicitly allows them. */
 export function useCapabilities() {
@@ -206,7 +206,7 @@ export function useWritesEnabled(): boolean {
   return useCapabilities().data?.writes_enabled ?? false;
 }
 
-/* Whether the non-blocking answer-feedback affordance is on (IRIS_FEEDBACK_CAPTURE). */
+/* Whether the non-blocking answer-feedback affordance is on (EVARNESS_FEEDBACK_CAPTURE). */
 export function useFeedbackEnabled(): boolean {
   return useCapabilities().data?.feedback_capture ?? false;
 }
@@ -481,7 +481,7 @@ export function useCost() {
   return useQuery({ queryKey: ["cost"], queryFn: getCost, refetchInterval: 60_000 });
 }
 
-/* Health-watch incidents (ADR-0116): what broke, what IRIS tried, whether it asked
+/* Health-watch incidents (ADR-0116): what broke, what Evarness tried, whether it asked
  * the owner. Polled with the snapshot so a new incident shows without a reload. */
 export function useHealthIncidents() {
   return useQuery({
@@ -503,7 +503,7 @@ export function useRunHealthWatch() {
   });
 }
 
-/* System Check (iris doctor's install preflight, OSS plan R5). Polled gently --
+/* System Check (evarness doctor's install preflight, OSS plan R5). Polled gently --
  * this doesn't change on its own between a model pull completing and the owner
  * fixing something at a terminal. */
 export function useDoctorReport() {
@@ -527,7 +527,7 @@ export function usePullStarterModel() {
   });
 }
 
-/* Setup (iris setup's own progress). Polled gently -- it only changes when the
+/* Setup (evarness setup's own progress). Polled gently -- it only changes when the
  * owner runs a step at a terminal. */
 export function useSetupProgress() {
   return useQuery({
@@ -723,7 +723,7 @@ export function useInvokeAction() {
   });
 }
 
-/** Senders IRIS skipped or the owner ignored (ADR-0121). Absent when finance isn't mounted. */
+/** Senders Evarness skipped or the owner ignored (ADR-0121). Absent when finance isn't mounted. */
 export function useFinanceSenders() {
   return useQuery({
     queryKey: ["finance-senders"],
@@ -779,7 +779,7 @@ export function useUpdateDueStatus() {
   });
 }
 
-/* Surface feedback (issue 0028) — mark a pending action "not useful" so IRIS
+/* Surface feedback (issue 0028) — mark a pending action "not useful" so Evarness
  * suppresses similar ones. Refetches actions so the suppressed item disappears. */
 export function useSubmitSurfaceFeedback() {
   const qc = useQueryClient();
@@ -1177,7 +1177,7 @@ export function useMemoryGraph(opts: {
   });
 }
 
-/* Paired devices (ADR-0117). Not behind IRIS_WEBUI_ALLOW_WRITES: pairing and
+/* Paired devices (ADR-0117). Not behind EVARNESS_WEBUI_ALLOW_WRITES: pairing and
  * revoking are authentication administration, scoped per route by the server. */
 export function useDevices() {
   return useQuery({ queryKey: ["devices"], queryFn: listDevices, refetchInterval: 30_000 });

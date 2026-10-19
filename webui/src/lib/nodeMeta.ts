@@ -5,7 +5,7 @@ import type { NodeKind } from "./types";
 // so graph nodes stay consistent with the rest of the console and light/dark.
 export const KIND_META: Record<NodeKind, { color: string; glyph: string; title: string }> = {
   gateway: { color: "rgb(var(--node-perception))", glyph: "⇆", title: "Channel Gateway" },
-  api: { color: "rgb(var(--node-perception))", glyph: "◷", title: "IRIS API" },
+  api: { color: "rgb(var(--node-perception))", glyph: "◷", title: "Evarness API" },
   runtime: { color: "rgb(var(--node-runtime))", glyph: "◆", title: "Runtime" },
   intent_router: { color: "rgb(var(--node-cognition))", glyph: "⌖", title: "Intent Router" },
   memory: { color: "rgb(var(--node-action))", glyph: "❖", title: "Memory Retriever" },

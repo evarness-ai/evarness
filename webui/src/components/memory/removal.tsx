@@ -5,7 +5,7 @@
  * it, removing a session takes it out of recall and the chat list, and removing a
  * summary mention suppresses that name everywhere. So the confirmation always asks the
  * server what will go (`/memory/removed/preview`) rather than guessing from the Map.
- * Every action here has a CLI twin (`iris memory remove / restore / removed / delete`). */
+ * Every action here has a CLI twin (`evarness memory remove / restore / removed / delete`). */
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";

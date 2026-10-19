@@ -1,6 +1,6 @@
 """LangChain BaseTool wrappers for the email-triage skill (Track 1G).
 
-Thin wrappers over ``iris_personal.plugins.email_workflows.triage.EmailTriageClassifier``. The
+Thin wrappers over ``evarness_personal.plugins.email_workflows.triage.EmailTriageClassifier``. The
 classifier is constructed lazily per call to keep the agent's tool
 registration cheap — MiniLM only loads when triage actually runs.
 
@@ -24,8 +24,8 @@ from typing import Literal
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from iris_personal.email.store import EmailStore
-from iris_personal.plugins.email_workflows.triage import EmailTriageClassifier
+from evarness_personal.email.store import EmailStore
+from evarness_personal.plugins.email_workflows.triage import EmailTriageClassifier
 
 _DEFAULT_LIMIT = 20
 
@@ -34,7 +34,7 @@ def _get_classifier() -> EmailTriageClassifier:
     """Per-call construction. The classifier carries its own per-process
     centroid cache; if the LangChain agent invokes the tool twice in one
     request, the second call rebuilds the cache. Acceptable for Phase 1.
-    The module-level singleton in iris_harness.runtime.bootstrap covers the
+    The module-level singleton in evarness.runtime.bootstrap covers the
     event-subscriber hot path."""
     return EmailTriageClassifier()
 
@@ -151,9 +151,9 @@ class EmailInboxSummaryTool(BaseTool):
     def _run(self, account_id: str | None = None, view: str = "triage") -> list[dict[str, str]]:
         import sqlite3
 
-        from iris_harness.sdk.persistence import data_path
+        from evarness.sdk.persistence import data_path
 
-        # Under IRIS_DATA_DIR like every store (a cwd-relative path read nothing on a
+        # Under EVARNESS_DATA_DIR like every store (a cwd-relative path read nothing on a
         # deployment whose data dir is not ./data — the digest said "no accounts").
         db_path = data_path("email.db")
         if not db_path.exists():
@@ -161,7 +161,7 @@ class EmailInboxSummaryTool(BaseTool):
         if view == "last_24h":
             from datetime import UTC, datetime
 
-            from iris_personal.plugins.email_workflows.inbox_mix import inbox_mix
+            from evarness_personal.plugins.email_workflows.inbox_mix import inbox_mix
 
             store = EmailStore(db_path=db_path)
             store.ensure_schema()
@@ -212,7 +212,7 @@ class EmailFocusTool(BaseTool):
     marked "not useful". Returns the section as
     markdown — its own heading (which names the categories) plus one bullet per email,
     each ending in the 👎 link. Logic lives in
-    ``iris_personal.plugins.email_workflows.digest_focus``.
+    ``evarness_personal.plugins.email_workflows.digest_focus``.
     """
 
     name: str = "email_focus"
@@ -227,11 +227,11 @@ class EmailFocusTool(BaseTool):
         from datetime import UTC, datetime
         from pathlib import Path
 
-        from iris_harness.sdk.digest import load_digest_settings
-        from iris_harness.sdk.learning import SurfaceFeedbackStore
-        from iris_personal.plugins.email_workflows.digest_focus import render_focus
+        from evarness.sdk.digest import load_digest_settings
+        from evarness.sdk.learning import SurfaceFeedbackStore
+        from evarness_personal.plugins.email_workflows.digest_focus import render_focus
 
-        settings = load_digest_settings(Path(os.environ.get("IRIS_DATA_DIR") or "data"))
+        settings = load_digest_settings(Path(os.environ.get("EVARNESS_DATA_DIR") or "data"))
         store = EmailStore()
         store.ensure_schema()
         suppression = SurfaceFeedbackStore()
@@ -250,7 +250,7 @@ class EmailFocusTool(BaseTool):
 
 
 def _judge_config_dir() -> Path | None:
-    raw = os.environ.get("IRIS_CONFIG_DIR")
+    raw = os.environ.get("EVARNESS_CONFIG_DIR")
     return Path(raw).expanduser() if raw else None
 
 
@@ -260,7 +260,7 @@ class EmailNeedsReplyTool(BaseTool):
     Emails the judge (or the owner) put in Needs reply, newest first, as "Sender:
     subject": gone once the owner replies in the thread, re-buckets it, or it is older
     than digest.yaml ``expiry.needs_reply_days``. Logic lives in
-    ``iris_personal.plugins.email_workflows.judge_digest``.
+    ``evarness_personal.plugins.email_workflows.judge_digest``.
     """
 
     name: str = "email_needs_reply"
@@ -273,15 +273,15 @@ class EmailNeedsReplyTool(BaseTool):
     def _run(self) -> str:
         from datetime import datetime
 
-        from iris_harness.sdk.digest import expiry_days
-        from iris_harness.sdk.persistence import data_path
-        from iris_harness.sdk.time import iris_timezone
-        from iris_personal.plugins.email_workflows.judge_digest import render_needs_reply
-        from iris_personal.plugins.email_workflows.judge_view import open_stores
-        from iris_personal.plugins.email_workflows.judge_words import SurfaceWords
+        from evarness.sdk.digest import expiry_days
+        from evarness.sdk.persistence import data_path
+        from evarness.sdk.time import evarness_timezone
+        from evarness_personal.plugins.email_workflows.judge_digest import render_needs_reply
+        from evarness_personal.plugins.email_workflows.judge_view import open_stores
+        from evarness_personal.plugins.email_workflows.judge_words import SurfaceWords
 
         words = SurfaceWords.load(_judge_config_dir())
-        tz = iris_timezone()
+        tz = evarness_timezone()
         stores = open_stores(data_path("email.db").parent)
         assert stores is not None
         judgments, emails = stores
@@ -311,12 +311,12 @@ class EmailJudgedYesterdayTool(BaseTool):
     def _run(self) -> str:
         from datetime import datetime
 
-        from iris_harness.sdk.persistence import data_path
-        from iris_harness.sdk.time import iris_timezone, previous_local_day
-        from iris_personal.plugins.email_workflows.judge_config import JudgeConfig
-        from iris_personal.plugins.email_workflows.judge_digest import judged_line
-        from iris_personal.plugins.email_workflows.judge_view import open_stores
-        from iris_personal.plugins.email_workflows.judge_words import SurfaceWords
+        from evarness.sdk.persistence import data_path
+        from evarness.sdk.time import evarness_timezone, previous_local_day
+        from evarness_personal.plugins.email_workflows.judge_config import JudgeConfig
+        from evarness_personal.plugins.email_workflows.judge_digest import judged_line
+        from evarness_personal.plugins.email_workflows.judge_view import open_stores
+        from evarness_personal.plugins.email_workflows.judge_words import SurfaceWords
 
         db = data_path("email.db")
         if not db.exists():
@@ -325,7 +325,7 @@ class EmailJudgedYesterdayTool(BaseTool):
         assert stores is not None
         judgments, _ = stores
         config_dir = _judge_config_dir()
-        tz = iris_timezone()
+        tz = evarness_timezone()
         start, end = previous_local_day(datetime.now(tz), tz)
         return judged_line(
             judgments,

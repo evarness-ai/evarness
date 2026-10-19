@@ -72,11 +72,11 @@ function DeliveryCard({ view, canWrite }: { view: DigestConfigView; canWrite: bo
           <span className="text-sm text-fg">Delivery time</span>
           <Changed on={view.changed.includes("time")} />
           <span className="ml-auto font-mono text-[11px] text-fg-subtle">
-            {view.timezone} (IRIS_TZ)
+            {view.timezone} (EVARNESS_TZ)
           </span>
         </div>
         <p className="mt-1 text-xs text-fg-muted">
-          When the digest arrives; IRIS starts building it a few minutes before. While the email
+          When the digest arrives; Evarness starts building it a few minutes before. While the email
           judge is on, it first sweeps and judges new mail, so the digest shows the inbox as of now.
         </p>
         <form

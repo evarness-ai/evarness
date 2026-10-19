@@ -1,6 +1,6 @@
 """memris knows no vocabulary (ADR-0115 decisions 2 and 13).
 
-Every class, relation and attribute name in IRIS's ontology is collected from the YAML,
+Every class, relation and attribute name in Evarness's ontology is collected from the YAML,
 and no string literal in ``src/memris`` may equal one of them. Code that needs to know a
 name is code that stops working the day the YAML changes, which is what the owner rule
 (vocabulary in config, not code) exists to prevent.
@@ -16,23 +16,23 @@ from memris.ontology import load_or_raise
 REPO = Path(__file__).resolve().parents[4]
 ONTOLOGY_DIR = REPO / "config" / "memory"
 MEMRIS_SRC = REPO / "src" / "memris"
-# IRIS code that draws or queries memory by the ontology must be as vocabulary-free as
+# Evarness code that draws or queries memory by the ontology must be as vocabulary-free as
 # the engine (memris plan PR 5): every word it shows comes from the YAML.
 VOCABULARY_FREE = [
     *sorted(MEMRIS_SRC.rglob("*.py")),
-    REPO / "src" / "iris_harness" / "memory" / "graph.py",
+    REPO / "src" / "evarness" / "memory" / "graph.py",
     # Closed extraction (memris PR 3): the allowlist and the prompt come from the YAML.
-    REPO / "src" / "iris_harness" / "memory" / "fact_keys.py",
-    REPO / "src" / "iris_harness" / "memory" / "fact_extractor.py",
+    REPO / "src" / "evarness" / "memory" / "fact_keys.py",
+    REPO / "src" / "evarness" / "memory" / "fact_extractor.py",
     # The agent's view of the graph (memris PR 6): linking and the memory_graph tool.
-    REPO / "src" / "iris_harness" / "memory" / "graph_context.py",
+    REPO / "src" / "evarness" / "memory" / "graph_context.py",
 ]
 
 
 def _vocabulary() -> set[str]:
     # The core YAML plus every installed plugin's fragment (memris PR 10): a plugin's
     # names (fin:banks_with) are no more welcome in vocabulary-free code than the core's.
-    from iris_harness.memory.ontology import vocabulary_fragments
+    from evarness.memory.ontology import vocabulary_fragments
 
     onto = load_or_raise(ONTOLOGY_DIR, vocabulary_fragments())
     names: set[str] = set()

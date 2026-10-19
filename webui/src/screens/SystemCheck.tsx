@@ -1,11 +1,11 @@
 /* System Check screen (issue #67's decision-support ask, OSS plan R5) — the install
- * preflight `iris doctor` prints, read-only, over GET /health/doctor: Python, platform,
+ * preflight `evarness doctor` prints, read-only, over GET /health/doctor: Python, platform,
  * RAM, disk, the vault key, Ollama and the starter model, each with a verdict. A new
  * user picking hardware/models gets this instead of only a terminal.
  *
- * Every fix stays the CLI's (`iris doctor --fix`) except one: pulling a missing starter
+ * Every fix stays the CLI's (`evarness doctor --fix`) except one: pulling a missing starter
  * model is just a download, so it is this screen's one write, gated like any other
- * (IRIS_WEBUI_ALLOW_WRITES) and run through the Activity spine with a live progress bar
+ * (EVARNESS_WEBUI_ALLOW_WRITES) and run through the Activity spine with a live progress bar
  * — the same spine email setup's fetch/judge steps use. */
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -154,7 +154,7 @@ export function SystemCheckScreen() {
             ))}
             {!canWrite && (
               <Notice tone="muted">
-                Read-only here — pull it from a terminal with `iris doctor --fix`, or open this
+                Read-only here — pull it from a terminal with `evarness doctor --fix`, or open this
                 console from a control-paired device.
               </Notice>
             )}

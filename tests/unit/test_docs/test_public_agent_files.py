@@ -14,16 +14,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from iris_harness.foundation.paths import repo_root
+from evarness.foundation.paths import repo_root
 
 REPO_ROOT = repo_root()
 
 # Exported names: the root pair, then the five folders R20 names.
 ROOT_FILES = ("AGENTS.md", "CLAUDE.md")
 FOLDER_FILES = (
-    "src/iris_harness/kernel/AGENTS.md",
-    "src/iris_harness/sdk/AGENTS.md",
-    "src/iris_harness/plugins_builtin/AGENTS.md",
+    "src/evarness/kernel/AGENTS.md",
+    "src/evarness/sdk/AGENTS.md",
+    "src/evarness/plugins_builtin/AGENTS.md",
     "webui/AGENTS.md",
     "tests/AGENTS.md",
 )
@@ -37,7 +37,7 @@ _NOT_A_PATH = re.compile(r"[<>*{}$:=]|\.\.\.|^https?:|^-")
 
 # Where a path in these files may be rooted: the file's own folder, the repo root, or a
 # source root (the root file's layout list names packages relative to their root).
-_SOURCE_ROOTS = ("src/iris_harness", "src/iris_personal")
+_SOURCE_ROOTS = ("src/evarness", "src/evarness_personal")
 
 
 def _source(exported: str) -> Path:

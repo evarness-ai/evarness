@@ -36,7 +36,7 @@ function Behaviors() {
           Mined habits. Facts and lessons are reviewed in <a className="underline" href="/memory">Memory → Review</a>.
         </p>
         <p className="text-[11px] text-fg-subtle">
-          {data ? `${data.count} pending` : "review queue"} — recurring habits IRIS mined from your
+          {data ? `${data.count} pending` : "review queue"} — recurring habits Evarness mined from your
           activity. Approve to add to episodic memory; reject to discard.
         </p>
       </div>
@@ -45,7 +45,7 @@ function Behaviors() {
         loading={isLoading}
         error={isError}
         empty={rows.length === 0}
-        emptyText="No mined behaviors pending. Enable IRIS_BEHAVIOR_MINER to populate this queue."
+        emptyText="No mined behaviors pending. Enable EVARNESS_BEHAVIOR_MINER to populate this queue."
       >
         <div className="space-y-1.5">
           {rows.map((b) => (
@@ -101,7 +101,7 @@ function Signals() {
       <div>
         <h2 className="text-sm font-semibold text-fg">Steering Signals</h2>
         <p className="text-[11px] text-fg-subtle">
-          How you've steered IRIS — corrections, dismissals, confirmations. Read-only ground truth.
+          How you've steered Evarness — corrections, dismissals, confirmations. Read-only ground truth.
         </p>
       </div>
 
@@ -168,7 +168,7 @@ function Intentions() {
         loading={isLoading}
         error={isError}
         empty={rows.length === 0}
-        emptyText="No proposed intentions. Enable IRIS_INTENTION_ROLLUP to roll your activity into goals."
+        emptyText="No proposed intentions. Enable EVARNESS_INTENTION_ROLLUP to roll your activity into goals."
       >
         <div className="space-y-1.5">
           {rows.map((i) => (
@@ -212,10 +212,10 @@ function Intentions() {
   );
 }
 
-/** Digital Twin — the three propose-only layers IRIS builds about the user over time:
+/** Digital Twin — the three propose-only layers Evarness builds about the user over time:
  * mined habits, how the user steers, and rolled-up goals. All HITL: nothing becomes
- * durable without explicit approval here (or via the `iris behaviors` / `iris intentions`
- * CLIs). Reads are always open; approve/reject/dismiss need IRIS_WEBUI_ALLOW_WRITES. */
+ * durable without explicit approval here (or via the `evarness behaviors` / `evarness intentions`
+ * CLIs). Reads are always open; approve/reject/dismiss need EVARNESS_WEBUI_ALLOW_WRITES. */
 export function DigitalTwinScreen() {
   const canWrite = useWritesEnabled();
   return (
@@ -225,8 +225,8 @@ export function DigitalTwinScreen() {
       <Intentions />
       {!canWrite && (
         <Notice>
-          Review only — set IRIS_WEBUI_ALLOW_WRITES=1 to approve/reject here (or use the `iris
-          behaviors` / `iris intentions` CLIs).
+          Review only — set EVARNESS_WEBUI_ALLOW_WRITES=1 to approve/reject here (or use the `evarness
+          behaviors` / `evarness intentions` CLIs).
         </Notice>
       )}
     </div>

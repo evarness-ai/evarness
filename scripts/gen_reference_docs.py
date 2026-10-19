@@ -3,12 +3,12 @@
 Two pages, both written from what the install itself declares, never by hand:
 
 * ``docs/reference/cli.md`` -- the stable CLI: exactly the commands
-  ``src/iris_harness/sdk/stable_tier.yaml`` lists under ``quickstart_cli``, read from the
-  ``iris`` Typer app (help text, usage, every option with its type and default).
+  ``src/evarness/sdk/stable_tier.yaml`` lists under ``quickstart_cli``, read from the
+  ``evarness`` Typer app (help text, usage, every option with its type and default).
 * ``docs/reference/environment-variables.md`` -- the stable settings first (the ones
   ``stable_tier.yaml`` lists under ``settings``), then, in a collapsed appendix marked
-  not stable, every ``IRIS_*`` setting the settings catalog declares for the ``email``
-  profile: the core catalog (``src/iris_harness/foundation/settings/catalog.yaml``) plus
+  not stable, every ``EVARNESS_*`` setting the settings catalog declares for the ``email``
+  profile: the core catalog (``src/evarness/foundation/settings/catalog.yaml``) plus
   each plugin the profile mounts (its manifest's ``settings:``).
 
 Usage:
@@ -19,9 +19,9 @@ Usage:
 changed help string or a new setting fails the suite until the pages are regenerated.
 
 The pages must not depend on the machine that renders them, so the script runs the CLI
-with a pinned environment: a throwaway ``IRIS_HOME`` (no personal plugins, no profile
-overlay) and ``IRIS_PROFILE=email`` (the profile release 1 ships, whose plugins add the
-``iris email`` commands). It loads this tree's ``src/`` first, so a checkout renders its
+with a pinned environment: a throwaway ``EVARNESS_HOME`` (no personal plugins, no profile
+overlay) and ``EVARNESS_PROFILE=email`` (the profile release 1 ships, whose plugins add the
+``evarness email`` commands). It loads this tree's ``src/`` first, so a checkout renders its
 own code, not whatever an installed copy holds.
 """
 
@@ -46,13 +46,13 @@ _GENERATED = (
 
 
 def _pin_environment(home: Path) -> None:
-    """Before anything from ``iris_harness`` is imported: the profile and a clean home."""
+    """Before anything from ``evarness`` is imported: the profile and a clean home."""
     for name in list(os.environ):
-        if name.startswith("IRIS_"):
+        if name.startswith("EVARNESS_"):
             del os.environ[name]
-    os.environ["IRIS_HOME"] = str(home)
-    os.environ["IRIS_PROFILE"] = PROFILE
-    os.environ["IRIS_DISABLE_WARMUP"] = "1"
+    os.environ["EVARNESS_HOME"] = str(home)
+    os.environ["EVARNESS_PROFILE"] = PROFILE
+    os.environ["EVARNESS_DISABLE_WARMUP"] = "1"
     sys.path.insert(0, str(ROOT / "src"))
 
 
@@ -79,8 +79,8 @@ def render_cli() -> str:
     import click
     import typer
 
-    from iris_harness.main import app
-    from iris_harness.testing import stable_tier
+    from evarness.main import app
+    from evarness.testing import stable_tier
 
     root = typer.main.get_command(app)
     lines = [
@@ -88,23 +88,23 @@ def render_cli() -> str:
         "",
         "# CLI reference",
         "",
-        "The stable commands: the ones `src/iris_harness/sdk/stable_tier.yaml` lists. They",
-        "change only after a deprecation cycle ([Stable API](stable-api.md)). `iris --help`",
+        "The stable commands: the ones `src/evarness/sdk/stable_tier.yaml` lists. They",
+        "change only after a deprecation cycle ([Stable API](stable-api.md)). `evarness --help`",
         "lists every other command; those are internal and may change in any release.",
         "",
     ]
     for path in stable_tier().quickstart_cli:
-        ctx = click.Context(root, info_name="iris")
+        ctx = click.Context(root, info_name="evarness")
         cmd: Any = root
         for part in path:
             cmd = cmd.get_command(ctx, part)
             if cmd is None:
                 raise SystemExit(
-                    f"stable_tier.yaml lists `iris {' '.join(path)}`, which the CLI lacks "
+                    f"stable_tier.yaml lists `evarness {' '.join(path)}`, which the CLI lacks "
                     f"(profile {PROFILE!r})"
                 )
             ctx = click.Context(cmd, info_name=part, parent=ctx)
-        name = "iris " + " ".join(path)
+        name = "evarness " + " ".join(path)
         usage = " ".join([name, *cmd.collect_usage_pieces(ctx)])
         lines += [f"## `{name}`", ""]
         lines += [(cmd.help or "").strip(), ""]
@@ -129,10 +129,10 @@ def render_cli() -> str:
 
 
 def _profile_catalog() -> Any:
-    from iris_harness.foundation.paths import config_path
-    from iris_harness.foundation.settings.catalog import build_catalog, load_core_catalog
-    from iris_harness.runtime.plugin_host.loader import discover_plugin
-    from iris_harness.runtime.plugin_host.profile import load_profile
+    from evarness.foundation.paths import config_path
+    from evarness.foundation.settings.catalog import build_catalog, load_core_catalog
+    from evarness.runtime.plugin_host.loader import discover_plugin
+    from evarness.runtime.plugin_host.profile import load_profile
 
     config_dir = config_path("profiles").parent
     declared = []
@@ -156,7 +156,7 @@ def _default(value: Any) -> str:
 
 _APPLIES = {"now": "next call", "next_run": "next run", "restart": "restart"}
 
-# Not `IRIS_*`, so outside the settings catalog's scope (`catalog.py` rejects any
+# Not `EVARNESS_*`, so outside the settings catalog's scope (`catalog.py` rejects any
 # other prefix) -- the two local-model backends' own address variables, read
 # straight from the environment wherever the harness talks to them
 # (`llm/tier_router.py`, the health checks' service probes). Documented here by
@@ -173,7 +173,7 @@ _THIRD_PARTY_SETTINGS: tuple[tuple[str, str, str], ...] = (
         "LM_STUDIO_BASE_URL",
         "`http://localhost:1234`",
         "LM Studio's base URL, shared with the LLM failover proxy -- told apart by port "
-        "(the proxy's `IRIS_PROXY_PORT`, default 4000, vs. LM Studio's 1234).",
+        "(the proxy's `EVARNESS_PROXY_PORT`, default 4000, vs. LM Studio's 1234).",
     ),
 )
 
@@ -196,7 +196,7 @@ def _owner_title(owner: str) -> str:
 
 
 def render_env() -> str:
-    from iris_harness.testing import stable_tier
+    from evarness.testing import stable_tier
 
     catalog = _profile_catalog()
     stable = stable_tier().settings
@@ -212,12 +212,12 @@ def render_env() -> str:
     lines = [
         _GENERATED.format(
             what="a settings catalog, a plugin manifest's `settings:` or the "
-            "stable settings in `src/iris_harness/sdk/stable_tier.yaml`"
+            "stable settings in `src/evarness/sdk/stable_tier.yaml`"
         ),
         "",
         "# Environment variables",
         "",
-        "Set them in the environment or in a `.env` file the CLI and the IRIS API read at",
+        "Set them in the environment or in a `.env` file the CLI and the Evarness API read at",
         "start.",
         "",
         "- **Applies**: when a change takes effect (the next call, the next scheduled run,",
@@ -227,10 +227,10 @@ def render_env() -> str:
         "",
         "## Stable settings",
         "",
-        "What an install of `iris-harness[email]` needs: the settings the getting-started",
-        "pages, the email guide and `iris doctor` name. They are part of the",
+        "What an install of `evarness[email]` needs: the settings the getting-started",
+        "pages, the email guide and `evarness doctor` name. They are part of the",
         "[stable API](stable-api.md): a name or a default changes only after a deprecation",
-        "cycle. `src/iris_harness/sdk/stable_tier.yaml` lists them.",
+        "cycle. `src/evarness/sdk/stable_tier.yaml` lists them.",
         "",
         _HEADER,
         _RULE,
@@ -240,7 +240,7 @@ def render_env() -> str:
         "",
         "## Third-party model backends",
         "",
-        "Not `IRIS_*`, so outside the settings catalog's scope -- the local-model",
+        "Not `EVARNESS_*`, so outside the settings catalog's scope -- the local-model",
         "backends' own address variables, read wherever the harness talks to them.",
         "",
         "| Variable | Default | Description |",
@@ -255,10 +255,10 @@ def render_env() -> str:
         "",
         '??? note "The full catalog of the `email` profile (not stable)"',
         "",
-        "    Every `IRIS_*` setting the install reads, from the settings catalog: the",
-        "    core's (`src/iris_harness/foundation/settings/catalog.yaml`) and each plugin's",
+        "    Every `EVARNESS_*` setting the install reads, from the settings catalog: the",
+        "    core's (`src/evarness/foundation/settings/catalog.yaml`) and each plugin's",
         f"    in the `{PROFILE}` profile (its manifest's `settings:`). A test fails when the",
-        "    code reads an `IRIS_*` name no catalog declares. The stable settings above are",
+        "    code reads an `EVARNESS_*` name no catalog declares. The stable settings above are",
         "    listed again here, marked **Stable**.",
         "",
         "    These are configuration, **not** part of the stable API: a name or a default",
@@ -284,7 +284,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--check", action="store_true", help="fail when a page is stale")
     args = parser.parse_args(argv)
-    with tempfile.TemporaryDirectory(prefix="iris-refdocs-") as home:
+    with tempfile.TemporaryDirectory(prefix="evarness-refdocs-") as home:
         _pin_environment(Path(home))
         pages = {CLI_PAGE: render_cli(), ENV_PAGE: render_env()}
     stale = []

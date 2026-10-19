@@ -15,7 +15,7 @@ version: 1
 
 user_correction:
   # Master opt-in for the model-driven correction judge. Env override:
-  # IRIS_LEARNING_CORRECTION_JUDGE (truthy). Default off.
+  # EVARNESS_LEARNING_CORRECTION_JUDGE (truthy). Default off.
   enabled: false
   # Only emit user_correction = 1 when the judge's confidence clears this floor.
   confidence_floor: 0.6

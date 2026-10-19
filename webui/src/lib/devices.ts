@@ -3,7 +3,7 @@
  * Wraps /api/v1/devices: pair/start, pair/claim, list, me, revoke. A browser's
  * token arrives as an HttpOnly cookie on claim and is never in the body, so
  * nothing here (or anywhere in the console) holds, reads or stores a token.
- * Device administration is NOT behind IRIS_WEBUI_ALLOW_WRITES — scope is
+ * Device administration is NOT behind EVARNESS_WEBUI_ALLOW_WRITES — scope is
  * enforced per route by the server; the UI only mirrors it to avoid dead buttons. */
 import { apiFetch } from "./http";
 

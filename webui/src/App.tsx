@@ -46,8 +46,8 @@ function useActivityCompletionToasts() {
   }, [data, navigate]);
 }
 
-const COLLAPSED_KEY = "iris.nav.collapsed";
-const CHAT_HISTORY_KEY = "iris.nav.chatHistoryOpen";
+const COLLAPSED_KEY = "evarness.nav.collapsed";
+const CHAT_HISTORY_KEY = "evarness.nav.chatHistoryOpen";
 
 function readCollapsed(): Set<string> {
   try {
@@ -207,13 +207,13 @@ function NavList({
   return (
     <nav className="flex flex-col" aria-label="Main">
       <div className="mb-3 px-2 pt-1">
-        <div className="text-base font-bold tracking-tight text-primary">IRIS</div>
+        <div className="text-base font-bold tracking-tight text-primary">Evarness</div>
         <div className="text-[10px] uppercase tracking-widest text-fg-subtle">Console</div>
       </div>
       {nav.data?.groups.map(renderGroup)}
       {nav.isError && (
         <div className="mt-3 px-2 text-xs text-fg-subtle">
-          Navigation unavailable: the IRIS API did not answer.{" "}
+          Navigation unavailable: the Evarness API did not answer.{" "}
           <button
             type="button"
             onClick={() => void nav.refetch()}
@@ -294,7 +294,7 @@ export function AppLayout() {
           </div>
           {!writesEnabled && (
             <span
-              title="Editing is off. Set IRIS_WEBUI_ALLOW_WRITES=1 to enable."
+              title="Editing is off. Set EVARNESS_WEBUI_ALLOW_WRITES=1 to enable."
               className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10.5px] font-medium text-fg-subtle"
             >
               <Lock size={11} /> read-only

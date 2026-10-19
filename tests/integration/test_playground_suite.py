@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.playground.loader import discover_suites, load_suite
-from iris_harness.playground.service import run_suite
+from evarness.playground.loader import discover_suites, load_suite
+from evarness.playground.service import run_suite
 
 _SUITE_DIR = Path(__file__).resolve().parents[2] / "config" / "playground"
 

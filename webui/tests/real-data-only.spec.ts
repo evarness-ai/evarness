@@ -6,7 +6,7 @@
  *
  * - API up, nothing recorded yet: every screen renders its empty state, and the
  *   conversation screens say to start a chat;
- * - API unreachable: the "API unavailable" notice that names `iris serve`.
+ * - API unreachable: the "API unavailable" notice that names `evarness serve`.
  *
  * Neither path may show any of the strings the old canned traces carried. */
 import { test, expect, type Page } from "@playwright/test";
@@ -44,7 +44,7 @@ async function serveFresh(page: Page): Promise<void> {
   });
 }
 
-/** The API is down: every data call fails at the network, as with no `iris serve`.
+/** The API is down: every data call fails at the network, as with no `evarness serve`.
  * The nav and this device are answered so the shell renders the screen under test; a
  * console with no nav at all is the shell's concern, not a screen's. */
 async function serveDown(page: Page): Promise<void> {
@@ -88,7 +88,7 @@ for (const path of SCREENS) {
     if (path !== "/chat") {
       const notice = page.locator("main").getByText(UNAVAILABLE).first();
       await expect(notice).toBeVisible();
-      await expect(notice).toContainText("iris serve");
+      await expect(notice).toContainText("evarness serve");
     }
     await expectNoCanned(page);
     expect(errors).toEqual([]);
@@ -148,7 +148,7 @@ async function serveFreshThenWelcomed(page: Page): Promise<{ welcomeCalls: numbe
   return state;
 }
 
-test("fresh install: Chat opens on IRIS's welcome, not canned data", async ({ page }) => {
+test("fresh install: Chat opens on Evarness's welcome, not canned data", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 }); // the history rail is md+
   const state = await serveFreshThenWelcomed(page);
   await page.goto("/chat", { waitUntil: "networkidle" });
@@ -192,12 +192,12 @@ test("a welcome that ran before is not shown again, and Chat asks once per page"
 });
 
 for (const path of ["/sessions", "/calltrace"]) {
-  test(`API down: ${path} says the API is unavailable and names iris serve`, async ({ page }) => {
+  test(`API down: ${path} says the API is unavailable and names evarness serve`, async ({ page }) => {
     await serveDown(page);
     await page.goto(path, { waitUntil: "networkidle" });
     const notice = page.getByText(UNAVAILABLE);
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText("iris serve");
+    await expect(notice).toContainText("evarness serve");
     await expect(page).toHaveURL(new RegExp(`${path}$`));
   });
 }
@@ -206,7 +206,7 @@ test("API down: Chat's history says the API is unavailable", async ({ page }) =>
   await page.setViewportSize({ width: 1280, height: 900 });
   await serveDown(page);
   await page.goto("/chat", { waitUntil: "networkidle" });
-  await expect(page.getByText(UNAVAILABLE).first()).toContainText("iris serve");
+  await expect(page.getByText(UNAVAILABLE).first()).toContainText("evarness serve");
   await expectNoCanned(page);
 });
 

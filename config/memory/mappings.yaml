@@ -106,7 +106,7 @@ mappings:
     when: { source_type: fact, key: pets }
     emit: { subject: $owner, predicate: has_pet, object: { from: $value, class: Animal } }
 
-  # --- preferences that change how IRIS behaves ---
+  # --- preferences that change how Evarness behaves ---
   - id: fact_communication_preference
     when: { source_type: fact, key: communication_preference }
     emit: { subject: $owner, predicate: communication_preference, value: $value }

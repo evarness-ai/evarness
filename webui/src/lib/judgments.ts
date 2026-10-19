@@ -1,4 +1,4 @@
-/* The email judge's API (loop-proof PR 5): what IRIS sorted each email into, and the
+/* The email judge's API (loop-proof PR 5): what Evarness sorted each email into, and the
  * owner's correction.
  *
  *   GET  /api/v1/email/judgments?bucket=&limit=   rows newest first + the buckets

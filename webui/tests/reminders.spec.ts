@@ -360,7 +360,7 @@ function loadWorker(opts: {
     Request: class {},
     caches: { open: async () => ({}), keys: async () => [] },
     Notification: opts.maxActions === undefined ? undefined : { maxActions: opts.maxActions },
-    location: { origin: "https://iris.example.ts.net" },
+    location: { origin: "https://evarness.example.ts.net" },
     registration: {
       showNotification: async (title: string, options: Json) => {
         shown.push({ title, options });
@@ -438,7 +438,7 @@ test.describe("the service worker", () => {
 
   test("an old payload with only a url still opens where it points", async () => {
     const w = loadWorker({ maxActions: 2 });
-    await w.dispatch("push", { data: { json: () => ({ title: "IRIS", url: "/health" }) } });
+    await w.dispatch("push", { data: { json: () => ({ title: "Evarness", url: "/health" }) } });
     expect(w.shown[0].options.data).toEqual({ url: "/health", reminder_id: null });
   });
 
@@ -466,7 +466,7 @@ test.describe("the service worker", () => {
     expect(w.shown.map((s) => s.title)).toEqual(["Snoozed until 9:03 AM"]);
   });
 
-  test("a button that could not reach IRIS says so, and its tap opens the sheet", async () => {
+  test("a button that could not reach Evarness says so, and its tap opens the sheet", async () => {
     for (const w of [loadWorker({ maxActions: 2, fetchThrows: true }), loadWorker({ maxActions: 2, fetchStatus: 401 })]) {
       await w.dispatch("notificationclick", { action: "done", notification: reminderNotification });
       expect(w.shown.map((s) => s.title)).toEqual(["Couldn't update the reminder"]);
@@ -478,7 +478,7 @@ test.describe("the service worker", () => {
     const w = loadWorker({});
     await w.dispatch("notificationclick", { action: "", notification: reminderNotification });
     expect(w.fetched).toEqual([]);
-    expect(w.opened).toEqual(["https://iris.example.ts.net/reminders/r1"]);
+    expect(w.opened).toEqual(["https://evarness.example.ts.net/reminders/r1"]);
   });
 });
 

@@ -100,8 +100,8 @@ function PairNew({ canPair }: { canPair: boolean }) {
         {!canPair ? (
           <p className="text-xs text-fg-subtle">
             This device is paired read-only, so it cannot pair others. Use a control device, or run{" "}
-            <code className="font-mono text-fg-muted">iris device pair</code> on the machine running
-            IRIS.
+            <code className="font-mono text-fg-muted">evarness device pair</code> on the machine running
+            Evarness.
           </p>
         ) : (
           <div className="space-y-3">
@@ -251,7 +251,7 @@ function NotificationsSection() {
           <p className="text-xs text-fg-muted">
             iOS only delivers notifications to an installed app. Tap{" "}
             <span className="font-medium text-fg">Share</span> then{" "}
-            <span className="font-medium text-fg">Add to Home Screen</span>, open IRIS from
+            <span className="font-medium text-fg">Add to Home Screen</span>, open Evarness from
             there, and this button will work.
           </p>
         ) : !support.ok && support.reason === "denied" ? (
@@ -308,7 +308,7 @@ export function DevicesScreen() {
       title: d.current ? "Sign out this device?" : `Revoke "${d.name}"?`,
       description: d.current
         ? "This browser is unpaired right away. To use the console here again you will need a new pairing code."
-        : "It is signed out right away and cannot reach IRIS again until it is paired with a new code.",
+        : "It is signed out right away and cannot reach Evarness again until it is paired with a new code.",
       confirmLabel: d.current ? "Sign out" : "Revoke",
       destructive: true,
       run: async () => {

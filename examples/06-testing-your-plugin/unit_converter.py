@@ -1,7 +1,7 @@
 """The plugin under test: a ``convert_units`` tool (length and temperature).
 
 Deliberately small -- the point of this example is its test file. The work is a pure
-function (:func:`convert`), so most of it is tested without IRIS at all; ``setup``
+function (:func:`convert`), so most of it is tested without Evarness at all; ``setup``
 only adapts it to a tool.
 """
 
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from iris_harness.sdk import PluginAPI
+from evarness.sdk import PluginAPI
 
 # Length units as a factor to metres; temperatures go through Celsius.
 _TO_METRES = {"m": 1.0, "km": 1000.0, "mi": 1609.344, "ft": 0.3048}

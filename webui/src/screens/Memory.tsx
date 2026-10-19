@@ -49,7 +49,7 @@ function FactContradictions() {
         loading={isLoading}
         error={isError}
         empty={rows.length === 0}
-        emptyText="No contradictions — IRIS hasn't seen conflicting values for any fact."
+        emptyText="No contradictions — Evarness hasn't seen conflicting values for any fact."
       >
         <div className="space-y-1.5">
           {rows.map((c) => (
@@ -87,7 +87,7 @@ function FactContradictions() {
 
       {!canWrite && (
         <Notice>
-          Review only — set IRIS_WEBUI_ALLOW_WRITES=1 to acknowledge here (or use `iris facts ack`).
+          Review only — set EVARNESS_WEBUI_ALLOW_WRITES=1 to acknowledge here (or use `evarness facts ack`).
         </Notice>
       )}
       {ack.isError && (
@@ -101,7 +101,7 @@ function FactContradictions() {
 
 /** Human-reviewed retention of the fact-history audit trail. Lists entries older than
  * the window and lets the user prune chosen ones — nothing is ever auto-deleted. The
- * prune action is write-gated (IRIS_WEBUI_ALLOW_WRITES); read/review is always available. */
+ * prune action is write-gated (EVARNESS_WEBUI_ALLOW_WRITES); read/review is always available. */
 function FactRetentionReview() {
   const { data, isLoading, isError } = useFactHistoryRetention(RETENTION_DAYS);
   const prune = usePruneFactHistory();
@@ -198,7 +198,7 @@ function FactRetentionReview() {
 
       {!canWrite && (
         <Notice>
-          Review only — set IRIS_WEBUI_ALLOW_WRITES=1 to prune here (or use `iris facts prune`).
+          Review only — set EVARNESS_WEBUI_ALLOW_WRITES=1 to prune here (or use `evarness facts prune`).
         </Notice>
       )}
       {prune.isError && (
@@ -310,7 +310,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "removed", label: "Removed" },
 ];
 
-/** Memory: what IRIS knows about you, what is waiting for your yes, and what it keeps.
+/** Memory: what Evarness knows about you, what is waiting for your yes, and what it keeps.
  *
  * Facts used to have no screen at all — only contradictions and history pruning lived
  * here, and review was split between Digital Twin and Self-Learning. */

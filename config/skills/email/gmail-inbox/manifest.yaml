@@ -8,11 +8,11 @@ description: |
 
   Body content is NOT cached (per canonical doc §3.1) — fetch on
   demand via a future fetch_message_body tool.
-author: iris-personal-assistant
+author: evarness-personal-assistant
 license: Apache-2.0
 default_enabled: true
 trust_level: first-party
-homepage: https://github.com/evarness-ai/iris-harness
+homepage: https://github.com/evarness-ai/evarness
 tools:
   - name: fetch_new_emails
     description: |

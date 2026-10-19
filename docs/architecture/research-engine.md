@@ -1,10 +1,10 @@
 # Research engine
 
-**Status:** Phase 1 shipped 2026-06-26 — written from code (`src/iris_harness/plugins_builtin/research/`).
+**Status:** Phase 1 shipped 2026-06-26 — written from code (`src/evarness/plugins_builtin/research/`).
 Replaces the flaky `web_search` (langchain DuckDuckGo wrapper) and complements the
 hardcoded `fetch_web_content` skill. Engineering doc.
 
-The research engine is IRIS's web-knowledge tool: **one query in → a ranked,
+The research engine is Evarness's web-knowledge tool: **one query in → a ranked,
 citation-ready, content-extracted result set out**. The agent calls one tool
 (`research`) and never has to chain searches or pick a source — the engine handles
 provider selection, crawling, reranking, and caching behind a single seam.
@@ -34,7 +34,7 @@ Every stage is best-effort: a provider that raises is skipped, ranking/extractio
 failures are swallowed, and total failure yields an empty `ResearchResult` with `error`
 set — the LLM-facing tool always gets a serializable string.
 
-## Modules (`src/iris_harness/plugins_builtin/research/`)
+## Modules (`src/evarness/plugins_builtin/research/`)
 
 | File | Role |
 |---|---|
@@ -55,8 +55,8 @@ set — the LLM-facing tool always gets a serializable string.
 Providers are tried in order; the first to return hits wins. Selection is by
 availability, so unconfigured backends are simply skipped.
 
-**One chain, one seam.** The chain is a core registry (`iris_harness/services/research/
-providers.py`, published as `iris_harness.sdk.research`). Every provider joins it through
+**One chain, one seam.** The chain is a core registry (`evarness/services/research/
+providers.py`, published as `evarness.sdk.research`). Every provider joins it through
 `PluginAPI.register_search_provider(name, provider, priority=None)` -- the research
 plugin's five built-ins in its `setup`, and any other plugin's the same way -- so a
 plugin's provider gets the same guards (finance refusal, owner-identifier stripping:
@@ -81,13 +81,13 @@ to the plugin) and the chain moves on.
 
 | Provider | Enabled by | Notes |
 |---|---|---|
-| SearXNG | `IRIS_SEARXNG_URL` | **Primary.** Privacy-first, self-hosted meta-search; no key. |
+| SearXNG | `EVARNESS_SEARXNG_URL` | **Primary.** Privacy-first, self-hosted meta-search; no key. |
 | Tavily | `TAVILY_API_KEY` | LLM-optimized; keyed. |
 | Brave | `BRAVE_API_KEY` | Independent index; keyed. |
 | DuckDuckGo | always | Keyless floor (the `ddgs` library). |
 
 DuckDuckGo is always present and last, so the engine works out-of-the-box; setting
-`IRIS_SEARXNG_URL` (recommended) lifts quality without any code change.
+`EVARNESS_SEARXNG_URL` (recommended) lifts quality without any code change.
 
 ## Ranking
 
@@ -113,7 +113,7 @@ suffix) down through `newsroom`, `beat` and `community` to `syndicator` (3.0). S
 — msn.com, yahoo.com, aol.com, news.google.com — sit **below** an unknown domain
 deliberately: they republish other outlets' copy, so the domain says nothing about who
 reported it, and counting three copies of one wire story as three sources would break any
-later corroboration count. `IRIS_RESEARCH_NEWS_SOURCES` overrides the path.
+later corroboration count. `EVARNESS_RESEARCH_NEWS_SOURCES` overrides the path.
 
 A broken policy file degrades rather than failing the turn: an empty map scores every news
 domain at `DEFAULT_TRUST`, which is flat, not inverted.
@@ -149,9 +149,9 @@ Phase-1 default if the dep is missing or the backend is unreachable — nothing 
 | Enhancer | Enable | Falls back to | Extra dep |
 |---|---|---|---|
 | **Exa** provider | `EXA_API_KEY` | next provider in chain | none (urllib) |
-| **Redis** cache | `IRIS_RESEARCH_CACHE=redis` (+ `IRIS_REDIS_URL`) | SQLite cache | `pip install redis` |
-| **BGE** cross-encoder rerank | `IRIS_RESEARCH_RERANKER=bge` (+ `IRIS_RESEARCH_RERANKER_MODEL`) | embedding/lexical rerank | `sentence-transformers` (already a dep; model downloads on first use) |
-| **Crawl4AI** crawler | `IRIS_RESEARCH_CRAWLER=crawl4ai` | Trafilatura | `pip install crawl4ai` (+ `playwright install`) |
+| **Redis** cache | `EVARNESS_RESEARCH_CACHE=redis` (+ `EVARNESS_REDIS_URL`) | SQLite cache | `pip install redis` |
+| **BGE** cross-encoder rerank | `EVARNESS_RESEARCH_RERANKER=bge` (+ `EVARNESS_RESEARCH_RERANKER_MODEL`) | embedding/lexical rerank | `sentence-transformers` (already a dep; model downloads on first use) |
+| **Crawl4AI** crawler | `EVARNESS_RESEARCH_CRAWLER=crawl4ai` | Trafilatura | `pip install crawl4ai` (+ `playwright install`) |
 
 - **Provider chain with Exa:** SearXNG → Tavily → **Exa** → Brave → DuckDuckGo.
 - **BGE rerank** runs as a *second stage* after the blended score, re-scoring only the top
@@ -160,7 +160,7 @@ Phase-1 default if the dep is missing or the backend is unreachable — nothing 
 - **Crawl4AI** and **Redis** are intentionally *not* in `pyproject` (Crawl4AI pulls a
   headless browser; Redis is a service) — install them only if you opt in. Selection is via
   `build_cache()` / `build_reranker()` / `_select_extractor()`.
-- The Redis cache connects to *your own* Redis (`IRIS_REDIS_URL`) over plain TCP. That is your
+- The Redis cache connects to *your own* Redis (`EVARNESS_REDIS_URL`) over plain TCP. That is your
   infrastructure, outside the governed-egress model (`docs/architecture/plugin-egress.md`): the
   plugin's `egress: {open_web: true}` declaration does not cover it and `api.http` cannot carry it.
 
@@ -184,11 +184,11 @@ so the `web-fetch` skill remains for those brief slots.
 
 | Env | Effect | Default |
 |---|---|---|
-| `IRIS_SEARXNG_URL` | SearXNG base URL (primary provider) | unset → DDG |
+| `EVARNESS_SEARXNG_URL` | SearXNG base URL (primary provider) | unset → DDG |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` / `EXA_API_KEY` | enable keyed providers | unset |
-| `IRIS_RESEARCH_CACHE` | `sqlite` (default) / `redis` / `off` | `sqlite` |
-| `IRIS_REDIS_URL` | Redis connection (when cache=redis) | `redis://localhost:6379/0` |
-| `IRIS_RESEARCH_RERANKER` | `none` (default) / `bge` | `none` |
-| `IRIS_RESEARCH_RERANKER_MODEL` | cross-encoder model id | `BAAI/bge-reranker-base` |
-| `IRIS_RESEARCH_CRAWLER` | `trafilatura` (default) / `crawl4ai` | `trafilatura` |
-| `IRIS_DATA_DIR` | location of `research_cache.db` | `data/` |
+| `EVARNESS_RESEARCH_CACHE` | `sqlite` (default) / `redis` / `off` | `sqlite` |
+| `EVARNESS_REDIS_URL` | Redis connection (when cache=redis) | `redis://localhost:6379/0` |
+| `EVARNESS_RESEARCH_RERANKER` | `none` (default) / `bge` | `none` |
+| `EVARNESS_RESEARCH_RERANKER_MODEL` | cross-encoder model id | `BAAI/bge-reranker-base` |
+| `EVARNESS_RESEARCH_CRAWLER` | `trafilatura` (default) / `crawl4ai` | `trafilatura` |
+| `EVARNESS_DATA_DIR` | location of `research_cache.db` | `data/` |

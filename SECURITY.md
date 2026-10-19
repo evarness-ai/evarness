@@ -12,7 +12,7 @@ keep you updated there, and credit you in the advisory unless you ask not to be.
 
 ## Supported versions
 
-IRIS is pre-1.0. Security fixes land on the latest release only.
+Evarness is pre-1.0. Security fixes land on the latest release only.
 
 | Version | Supported |
 |---|---|
@@ -24,22 +24,22 @@ IRIS is pre-1.0. Security fixes land on the latest release only.
 In scope:
 
 - **Governance bypasses**: any path that runs a tool, calls a model or answers without
-  passing the governance kernel (`src/iris_harness/kernel/governance`), skips the egress
+  passing the governance kernel (`src/evarness/kernel/governance`), skips the egress
   gate, a judge or a required approval, or leaves no audit row.
 - **Data egress**: personal or secret-classified data (email contents, identity, vault
   contents) reaching a cloud model, a log, a trace or any network destination it should
   not.
 - **The harness**: the runtime, the agentic loop, the plugin host and SDK
-  (`src/iris_harness`), and the memris memory graph (`src/memris`).
-- **The servers**: the IRIS API, the Governor, the evaluator and the channel gateway
-  (`src/iris_harness/server`), including authentication and device pairing.
+  (`src/evarness`), and the memris memory graph (`src/memris`).
+- **The servers**: the Evarness API, the Governor, the evaluator and the channel gateway
+  (`src/evarness/server`), including authentication and device pairing.
 - **The sandbox**: the code-execution sandbox and its container isolation
-  (`src/iris_harness/tools/sandbox`).
+  (`src/evarness/tools/sandbox`).
 - **The vault and credentials**: secret storage, OAuth tokens and IMAP app passwords.
 - **Mailbox writes**: a label, move or other mailbox change made without the owner's
   approval.
 
-Out of scope: vulnerabilities in third-party dependencies with no IRIS-specific exploit
+Out of scope: vulnerabilities in third-party dependencies with no Evarness-specific exploit
 path (report those upstream), third-party plugins (report to their authors), and
 deployments that disable a governance control on purpose (for example, running with a
-weak or published `IRIS_AUTH_SECRET`).
+weak or published `EVARNESS_AUTH_SECRET`).

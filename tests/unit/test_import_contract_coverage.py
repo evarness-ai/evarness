@@ -1,9 +1,9 @@
 """CI guard: the "SDK only" import contracts forbid every core package but the SDK.
 
 import-linter's ``forbidden`` contract blocks only the modules it names, and it cannot
-say "all of ``iris_harness`` except ``iris_harness.sdk``" (forbidding the root would
+say "all of ``evarness`` except ``evarness.sdk``" (forbidding the root would
 forbid the SDK, its child). So each SDK-only contract names the other core packages
-one by one, and a package added to ``src/iris_harness`` later would be silently
+one by one, and a package added to ``src/evarness`` later would be silently
 allowed. This test closes that gap: a new top-level package or module fails here
 until it is added to every contract below (or, if plugins may use it, published
 through the SDK instead).
@@ -20,25 +20,25 @@ import pytest
 import tomllib
 
 _ROOT = Path(__file__).resolve()
-while not (_ROOT / "src" / "iris_harness").is_dir():
+while not (_ROOT / "src" / "evarness").is_dir():
     if _ROOT == _ROOT.parent:
-        raise RuntimeError("could not locate repo root (src/iris_harness)")
+        raise RuntimeError("could not locate repo root (src/evarness)")
     _ROOT = _ROOT.parent
 
 # Contracts whose forbidden list must be "every core package except the SDK".
 SDK_ONLY_CONTRACTS = ("plugins-use-the-public-api", "domains-use-the-sdk")
 # The packages a plugin may import: the SDK itself.
-ALLOWED = {"iris_harness.sdk"}
+ALLOWED = {"evarness.sdk"}
 # The contract's own source package is not forbidden to itself.
-SOURCES_INSIDE_CORE = {"plugins-use-the-public-api": {"iris_harness.plugins_builtin"}}
+SOURCES_INSIDE_CORE = {"plugins-use-the-public-api": {"evarness.plugins_builtin"}}
 
 
 def _core_top_level() -> set[str]:
-    """Every importable top-level name under ``iris_harness``: packages and modules."""
-    root = _ROOT / "src" / "iris_harness"
+    """Every importable top-level name under ``evarness``: packages and modules."""
+    root = _ROOT / "src" / "evarness"
     names = {p.name for p in root.iterdir() if p.is_dir() and (p / "__init__.py").is_file()}
     names |= {p.stem for p in root.glob("*.py") if p.stem != "__init__"}
-    return {f"iris_harness.{name}" for name in names}
+    return {f"evarness.{name}" for name in names}
 
 
 def _contracts() -> dict[str, dict[str, object]]:
@@ -49,7 +49,7 @@ def _contracts() -> dict[str, dict[str, object]]:
 
 def test_the_core_has_the_packages_this_guard_expects() -> None:
     # A sanity floor, so an empty scan (a moved src/ tree) cannot pass vacuously.
-    assert {"iris_harness.sdk", "iris_harness.runtime", "iris_harness.main"} <= _core_top_level()
+    assert {"evarness.sdk", "evarness.runtime", "evarness.main"} <= _core_top_level()
 
 
 @pytest.mark.parametrize("contract_id", SDK_ONLY_CONTRACTS)
@@ -60,14 +60,14 @@ def test_sdk_only_contract_forbids_every_other_core_package(contract_id: str) ->
     listed = {
         str(m)
         for m in contract["forbidden_modules"]  # type: ignore[attr-defined]
-        if str(m).count(".") == 1 and str(m).startswith("iris_harness.")
+        if str(m).count(".") == 1 and str(m).startswith("evarness.")
     }
     expected = _core_top_level() - ALLOWED - SOURCES_INSIDE_CORE.get(contract_id, set())
     missing = sorted(expected - listed)
     assert not missing, (
         f"{contract_id} does not forbid {missing}: a core package it does not name is "
         "silently allowed. Add it to forbidden_modules in pyproject.toml, or publish "
-        "what plugins need from it through iris_harness.sdk."
+        "what plugins need from it through evarness.sdk."
     )
     assert not (listed & ALLOWED), f"{contract_id} forbids the SDK itself"
 
@@ -85,15 +85,15 @@ def test_sdk_only_contract_forbids_every_other_core_package(contract_id: str) ->
 
 # contract -> the package whose presence says the domain is in this tree.
 DOMAIN_ANCHORS = {
-    "email-imports-no-other-domain": "iris_personal.email",
-    "finance-imports-no-other-domain": "iris_personal.finance",
-    "files-imports-no-other-domain": "iris_personal.filemanager",
-    "calendar-imports-no-other-domain": "iris_personal.calendar",
-    "planner-imports-no-other-domain": "iris_personal.plugins.planner",
+    "email-imports-no-other-domain": "evarness_personal.email",
+    "finance-imports-no-other-domain": "evarness_personal.finance",
+    "files-imports-no-other-domain": "evarness_personal.filemanager",
+    "calendar-imports-no-other-domain": "evarness_personal.calendar",
+    "planner-imports-no-other-domain": "evarness_personal.plugins.planner",
 }
 DOMAIN_CONTRACTS = tuple(DOMAIN_ANCHORS)
 # Libraries no plugin owns: importing one reaches no other plugin.
-SHARED_LIBRARIES = {"iris_personal.market"}
+SHARED_LIBRARIES = {"evarness_personal.market"}
 
 
 def _packages(parent: Path, prefix: str) -> set[str]:
@@ -106,10 +106,12 @@ def _packages(parent: Path, prefix: str) -> set[str]:
 
 def _domain_tree() -> tuple[set[str], set[str]]:
     """The domain libraries and the domain plugins, or skip where the tree has none."""
-    root = _ROOT / "src" / "iris_personal"
+    root = _ROOT / "src" / "evarness_personal"
     if not root.is_dir():
-        pytest.skip("iris_personal is not in this tree")
-    return _packages(root, "iris_personal"), _packages(root / "plugins", "iris_personal.plugins")
+        pytest.skip("evarness_personal is not in this tree")
+    return _packages(root, "evarness_personal"), _packages(
+        root / "plugins", "evarness_personal.plugins"
+    )
 
 
 def _present(libraries: set[str], plugins: set[str]) -> list[str]:
@@ -131,9 +133,9 @@ def _modules(contract: dict[str, object], key: str) -> set[str]:
 def test_every_domain_plugin_and_library_is_in_exactly_one_domain() -> None:
     libraries, plugins = _domain_tree()
     # A sanity floor, so an empty scan cannot pass vacuously: email is in every tree that
-    # has iris_personal (the public one ships only it), and its plugin with it.
-    assert "iris_personal.email" in libraries
-    assert "iris_personal.plugins.email_workflows" in plugins
+    # has evarness_personal (the public one ships only it), and its plugin with it.
+    assert "evarness_personal.email" in libraries
+    assert "evarness_personal.plugins.email_workflows" in plugins
     seen: dict[str, str] = {}
     for cid, contract in _domain_contracts(_present(libraries, plugins)).items():
         for module in _modules(contract, "source_modules"):

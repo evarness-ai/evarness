@@ -3,13 +3,13 @@ version: 0.2.0
 description: Daily morning briefing — tasks, followups, inbox summary, focus
   mail, today's and missed reminders, active items, approved routines, top GitHub repos, AI, global
   and local news on your topics, and trending stocks.
-author: iris
+author: evarness
 license: Apache-2.0
 kind: brief
 brief:
   # {daypart} and {greeting} follow the owner's local time (the greetings table below):
   # a digest delivered at 15:45 is the "Afternoon Briefing", not the "Morning" one.
-  subject: "IRIS {daypart} Briefing"
+  subject: "Evarness {daypart} Briefing"
   greetings:
     - {starts: "05:00", greeting: "Good morning", daypart: "Morning"}
     - {starts: "12:00", greeting: "Good afternoon", daypart: "Afternoon"}
@@ -20,8 +20,8 @@ brief:
     - calendar-reminders
     - calendar-events
     - daily-plan
-    - iris-core
-    - iris-tasks
+    - harness-core
+    - harness-tasks
     - email-followup
     - email-triage
     - finance-brief
@@ -131,7 +131,7 @@ brief:
       empty: "No events today."
     due_today:
       kind: tool
-      skill: iris-tasks
+      skill: harness-tasks
       tool: list_due_today
       # Today's only: tasks due earlier are the one `overdue` line below.
       args:
@@ -145,14 +145,14 @@ brief:
       # "- Renew registration · Call bank". A task shows here for digest.yaml
       # `expiry.task_overdue_days`, then expires.
       kind: tool
-      skill: iris-tasks
+      skill: harness-tasks
       tool: list_overdue
       args: {}
       format: text
       empty: "## Overdue\nNothing overdue."
     open_tasks:
       kind: tool
-      skill: iris-tasks
+      skill: harness-tasks
       tool: list_open_tasks
       # Not the tasks already under Due today / Overdue.
       args:
@@ -191,7 +191,7 @@ brief:
       empty: "No followups awaiting reply."
     resolved_followups:
       kind: tool
-      skill: iris-tasks
+      skill: harness-tasks
       tool: list_resolved_followups
       args: {}
       format: bullets
@@ -210,7 +210,7 @@ brief:
       empty: "No email accounts configured."
     focus:
       # Renders its own "## Focus — <categories>, newest N per inbox" heading; each line ends
-      # with a [👎](iris:not-useful/<sender>) link (loop-proof D17).
+      # with a [👎](evarness:not-useful/<sender>) link (loop-proof D17).
       kind: tool
       skill: email-triage
       tool: email_focus
@@ -265,7 +265,7 @@ brief:
       empty: "No reminders today."
     active_items:
       kind: tool
-      skill: iris-core
+      skill: harness-core
       tool: list_active_items
       args: {}
       format: bullets
@@ -273,7 +273,7 @@ brief:
       empty: "No active items."
     routines:
       kind: tool
-      skill: iris-core
+      skill: harness-core
       tool: list_approved_routines
       args: {}
       format: bullets
@@ -387,7 +387,7 @@ brief:
     learned_yesterday:
       # The footer (loop-proof D17): never omitted — "learned yesterday: nothing".
       kind: tool
-      skill: iris-core
+      skill: harness-core
       tool: learned_yesterday
       args: {}
       format: text

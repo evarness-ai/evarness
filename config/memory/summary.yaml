@@ -34,7 +34,7 @@ sections:
     hint: "people, organisations and places that matter to the user — comma separated, each once, no prose; not IDs, file names, email addresses, dates or senders of promotional mail"
 
 prompt: |
-  You are maintaining a running summary of one conversation between IRIS and its user.
+  You are maintaining a running summary of one conversation between Evarness and its user.
 
   Rewrite the summary so it covers the earlier summary AND the new exchanges. Keep
   specifics (names, numbers, dates, file and account names); drop pleasantries and

@@ -10,7 +10,7 @@ import react from "eslint-plugin-react";
 // tokens (rgb(var(--...))), so the no-raw-hex rule still applies. Only the
 // inline-style rule is relaxed here, and only for these files.
 const INLINE_STYLE_FILES = [
-  "src/components/IRISNode.tsx",
+  "src/components/EvarnessNode.tsx",
   "src/components/NodeDetail.tsx",
   "src/components/Reasoning.tsx",
   "src/components/Waterfall.tsx",

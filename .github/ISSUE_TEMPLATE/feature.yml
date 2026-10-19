@@ -23,7 +23,7 @@ body:
     id: shape
     attributes:
       label: Where does it live?
-      description: The core carries mechanisms; features belong in plugins (`iris plugin new`).
+      description: The core carries mechanisms; features belong in plugins (`evarness plugin new`).
       options:
         - A new plugin (tool, channel, mail provider, research provider, skill)
         - A change to an existing plugin

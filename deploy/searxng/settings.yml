@@ -1,4 +1,4 @@
-# Minimal SearXNG settings for the IRIS research engine.
+# Minimal SearXNG settings for the Evarness research engine.
 # The one setting that matters: search.formats MUST include `json` — the research
 # engine's SearxngProvider calls the JSON API (/search?format=json), which SearXNG
 # disables by default.
@@ -9,7 +9,7 @@
 use_default_settings: true
 
 general:
-  instance_name: "iris-searxng"
+  instance_name: "evarness-searxng"
 
 server:
   secret_key: "CHANGE_ME_TO_A_LONG_RANDOM_STRING"

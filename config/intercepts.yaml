@@ -11,7 +11,7 @@
 #   name         — the intercept id; the runtime logs `<name>.end` on a match
 #                  (this is what the playground reads to know which intercept
 #                  answered) and the handler method is `_handle_<name>_turn`.
-#   handler      — the IrisRuntime method to call (message, session_id, span[, channel]);
+#   handler      — the EvarnessRuntime method to call (message, session_id, span[, channel]);
 #                  a dotted name reaches a collaborator the runtime holds
 #                  (`routines.handle_routine_authoring_turn`), `plugin:<name>` a plugin's.
 #   enabled      — set false to remove an intercept from the chain (default true).
@@ -176,7 +176,7 @@ intercepts:
 
 # Openers (ADR-0127): deterministic handlers for a turn the SYSTEM opens, with no user
 # message. They are not part of the chain above: nothing is typed, so there is nothing
-# to dispatch in order. The caller names the opener it wants (IrisRuntime.open_turn),
+# to dispatch in order. The caller names the opener it wants (EvarnessRuntime.open_turn),
 # and the turn runs open -> guard -> record (turn/pipeline.py OPENER_STAGES): a
 # `turn_open` event instead of a user message, the same response check and audit row
 # as any handler's answer, and the session log. An opener's handler takes

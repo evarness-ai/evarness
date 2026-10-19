@@ -22,7 +22,7 @@ import { labelPreview, onboardingPath, overview, setupAt, waitingAtApproval } fr
 /** An unbreakable token — no spaces, no hyphens a browser may wrap on. */
 const LONG_ID = "a7f3c9e10b24d85f6e3a1c07b9d4f28e6c1a5b93";
 /** A path long enough to blow a row open if nothing truncates it. */
-const LONG_PATH = "/Users/owner/Library/Application Support/iris/data/memory/statements.db";
+const LONG_PATH = "/Users/owner/Library/Application Support/evarness/data/memory/statements.db";
 
 /** Email setup (R4): an account id no browser can wrap, waiting at step 6. */
 const SETUP_ACCOUNT = `gmail:${LONG_ID}${LONG_ID}@example.com`;
@@ -54,7 +54,7 @@ export const DEFAULT: Record<string, unknown> = {
     description: `Raised by the health watch after refresh failed twice. Source: ${LONG_PATH}`,
     source_kind: "credential",
     created_at: "2026-09-20T06:14:00Z",
-    action: { kind: "copy_command", label: "Re-authenticate", safe: false, command: `iris auth google --config ${LONG_PATH}` },
+    action: { kind: "copy_command", label: "Re-authenticate", safe: false, command: `evarness auth google --config ${LONG_PATH}` },
     feedback_ref: `ref:${LONG_ID}`,
   })),
   agents: rows(5, (i) => ({
@@ -62,7 +62,7 @@ export const DEFAULT: Record<string, unknown> = {
     title: `Background finance analyst ${i}`,
     description: "Reconciles statements against known dues and raises anything unmatched.",
     source_kind: "plugin",
-    plugin: "iris_personal.plugins.finance",
+    plugin: "evarness_personal.plugins.finance",
   })),
   approvals: rows(3, (i) => ({
     approval_id: `${LONG_ID}-ap${i}`,
@@ -133,7 +133,7 @@ export const DEFAULT: Record<string, unknown> = {
       kind: "credential",
       state: "needs_user",
       detail: "token revoked — refresh returned invalid_grant and a retry did not help",
-      action: "iris auth google",
+      action: "evarness auth google",
       opened_at: "2026-09-20T06:12:00Z",
       updated_at: "2026-09-20T06:14:00Z",
       attempts: 2,
@@ -148,8 +148,8 @@ export const DEFAULT: Record<string, unknown> = {
     },
     {
       id: 2,
-      key: `disk:iris_api.log:${LONG_ID}`,
-      target: "iris_api.log",
+      key: `disk:harness_api.log:${LONG_ID}`,
+      target: "harness_api.log",
       subject: LONG_PATH,
       kind: "disk",
       state: "resolved",
@@ -169,7 +169,7 @@ export const DEFAULT: Record<string, unknown> = {
   lessons: [],
   nodes: [],
   plugins: rows(5, (i) => ({
-    name: `iris_personal.plugins.module_number_${i}`,
+    name: `evarness_personal.plugins.module_number_${i}`,
     version: "0.1.0",
     agents: 2,
     tools: 7,
@@ -304,14 +304,14 @@ export const OVERRIDES: Record<string, unknown> = {
         target: "google_calendar",
         state: "red",
         detail: "token revoked — refresh returned invalid_grant",
-        action: "iris auth google",
+        action: "evarness auth google",
       },
     ],
     sampled_at: "2026-09-20T08:41:00Z",
     checks: [
       {
         kind: "service",
-        target: "iris_api",
+        target: "harness_api",
         state: "green",
         detail: "200 in 38 ms",
         endpoint: "http://127.0.0.1:8003/healthz?verbose=1&include=services,credentials",
@@ -336,7 +336,7 @@ export const OVERRIDES: Record<string, unknown> = {
         target: "google_calendar",
         state: "red",
         detail: "token revoked — refresh returned invalid_grant",
-        action: "iris auth google",
+        action: "evarness auth google",
       },
       {
         kind: "hardware",
@@ -351,7 +351,7 @@ export const OVERRIDES: Record<string, unknown> = {
         target: "disk",
         state: "yellow",
         detail: "24.1 GB/29.0 GB used (83%) on /app/data — filling up",
-        action: "iris housekeeping run",
+        action: "evarness housekeeping run",
       },
       {
         kind: "hardware",
@@ -380,7 +380,7 @@ export const OVERRIDES: Record<string, unknown> = {
         status: "warn",
         state: "yellow",
         detail: "24.1 GB free on /app/data",
-        fix: "iris housekeeping run",
+        fix: "evarness housekeeping run",
         blocks: "none",
       },
       {
@@ -396,7 +396,7 @@ export const OVERRIDES: Record<string, unknown> = {
         status: "fail",
         state: "red",
         detail: "qwen2.5:7b-instruct not pulled",
-        fix: "iris doctor --fix",
+        fix: "evarness doctor --fix",
         blocks: "use",
       },
     ],
@@ -461,7 +461,7 @@ export const OVERRIDES: Record<string, unknown> = {
     flags: [],
   },
   "/runtime/inventory": {
-    iris_version: "0.0.0-smoke",
+    evarness_version: "0.0.0-smoke",
     git_branch: "smoke",
     git_rev: "0000000",
     python_version: "3.12.0",
@@ -597,7 +597,7 @@ export const OVERRIDES: Record<string, unknown> = {
     count: 5,
     totals: { loaded: 4, degraded: 1, failed: 0, disabled: 0, unsupported: 0 },
     plugins: rows(5, (i) => ({
-      name: `iris_personal.plugins.module_number_${i}`,
+      name: `evarness_personal.plugins.module_number_${i}`,
       status: i === 4 ? "degraded" : "loaded",
       source: LONG_PATH,
       version: "0.1.0",
@@ -657,7 +657,7 @@ export const OVERRIDES: Record<string, unknown> = {
       "## 📬 Inbox",
       "",
       "### Focus — personal · family · finance, newest 5 per inbox",
-      ...rows(5, (i) => `- Wexly ${i} · Card perks this week · finance [👎](iris:not-useful/offers${i}%40fabrikam.test)`),
+      ...rows(5, (i) => `- Wexly ${i} · Card perks this week · finance [👎](evarness:not-useful/offers${i}%40fabrikam.test)`),
       "",
       "## 📰 News",
       "",

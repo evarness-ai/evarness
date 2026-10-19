@@ -17,8 +17,8 @@
 # operator flips it after reviewing shadow precision.
 version: 1
 
-# Master opt-in. The env flag IRIS_CURATOR_ESCALATION overrides this (matching
-# the IRIS_CURATOR_* judge family). Default off so normal chat is unaffected.
+# Master opt-in. The env flag EVARNESS_CURATOR_ESCALATION overrides this (matching
+# the EVARNESS_CURATOR_* judge family). Default off so normal chat is unaffected.
 enabled: false
 
 # shadow = decide + log + record, never act.
@@ -53,7 +53,7 @@ cost_aware: true
 # L5 predictive start-tier priors. The escalation-priors tick mines
 # escalation_shadow history per intent; an intent that reliably escalates gets
 # its START tier raised so routing is predictive, not reactive. Env override:
-# IRIS_CURATOR_ESCALATION_PRIORS. When disabled the recommendations are computed
+# EVARNESS_CURATOR_ESCALATION_PRIORS. When disabled the recommendations are computed
 # and logged (shadow) but NOT applied to the router — same shadow -> validate ->
 # enforce discipline.
 priors:
@@ -68,7 +68,7 @@ priors:
 # classifies into `classifications` (the data classifier runs on the prompt +
 # answer + memory context). `secret` is NEVER eligible, even if listed. The
 # governance kernel's egress gate remains the final backstop. Env override:
-# IRIS_CURATOR_ESCALATION_CLOUD.
+# EVARNESS_CURATOR_ESCALATION_CLOUD.
 cloud:
   allow: false
   classifications: [public]   # widen to [public, internal] only after review; secret never

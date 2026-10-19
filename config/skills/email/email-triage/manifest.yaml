@@ -10,11 +10,11 @@ description: |
   Tracks 1H (tier_router wiring) and 1I (Chroma kNN over labeled
   examples) extend the classifier without changing this skill's
   external surface.
-author: iris-personal-assistant
+author: evarness-personal-assistant
 license: Apache-2.0
 default_enabled: true
 trust_level: first-party
-homepage: https://github.com/evarness-ai/iris-harness
+homepage: https://github.com/evarness-ai/evarness
 tools:
   - name: classify_email_by_id
     description: |

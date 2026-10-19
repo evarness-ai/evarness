@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in IRIS does not work as documented.
+description: Something in Evarness does not work as documented.
 labels: [bug]
 body:
   - type: markdown
@@ -23,17 +23,17 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
-      description: The exact commands. A reproduction on `iris email demo` or the scripted fake model is best.
+      description: The exact commands. A reproduction on `evarness email demo` or the scripted fake model is best.
       placeholder: |
-        1. iris doctor
-        2. iris email demo
+        1. evarness doctor
+        2. evarness email demo
         3. ...
     validations:
       required: true
   - type: input
     id: version
     attributes:
-      label: IRIS version or commit
+      label: Evarness version or commit
       placeholder: 0.1.0
     validations:
       required: true
@@ -62,5 +62,5 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Logs, traces or `iris doctor` output
+      label: Logs, traces or `evarness doctor` output
       render: text

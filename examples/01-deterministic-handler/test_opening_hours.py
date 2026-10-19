@@ -1,4 +1,4 @@
-"""The opening-hours handler, run in a real governed IRIS (``iris_harness.testing``).
+"""The opening-hours handler, run in a real governed Evarness (``evarness.testing``).
 
 Offline and model-free: the handler answers without a model, and a message it does not
 claim reaches the scripted fake model instead.
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from opening_hours import HANDLER, load_hours, render, setup
 
-from iris_harness.testing import harness, plugin
+from evarness.testing import harness, plugin
 
 MANIFEST = Path(__file__).with_name("manifest.yaml")
 SCRIPT = {"default": {"content": "I only know about the library."}}

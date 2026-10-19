@@ -1,10 +1,10 @@
 # The email assistant: the default profile plus the email plugins -- the mailbox
 # providers (Gmail, IMAP) and the email workflows (triage, the judge, the digest,
-# `iris email demo`). This is release 1's public product (OSS plan R1/R2).
+# `evarness email demo`). This is release 1's public product (OSS plan R1/R2).
 #
 # The providers are optional: each mounts when it is installed and loadable here. Gmail
-# needs the Google API packages `iris-harness[email]` installs; IMAP needs nothing but
-# the standard library. With IRIS_PROFILE unset, `default` hands over to this profile
+# needs the Google API packages `evarness[email]` installs; IMAP needs nothing but
+# the standard library. With EVARNESS_PROFILE unset, `default` hands over to this profile
 # once email_workflows and at least one provider load (default.yaml,
 # prefer_when_installed; requires_one_of below) -- so an install with the email slice
 # is the email assistant even without the extra, over IMAP (owner decision 2026-09-30).

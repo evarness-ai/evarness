@@ -34,7 +34,7 @@ function originTone(origin: PendingAction["origin"]): "info" | "warn" {
   return origin === "health" ? "warn" : "info";
 }
 
-/* "Not useful" feedback (issue 0028) — records a learning signal so IRIS stops
+/* "Not useful" feedback (issue 0028) — records a learning signal so Evarness stops
  * surfacing items like this one. Not write-gated (telemetry only); on success the
  * actions list refetches and the now-suppressed item drops out. */
 function NotUsefulButton({ a }: { a: PendingAction }) {
@@ -117,7 +117,7 @@ function ApprovalRow({
         </div>
       ) : (
         <div className="mt-2">
-          <CopyBlock label="run locally" text={`iris approvals approve ${a.approval_id}`} />
+          <CopyBlock label="run locally" text={`evarness approvals approve ${a.approval_id}`} />
         </div>
       )}
     </div>
@@ -225,14 +225,14 @@ function DestructiveApprovalRow({
           </Button>
         </div>
       ) : (
-        <CopyBlock label="run locally" text={`iris approvals approve ${a.approval_id}`} />
+        <CopyBlock label="run locally" text={`evarness approvals approve ${a.approval_id}`} />
       )}
     </div>
   );
 }
 
 /* A choice card (ADR-0121, prototype signed off 2026-09-24): one card per question
- * ("Is this your Woodgrove bank account?") with what IRIS read, the evidence, an option the
+ * ("Is this your Woodgrove bank account?") with what Evarness read, the evidence, an option the
  * owner can change (the account type), and the answers. Answering is one tap — Ignore
  * is undoable from "Not proposed", and Yes adds a record rather than deleting one. */
 function ChoiceCardRow({
@@ -338,7 +338,7 @@ function ChoiceCardRow({
         </div>
       ) : (
         <span className="text-[11px] text-fg-subtle">
-          Enable writes (IRIS_WEBUI_ALLOW_WRITES=1) to answer this here, or answer it in chat.
+          Enable writes (EVARNESS_WEBUI_ALLOW_WRITES=1) to answer this here, or answer it in chat.
         </span>
       )}
     </div>
@@ -364,7 +364,7 @@ function SkippedSenders({ canWrite }: { canWrite: boolean }) {
     <Section title={`Senders not proposed (${skipped.length})`}>
       <details className="rounded-lg border border-border bg-surface">
         <summary className="min-h-[44px] cursor-pointer px-3 py-2.5 text-[13px] text-fg-muted">
-          Senders IRIS saw in your mail but didn't ask about, and ones you ignored
+          Senders Evarness saw in your mail but didn't ask about, and ones you ignored
           {waiting > 0 ? ` · ${waiting} more waiting to be asked` : ""}
         </summary>
         <ul className="divide-y divide-border border-t border-border">
@@ -430,7 +430,7 @@ function ActionRow({
             </Button>
           ) : (
             <span className="text-[11px] text-fg-subtle">
-              {action.label} — enable writes (IRIS_WEBUI_ALLOW_WRITES=1) to run this
+              {action.label} — enable writes (EVARNESS_WEBUI_ALLOW_WRITES=1) to run this
             </span>
           )}
         </div>
@@ -466,7 +466,7 @@ export function ActionCenterScreen() {
       toast.success(
         status === "approved"
           ? outcome.resumed
-            ? `${title}: done. IRIS replied in the chat.`
+            ? `${title}: done. Evarness replied in the chat.`
             : `${title}: approved. ${outcome.detail}`
           : "Rejected. Nothing was changed.",
       );
@@ -487,7 +487,7 @@ export function ActionCenterScreen() {
       const title = a.card?.title ?? a.signal;
       setConfirm({
         title: `${title}?`,
-        description: `IRIS will run exactly the call on the card and nothing else. ${
+        description: `Evarness will run exactly the call on the card and nothing else. ${
           a.card ? undoSentence(a.card) : ""
         }`.trim(),
         confirmLabel: title,

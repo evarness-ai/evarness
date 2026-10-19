@@ -1,7 +1,7 @@
 /* Settings > Connections and the Health Reconnect button (Reconnect Google
  * prototype, signed off 2026-09-26).
  *
- * The server is faked against the contract iris_api serves: credential rows in
+ * The server is faked against the contract harness_api serves: credential rows in
  * GET /health carry a `reconnect` descriptor; GET <setup_route> says whether the
  * Web client is there; POST <route> answers { auth_url }; PUT <setup_route> stores
  * the client JSON. Google itself is a page on a fake host, so "Continue" is
@@ -22,7 +22,7 @@ function row(target: string, provider: string, account: string | null, state: st
     state,
     detail: account ? `${account}: ${state === "red" ? "token revoked — re-authenticate" : "connected"}` : "not connected",
     endpoint: null,
-    action: state === "red" ? `iris auth ${provider} login --user ${account}` : null,
+    action: state === "red" ? `evarness auth ${provider} login --user ${account}` : null,
     subject: account,
     fix_url: state === "red" ? "/settings#connections" : null,
     reconnect: {
@@ -38,7 +38,7 @@ function row(target: string, provider: string, account: string | null, state: st
 }
 
 const CHECKS = [
-  { kind: "service", target: "iris_api", state: "green", detail: "200", endpoint: null, action: null },
+  { kind: "service", target: "harness_api", state: "green", detail: "200", endpoint: null, action: null },
   row("Gmail", "gmail", YOU, "green"),
   row("Gmail", "gmail", WORK, "green"),
   row("Calendar", "gcalendar", YOU, "red"),
@@ -61,7 +61,7 @@ async function fakeServer(page: Page, opts: Partial<Fake> = {}): Promise<Fake> {
   const setup = () => ({
     configured: fake.configured,
     public_url_set: true,
-    redirect_uri: "https://iris-vm.example.ts.net/api/v1/connections/google/callback",
+    redirect_uri: "https://evarness-vm.example.ts.net/api/v1/connections/google/callback",
     group: "google",
     group_label: "Google",
     providers: [
@@ -181,7 +181,7 @@ test("without the Web client the banner shows, the buttons are off, and the uplo
   await expect(page.getByRole("button", { name: "Reconnect" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Add a Google account" })).toBeDisabled();
   await expect(page.getByTestId("connections-redirect-uri")).toHaveText(
-    "https://iris-vm.example.ts.net/api/v1/connections/google/callback",
+    "https://evarness-vm.example.ts.net/api/v1/connections/google/callback",
   );
 
   const client = JSON.stringify({ web: { client_id: "id", client_secret: "shh" } });
@@ -208,7 +208,7 @@ test("a client that does not list the redirect URI is saved with a lasting warni
     buffer: Buffer.from(JSON.stringify({ web: { client_id: "id", client_secret: "shh" } })),
   });
   await expect(page.getByTestId("connections-client-status")).toContainText(
-    "Google Web client saved, but it does not list https://iris-vm.example.ts.net/api/v1/connections/google/callback as a redirect URI.",
+    "Google Web client saved, but it does not list https://evarness-vm.example.ts.net/api/v1/connections/google/callback as a redirect URI.",
   );
 });
 

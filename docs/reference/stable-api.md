@@ -4,26 +4,26 @@ What a plugin may import and rely on. Anything here changes only after a depreca
 cycle; everything else in the tree is internal and may change in any release (OSS plan
 R16).
 
-The declaration is data: [`src/iris_harness/sdk/stable_tier.yaml`](https://github.com/evarness-ai/iris-harness/blob/main/src/iris_harness/sdk/stable_tier.yaml).
+The declaration is data: [`src/evarness/sdk/stable_tier.yaml`](https://github.com/evarness-ai/evarness/blob/main/src/evarness/sdk/stable_tier.yaml).
 
 ## The stable tier
 
 | Surface | What is stable |
 |---|---|
-| `iris_harness.sdk` | Every module in the package; in each, exactly the names in its `__all__`. `iris_harness.sdk.tools.FailedResult` (a `str` subclass a tool returns to report a failed call without raising, [plugin-contract](../architecture/plugin-contract.md)) was added without breaking anything. |
-| `iris_harness.testing` | Same rule. The scripted fake model, `no_network`, the governed harness (`harness`, `plugin` -- `plugin(manifest=...)` with no setup for a declarative plugin, and the harness's own `TurnResult` / `TurnEvent` / `TurnRecord` / `TurnAuditRow`), `check_stable_imports`, `check_network_imports` (plugin source that imports a raw network library), `fake_http` (answers `api.http` requests from a script, replacing only the transport), the governance conformance suite (`iris_harness.testing.conformance`: `check_conformance` / `assert_conformant`, `Violation`, `ConformanceError`), and `iris_harness.testing.proof_bundle` (export and verify the R14 proof bundle, [proof-bundle.md](proof-bundle.md)). The runtime's internal result types and the audit ledger's own row type are not stable. |
+| `evarness.sdk` | Every module in the package; in each, exactly the names in its `__all__`. `evarness.sdk.tools.FailedResult` (a `str` subclass a tool returns to report a failed call without raising, [plugin-contract](../architecture/plugin-contract.md)) was added without breaking anything. |
+| `evarness.testing` | Same rule. The scripted fake model, `no_network`, the governed harness (`harness`, `plugin` -- `plugin(manifest=...)` with no setup for a declarative plugin, and the harness's own `TurnResult` / `TurnEvent` / `TurnRecord` / `TurnAuditRow`), `check_stable_imports`, `check_network_imports` (plugin source that imports a raw network library), `fake_http` (answers `api.http` requests from a script, replacing only the transport), the governance conformance suite (`evarness.testing.conformance`: `check_conformance` / `assert_conformant`, `Violation`, `ConformanceError`), and `evarness.testing.proof_bundle` (export and verify the R14 proof bundle, [proof-bundle.md](proof-bundle.md)). The runtime's internal result types and the audit ledger's own row type are not stable. |
 | `TurnAuditRow` | What `Harness.audit_rows()` returns, frozen: `id`, `created_at` (a datetime), `hook_point`, `plugin` (the governance check that wrote the row), `decision`, `reason`, `run_id`, `step_id`, `classification`, `tier`, `session_id`, `tool` (on a tool-use row), `deterministic` and `handler` (on the answer row of a deterministic handler), `caller` (who invoked a tool or capability call: `model:system`, `plugin:<consumer>`, `mcp:<client>`) and `tool_plugin` (who owns the tool a tool-use row is about: the plugin's name, `skill:<name>`, `mcp:<server>`, or `system` for a core tool). The last two are `None` on a row they do not describe. `egress` is what a `pre_egress` / `post_egress` row records (host, port, scheme, method, the declared data class, and on the outcome status, byte counts, duration or the error class; never a path, query or body) and `None` on any other row. `call_id` (the governed call a tool-use row is about, a ULID), `held_call_id` (on the approved re-execution of a held call, the attempt that was held), `turn_id` (the chat turn the row was written in), `parent_call_id` (the governed call this call ran inside), `attempt` (1, or 2 for an approved re-execution) with `replay_of` (the held attempt), and `resumed_from_run` (the run id on the rows of a halted run that was re-entered) are `None` on a row they do not describe and on rows written before calls carried an identity. `tool_error` is, on a `post_tool_use` row of a call that failed, the class name of what the tool raised, or `ToolReportedError` when the tool returned a result it marked failed (an MCP `isError: true`); never the message, and `None` on a call that succeeded and on every other row. A field is added at the end with a default of `None`, so adding one is not breaking. The raw payload is not part of it: its keys belong to each check. |
-| Extension protocols | `iris_harness.sdk.research`: `SearchProvider` (a backend `api.register_search_provider` adds to the `research` tool's chain), `SearchHit` (the frozen hit it returns; the engine's `SearchResult` left the tier before 0.1.0), `SearchType`, `Freshness`, `ChainLink`, `search_provider_chain`. `iris_harness.sdk.channels.IChannelConnector` (what `api.register_channel` takes). |
-| External content | `iris_harness.sdk.content.wrap_external_content(text, *, source, tool=None)`: the kernel's own external-content tripwire and `<external_content>` envelope, for plugin code that puts third-party text into a prompt of its own. Idempotent, offline. `redact_external_content(text)` is the tripwire alone, no envelope, for text the plugin keeps or shows the owner (for example the output of a script it ran over third-party data). See [governance](../concepts/governance.md#the-external-content-floor). |
-| Persistence | `iris_harness.sdk.persistence.ensure_columns(db_path, table, {column: declaration}, *, indexes=(), on_added=None)`: add the columns an older table lacks, safely when several processes open it at once (a look first, then `BEGIN IMMEDIATE` on its own connection, deciding again inside it). `on_added(conn, added)` runs in that transaction, only in the process that added a column, for a one-time backfill. A plugin that reads `PRAGMA table_info` and then runs `ALTER TABLE` itself loses that race with `duplicate column name`. Returns the names added. |
-| Logging | `iris_harness.sdk.logging.log_safe(value, limit=200)`: a value that came off the wire (a name, a key, an id) as one log-line-safe string, with CR/LF and other control characters escaped and the text truncated to `limit`. Pass such a value through it at the call site; otherwise a newline in it forges a second log entry. |
+| Extension protocols | `evarness.sdk.research`: `SearchProvider` (a backend `api.register_search_provider` adds to the `research` tool's chain), `SearchHit` (the frozen hit it returns; the engine's `SearchResult` left the tier before 0.1.0), `SearchType`, `Freshness`, `ChainLink`, `search_provider_chain`. `evarness.sdk.channels.IChannelConnector` (what `api.register_channel` takes). |
+| External content | `evarness.sdk.content.wrap_external_content(text, *, source, tool=None)`: the kernel's own external-content tripwire and `<external_content>` envelope, for plugin code that puts third-party text into a prompt of its own. Idempotent, offline. `redact_external_content(text)` is the tripwire alone, no envelope, for text the plugin keeps or shows the owner (for example the output of a script it ran over third-party data). See [governance](../concepts/governance.md#the-external-content-floor). |
+| Persistence | `evarness.sdk.persistence.ensure_columns(db_path, table, {column: declaration}, *, indexes=(), on_added=None)`: add the columns an older table lacks, safely when several processes open it at once (a look first, then `BEGIN IMMEDIATE` on its own connection, deciding again inside it). `on_added(conn, added)` runs in that transaction, only in the process that added a column, for a one-time backfill. A plugin that reads `PRAGMA table_info` and then runs `ALTER TABLE` itself loses that race with `duplicate column name`. Returns the names added. |
+| Logging | `evarness.sdk.logging.log_safe(value, limit=200)`: a value that came off the wire (a name, a key, an id) as one log-line-safe string, with CR/LF and other control characters escaped and the text truncated to `limit`. Pass such a value through it at the call site; otherwise a newline in it forges a second log entry. |
 | `PluginAPI` kinds | `intercept`, `tool`, `intent_handler`, `heartbeat`, `channel`, `confirmation_executor`. |
-| Governed HTTP | `iris_harness.sdk.http`: `GovernedHttp` (what `api.http` is), `EgressDenied` (a `RuntimeError`, not an `OSError`) and `current_http()` (for a declarative plugin). See [plugin egress](../architecture/plugin-egress.md). |
+| Governed HTTP | `evarness.sdk.http`: `GovernedHttp` (what `api.http` is), `EgressDenied` (a `RuntimeError`, not an `OSError`) and `current_http()` (for a declarative plugin). See [plugin egress](../architecture/plugin-egress.md). |
 | Manifest schema | The top-level keys of `manifest.yaml` (`PluginManifest`, including `egress`), and `flavor: declarative` with its tool keys (`description`, `impl`, `args` of `type`/`description`/`required`/`default`/`options`; docs/architecture/plugin-contract.md). |
-| Entry-point group | `iris_harness.plugins`. |
-| Mail providers | One facade, `iris_personal.email.provider_api`: `MailProvider`, `LabellingProvider`, the types their methods use (`EmailMessage`, `EmailAttachment`, `FetchResult`, `DownloadedAttachment`, `AttachmentCandidate`), `MailSyncStore` (the part of the mail record a sync writes: its cursor, the fetched messages, a stored message's labels) with `default_sync_store`, `register_mail_provider`, `connect_account` (records the owner's account at the provider, so the sweep syncs it), `mailbox_write(account_id, what, *, op)` (a context manager every method that changes the mailbox writes inside: it checks the owner's write approval first, yields a `WriteTally` the write `add`s each landed batch to, and records the total as a `mailbox_write_performed` ledger row, the proof bundle's write observation) and `require_mailbox_writes` (the approval check alone, recording nothing). The record itself (`EmailStore`) is not stable. Imported from the facade: the core never imports the email slice, so the SDK cannot re-export it. |
-| Settings | The environment variables `stable_tier.yaml` lists under `settings`, with their defaults: the ones an email install needs ([Environment variables](environment-variables.md) lists them first). Every other `IRIS_*` setting is configuration, not stable. |
-| Quickstart CLI | `iris doctor`, `iris serve` (the IRIS API, on `127.0.0.1:8003` unless `--host`/`--port` say otherwise), `iris email demo`, `iris email setup`, and `iris email writes approve --account <id> [--yes]` (the owner's one-time mailbox-write approval: every refused write names it, and the `mail-provider` scaffold's generated test runs it). |
+| Entry-point group | `evarness.plugins`. |
+| Mail providers | One facade, `evarness_personal.email.provider_api`: `MailProvider`, `LabellingProvider`, the types their methods use (`EmailMessage`, `EmailAttachment`, `FetchResult`, `DownloadedAttachment`, `AttachmentCandidate`), `MailSyncStore` (the part of the mail record a sync writes: its cursor, the fetched messages, a stored message's labels) with `default_sync_store`, `register_mail_provider`, `connect_account` (records the owner's account at the provider, so the sweep syncs it), `mailbox_write(account_id, what, *, op)` (a context manager every method that changes the mailbox writes inside: it checks the owner's write approval first, yields a `WriteTally` the write `add`s each landed batch to, and records the total as a `mailbox_write_performed` ledger row, the proof bundle's write observation) and `require_mailbox_writes` (the approval check alone, recording nothing). The record itself (`EmailStore`) is not stable. Imported from the facade: the core never imports the email slice, so the SDK cannot re-export it. |
+| Settings | The environment variables `stable_tier.yaml` lists under `settings`, with their defaults: the ones an email install needs ([Environment variables](environment-variables.md) lists them first). Every other `EVARNESS_*` setting is configuration, not stable. |
+| Quickstart CLI | `evarness doctor`, `evarness serve` (the Evarness API, on `127.0.0.1:8003` unless `--host`/`--port` say otherwise), `evarness email demo`, `evarness email setup`, and `evarness email writes approve --account <id> [--yes]` (the owner's one-time mailbox-write approval: every refused write names it, and the `mail-provider` scaffold's generated test runs it). |
 
 A name in a stable module but not in its `__all__` is internal.
 
@@ -39,18 +39,18 @@ A name in a stable module but not in its `__all__` is internal.
 ## How it is enforced
 
 - `tests/unit/test_stable_tier.py` holds every tree `stable_tier.yaml` lists under
-  `enforced_roots` (the examples and the `iris plugin new` templates) to
-  the tier, with `iris_harness.testing.check_stable_imports` (an AST walk of every
+  `enforced_roots` (the examples and the `evarness plugin new` templates) to
+  the tier, with `evarness.testing.check_stable_imports` (an AST walk of every
   import). import-linter cannot: `examples/00-quickstart` is not a package name, and a
   forbidden contract cannot say "every module but these names".
 - The same file pins the kinds, the entry-point group, the manifest keys and the core
   quickstart command to the declaration, and every stable name to
   `tests/fixtures/stable_tier/names.txt`: removing a name fails there.
-- `tests/unit/iris_personal/test_email/test_stable_tier_names.py` checks the mail-provider
-  names and the `iris email` commands.
+- `tests/unit/evarness_personal/test_email/test_stable_tier_names.py` checks the mail-provider
+  names and the `evarness email` commands.
 - The examples run as tests (`examples/` is in `testpaths`, and ci-linux runs them on
   every push) and `mypy examples/` checks them strictly, as a plugin author's code:
-  `iris_harness` and `iris_personal` ship a `py.typed` marker, so the stable tier's
+  `evarness` and `evarness_personal` ship a `py.typed` marker, so the stable tier's
   annotations are the ones a plugin is checked against.
 
 Your plugin's CI can hold itself to the tier the same way:
@@ -58,7 +58,7 @@ Your plugin's CI can hold itself to the tier the same way:
 ```python
 from pathlib import Path
 
-from iris_harness.testing import check_stable_imports
+from evarness.testing import check_stable_imports
 
 def test_my_plugin_uses_only_the_stable_api() -> None:
     assert check_stable_imports([Path("src/my_plugin")]) == []
@@ -67,7 +67,7 @@ def test_my_plugin_uses_only_the_stable_api() -> None:
 ## Testing against a real harness
 
 ```python
-from iris_harness.testing import harness, plugin
+from evarness.testing import harness, plugin
 
 def setup(api):
     ...  # your plugin's setup
@@ -80,10 +80,10 @@ def test_my_plugin_answers() -> None:
         assert h.audit_gaps() == []       # every model call and answer audited, nothing lost
 ```
 
-`harness()` builds the same runtime `iris` runs, in a throwaway `IRIS_HOME`: the
-owner's `IRIS_*` settings and credentials out of the environment, a throwaway vault
+`harness()` builds the same runtime `evarness` runs, in a throwaway `EVARNESS_HOME`: the
+owner's `EVARNESS_*` settings and credentials out of the environment, a throwaway vault
 master key, a keyring that refuses every call, no network. See
-`iris_harness/testing/harness.py`.
+`evarness/testing/harness.py`.
 
 A `trust: mcp` plugin is tested the same way: `plugin(manifest={...}, server=[command, *args])`
 with the tools declared in the manifest and no `setup`. Its tools are governed like any
@@ -100,7 +100,7 @@ is built.
 
 A turn that stops for the owner's approval (a destructive tool, a write declared
 `approval: pinned`) leaves a pending row on `ApprovalQueue().list_pending()`
-(`iris_harness.sdk.approvals`); `respond_to_approval(approval_id, approve=True)` answers
+(`evarness.sdk.approvals`); `respond_to_approval(approval_id, approve=True)` answers
 it as the owner would -- the halted run resumes and the approved call runs, governed
 again -- and returns what the owner is told. It also runs a call a plugin's code queued
 through `api.tools`.
@@ -112,7 +112,7 @@ other's plugins. A plugin that keeps a module-level registry or cache declares i
 at the bottom of its module, so the harness can do the same for it:
 
 ```python
-from iris_harness.sdk.process_state import track_globals
+from evarness.sdk.process_state import track_globals
 
 _seen: dict[str, str] = {}
 ...

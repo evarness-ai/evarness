@@ -1,6 +1,6 @@
 """An external MCP server, for the consuming half: ``python weather_server.py``.
 
-Stands in for any third-party MCP server IRIS might consume. It speaks MCP's stdio
+Stands in for any third-party MCP server Evarness might consume. It speaks MCP's stdio
 transport (newline-delimited JSON-RPC 2.0) with the standard library only, and serves
 one tool, ``forecast``, from a fixed table -- no network, so it runs anywhere.
 """

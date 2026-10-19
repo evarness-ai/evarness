@@ -7,7 +7,7 @@ the design below is what to build if the trigger at the end is met. Split from #
 ## The question
 
 Every stdio MCP call starts the server, runs the `initialize` handshake, makes one request
-and terminates the process (`_run_stdio_exchange` in `src/iris_harness/tools/mcp_bridge.py`).
+and terminates the process (`_run_stdio_exchange` in `src/evarness/tools/mcp_bridge.py`).
 Should a server instead stay alive between calls?
 
 ## What a call costs (measured)
@@ -32,7 +32,7 @@ step; unmeasured, not assumed).
 For scale, one model step on this machine's local Ollama, 60 output tokens, a 440-token
 prompt, warm: `granite4.2:3b` 520 ms, `qwen2.5:7b-instruct` 851 ms. So, as a share of a step's time (model plus tool call), an SDK-based call is about a third
 of a short 3B step (262 of 782 ms) and about a quarter of a 7B step (262 of 1113 ms); a
-stdlib-based call is about 3% (17 of 537 ms). These are lower bounds on the step: IRIS's real prompts
+stdlib-based call is about 3% (17 of 537 ms). These are lower bounds on the step: Evarness's real prompts
 carry the tool list and history, so a real step is longer and the share is smaller. One
 machine, one prompt, one run of each; treat the shares as an order of magnitude.
 
@@ -53,7 +53,7 @@ These hold today because nothing survives a call, and each is weakened by a kept
 One thing a session does *not* worsen: **trust-store revocation.** The transport loads the
 trust store once, at construction (`MCPTransport._trust_store`; `_load_trust_store` is called
 from `MCPBridge.__init__` and `MCPTransport.from_repo_root`), and the plugin host builds a
-transport when it mounts a plugin. So `iris mcp revoke` already takes effect on a running
+transport when it mounts a plugin. So `evarness mcp revoke` already takes effect on a running
 process only when its transport is rebuilt. Sessions would need the same, no worse.
 
 ## Decision

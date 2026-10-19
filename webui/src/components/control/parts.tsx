@@ -25,7 +25,7 @@ export function Notice({
 export function ApiUnavailable() {
   return (
     <Notice tone="danger">
-      API unavailable — is the IRIS API running? Start it with <code>iris serve</code> (port
+      API unavailable — is the Evarness API running? Start it with <code>evarness serve</code> (port
       8003 by default).
     </Notice>
   );

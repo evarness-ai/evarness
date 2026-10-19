@@ -47,19 +47,19 @@ cannot yet add a new intent ("recipes") or the words that route to it: those liv
 the owner's `config/intent_keywords.yaml` and in the router's own list. A plugin-defined
 intent is planned work (OSS plan L2 finding).
 
-## Use it in your IRIS
+## Use it in your Evarness
 
 ```bash
-cp -r examples/05-your-own-agent ~/.iris/plugins/todo_agent
+cp -r examples/05-your-own-agent ~/.evarness/plugins/todo_agent
 ```
 
 ```yaml
-# ~/.iris/profile.yaml
+# ~/.evarness/profile.yaml
 plugins:
   - name: todo_agent
 ```
 
-Then `iris -p "What is on my to-do list?"`. (Do not mount it beside the `planner`
+Then `evarness -p "What is on my to-do list?"`. (Do not mount it beside the `planner`
 plugin of the personal-assistant profile: both would claim the same lane.)
 
 ## Try changing

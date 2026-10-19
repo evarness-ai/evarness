@@ -1,6 +1,6 @@
 """The general lane's tool calls are governed on both surfaces (R14: every call audited).
 
-With the governed loop off (``IRIS_AGENTIC_CORE_ENABLED=0``) the ``system`` agent is the
+With the governed loop off (``EVARNESS_AGENTIC_CORE_ENABLED=0``) the ``system`` agent is the
 general handler, and in shadow mode its answer is the one the user reads. Its plugin tools
 used to run with no governance at all. Driven through a real runtime on ``chat`` and
 ``chat_stream`` (the REPL and web surface), with only the model and the search backend
@@ -17,11 +17,11 @@ from typing import Any
 
 import pytest
 
-from iris_harness.kernel.governance import HookPoint
-from iris_harness.kernel.governance.audit.log import AuditLog, AuditRow
-from iris_harness.llm.client import LLMInvocationResponse, LLMMessage, LLMToolCall
-from iris_harness.runtime import build_runtime
-from iris_harness.runtime.types import ChatResult
+from evarness.kernel.governance import HookPoint
+from evarness.kernel.governance.audit.log import AuditLog, AuditRow
+from evarness.llm.client import LLMInvocationResponse, LLMMessage, LLMToolCall
+from evarness.runtime import build_runtime
+from evarness.runtime.types import ChatResult
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("offline_llm")]
 
@@ -31,7 +31,7 @@ _FOUND = "snippet-7c1e from the web"
 
 @pytest.fixture()
 def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[tuple[Any, AuditLog]]:
-    from iris_harness.llm.client import CodingLLMClient
+    from evarness.llm.client import CodingLLMClient
 
     def invoke_turn(
         self: Any, *, messages: Sequence[LLMMessage], bound_tools: Sequence[Any] = (), **_: Any
@@ -45,13 +45,13 @@ def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[tuple[Any
             )
         )
 
-    monkeypatch.setenv("IRIS_AGENTIC_CORE_ENABLED", "0")
-    monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
+    monkeypatch.setenv("EVARNESS_AGENTIC_CORE_ENABLED", "0")
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
     audit_path = tmp_path / "governance-audit.db"
-    monkeypatch.setenv("IRIS_GOVERNANCE_AUDIT_DB_PATH", str(audit_path))
+    monkeypatch.setenv("EVARNESS_GOVERNANCE_AUDIT_DB_PATH", str(audit_path))
     monkeypatch.setattr(CodingLLMClient, "invoke_turn", invoke_turn)
     monkeypatch.setattr(
-        "iris_harness.plugins_builtin.research.tool.run_research", lambda _args, **_: _FOUND
+        "evarness.plugins_builtin.research.tool.run_research", lambda _args, **_: _FOUND
     )
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()
@@ -109,7 +109,7 @@ def test_each_general_lane_plugin_call_carries_one_minted_call_id_on_both_surfac
 ) -> None:
     """#134: the lane's plugin tool call takes the runner, so it gets the runner's minted
     ULID on its PRE and POST rows (the provider's own ``c1`` is never the audit id)."""
-    from iris_harness.foundation.ids import is_ulid
+    from evarness.foundation.ids import is_ulid
 
     rt, audit = world
     message = "what is the latest on the rust 2.0 release?"

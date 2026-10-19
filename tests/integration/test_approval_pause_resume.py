@@ -11,13 +11,13 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.kernel.governance.approvals.gate import (
+from evarness.kernel.governance.approvals.gate import (
     ApprovalGate,
     ApprovalRejectedError,
     ApprovalTimedOutError,
 )
-from iris_harness.kernel.governance.approvals.queue import ApprovalQueue
-from iris_harness.kernel.governance.approvals.store import ApprovalStore
+from evarness.kernel.governance.approvals.queue import ApprovalQueue
+from evarness.kernel.governance.approvals.store import ApprovalStore
 
 
 async def test_approval_pause_resume_flow(tmp_path: Path) -> None:

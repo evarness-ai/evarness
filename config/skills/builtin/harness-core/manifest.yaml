@@ -1,0 +1,24 @@
+name: harness-core
+version: 0.1.0
+description: Core Evarness read-only views over active items and approved routines.
+author: evarness
+license: Apache-2.0
+tools:
+  - name: list_active_items
+    description: List undone checkbox items from active.md.
+    governor_route: system/read
+  - name: list_approved_routines
+    description: List approved or scheduled user routines with title and schedule.
+    governor_route: system/read
+  - name: learned_yesterday
+    description: The digest footer line naming what Evarness learned from the owner's
+      signals yesterday (not-useful marks, settings changes); never empty.
+    governor_route: system/read
+    # The line names senders the owner marked not useful, third-party strings (issue #146).
+    content: external
+requires:
+  python: ">=3.12"
+  packages: []
+  env_vars: []
+  config_files: []
+  agents: []

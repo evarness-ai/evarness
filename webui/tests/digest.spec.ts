@@ -1,7 +1,7 @@
 /* The stored digest view (loop-proof plan PR 2, graph §7).
  *
  * Where the digest push lands. Pinned: the full body renders, https links stay
- * links, the `iris:not-useful/<sender>` link becomes a 👎 button that POSTs the
+ * links, the `evarness:not-useful/<sender>` link becomes a 👎 button that POSTs the
  * decoded sender to /api/digest/not-useful (stream D's endpoint), a partial
  * digest says so, and a push link to a digest that is gone says that instead of
  * breaking. Runs on the iPhone WebKit project at 390px. */
@@ -50,8 +50,8 @@ test("the latest digest renders in full with its links", async ({ page }) => {
   await expect(news).toHaveAttribute("href", /^https:\/\/www\.cnbc\.com\//);
   const repo = body.getByRole("link", { name: /anthropics\// }).first();
   await expect(repo).toHaveAttribute("href", /^https:\/\/github\.com\/anthropics\//);
-  // No iris: link survives as a link.
-  await expect(body.locator('a[href^="iris:"]')).toHaveCount(0);
+  // No evarness: link survives as a link.
+  await expect(body.locator('a[href^="evarness:"]')).toHaveCount(0);
   // The page never scrolls sideways on a phone.
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

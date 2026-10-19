@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.kernel.governance.evaluator.client import isolation_db_open_readonly
+from evarness.kernel.governance.evaluator.client import isolation_db_open_readonly
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32",

@@ -2,7 +2,7 @@
 
 Each case runs a tiny probe suite in a subprocess under the REAL conftest, so what
 is pinned here is exactly what every test in the repo runs under: a probe that
-connects to a model port, an IRIS service port or a remote host fails with the host:port in the report,
+connects to a model port, an Evarness service port or a remote host fails with the host:port in the report,
 even when the code swallowed the error; loopback on any other port still works;
 ``@pytest.mark.real_llm`` lifts the guard.
 """
@@ -60,7 +60,7 @@ def test_module_fixture_probe_is_caught(probed_once_per_module):
     pass
 
 
-def test_iris_service_port_is_blocked():
+def test_evarness_service_port_is_blocked():
     try:
         urlopen("http://127.0.0.1:8003/healthz", timeout=0.2)  # noqa: S310
     except Exception:
@@ -127,13 +127,13 @@ def test_model_ports_and_remote_hosts_fail_the_test(probe_run: pytest.RunResult)
         "test_ollama_port_is_blocked",
         "test_lmstudio_port_is_blocked_even_when_the_error_is_swallowed",
         "test_llama_server_port_is_blocked",
-        "test_iris_service_port_is_blocked",
+        "test_evarness_service_port_is_blocked",
         "test_remote_host_is_blocked",
     ):
         assert f"FAILED test_probes.py::{blocked}" in out
     assert "model server port 127.0.0.1:11434" in out
     assert "model server port 127.0.0.1:8090" in out
-    assert "IRIS service port 127.0.0.1:8003" in out
+    assert "Evarness service port 127.0.0.1:8003" in out
     assert "non-loopback host 203.0.113.7:443" in out
     assert "test_probes.py::test_ollama_port_is_blocked tried to open" in out
     # The skip-after-probe case is reported at teardown, not lost behind the skip.

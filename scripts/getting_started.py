@@ -14,7 +14,7 @@ does not render it):
                                    tests/unit/test_docs/test_getting_started.py holds the
                                    block to the distribution's name and the email extra.
     <!-- ci: skip <reason> -->     not run: it needs something CI does not have (your
-                                   mailbox, a browser, a model download). Its `iris`
+                                   mailbox, a browser, a model download). Its `evarness`
                                    commands are still parsed against the CLI by the unit
                                    test, so a renamed command or option fails there.
     <!-- ci: exit 0,1 -->          run; any of these exit codes passes (default: 0 only).
@@ -140,8 +140,8 @@ def all_blocks(docs: Path) -> list[Block]:
     return found
 
 
-def iris_commands(body: str) -> list[list[str]]:
-    """The ``iris ...`` command lines in a block body, as argv lists (comments dropped,
+def evarness_commands(body: str) -> list[list[str]]:
+    """The ``evarness ...`` command lines in a block body, as argv lists (comments dropped,
     ``\\`` continuations joined). Used by the unit test to parse them against the CLI."""
     import shlex
 
@@ -149,7 +149,7 @@ def iris_commands(body: str) -> list[list[str]]:
     joined = body.replace("\\\n", " ")
     for line in joined.splitlines():
         argv = shlex.split(line, comments=True)
-        if argv and argv[0] == "iris":
+        if argv and argv[0] == "evarness":
             commands.append(argv[1:])
     return commands
 

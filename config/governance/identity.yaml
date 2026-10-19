@@ -4,7 +4,7 @@
 # identity, and as which kind (name, email, phone, address, handle, link). Only statements
 # whose subject is the owner count, so a contact's name never becomes owner PII. The keys
 # are attributes of config/memory/ontology.yaml; this mapping lives here, never in the
-# ontology (memris refuses unknown keys and knows no IRIS vocabulary).
+# ontology (memris refuses unknown keys and knows no Evarness vocabulary).
 #
 # blog and website are `link`: egress refuses to send a link, so a confirmed blog or
 # website joins what it refuses (ADR-0125 amendment 6).

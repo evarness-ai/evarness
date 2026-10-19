@@ -1,4 +1,4 @@
-"""Integration check: real LM Studio + Gemma reachable through IRIS tier router.
+"""Integration check: real LM Studio + Gemma reachable through Evarness tier router.
 
 Auto-skips when LM Studio's local server is not listening on
 ``LM_STUDIO_BASE_URL`` (default ``http://localhost:1234``), so the suite
@@ -6,7 +6,7 @@ stays green on machines without LM Studio installed.
 
 Run explicitly with:
 
-    IRIS_AUTH_SECRET=test-secret-for-testing \\
+    EVARNESS_AUTH_SECRET=test-secret-for-testing \\
       poetry run pytest -m real_llm tests/integration/test_lmstudio_gemma.py -v -s
 """
 
@@ -23,8 +23,8 @@ from urllib.parse import urlparse
 
 import pytest
 
-from iris_harness.llm.client import CodingLLMConfig, _default_model_factory
-from iris_harness.llm.tier_router import TierRouter
+from evarness.llm.client import CodingLLMConfig, _default_model_factory
+from evarness.llm.tier_router import TierRouter
 
 # A live test by design: it probes LM Studio on :1234 and talks to Gemma. The
 # tests/conftest.py network guard only lets it do that under ``real_llm``, which

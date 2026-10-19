@@ -1,7 +1,7 @@
-# Cross-session recall (IRIS_MEMORY_RECALL_MODE).
+# Cross-session recall (EVARNESS_MEMORY_RECALL_MODE).
 #
 #   push     (default)  up to 4 turns from other conversations, the nearest ones under
-#                       IRIS_MEMORY_RECALL_MAX_DISTANCE, are put in every prompt.
+#                       EVARNESS_MEMORY_RECALL_MAX_DISTANCE, are put in every prompt.
 #   pointer             no raw turns from other conversations. The prompt gets one short
 #                       note naming up to 2 related earlier conversations (title, date,
 #                       session_id) that recall_conversation can read on demand -- unless

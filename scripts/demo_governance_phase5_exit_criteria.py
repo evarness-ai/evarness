@@ -19,12 +19,12 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from iris_harness.agent.agent_executor import AgentResult
-from iris_harness.agent.response_curator import ResponseCurator
-from iris_harness.kernel.governance.audit import AuditLog
+from evarness.agent.agent_executor import AgentResult
+from evarness.agent.response_curator import ResponseCurator
+from evarness.kernel.governance.audit import AuditLog
 
 try:
-    from iris_harness.kernel.governance.audit.archive import (
+    from evarness.kernel.governance.audit.archive import (
         AuditArchive,
         AuditCompactor,
         AuditQueryEngine,
@@ -176,7 +176,7 @@ def _demo_archive_and_query(tmp_dir: Path) -> None:
 
 
 def main() -> int:
-    with tempfile.TemporaryDirectory(prefix="iris-phase5-demo-") as raw:
+    with tempfile.TemporaryDirectory(prefix="evarness-phase5-demo-") as raw:
         _demo_curator_signals()
         _demo_archive_and_query(Path(raw))
     print("\nPhase 5 exit-criteria demo completed.")

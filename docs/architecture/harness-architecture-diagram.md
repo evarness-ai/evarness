@@ -1,4 +1,4 @@
-# IRIS Harness — High-Level Architecture Diagram
+# Evarness Harness — High-Level Architecture Diagram
 
 > **Conceptual, not a code map.** The diagrams on this page are a mental model drawn
 > for orientation. Their boxes are named for ideas, not for modules: several do not match
@@ -6,14 +6,16 @@
 > diagram disagrees with the code, the code wins. The table [Concept to code](#concept-to-code)
 > maps each box to where it lives.
 
-A basic, one-glance view of how the IRIS harness operates, intentionally simplified and
+A basic, one-glance view of how the Evarness harness operates, intentionally simplified and
 hand-drawn. For the authoritative operational detail (stage-by-stage behavior, tiers,
-hooks, memory model), see [`iris-harness.md`](./iris-harness.md); for design rationale see
-`project-iris-prd/03-architecture-overview.md`.
+hooks, memory model), see [`evarness.md`](./evarness.md); for design rationale see
+`project-evarness-prd/03-architecture-overview.md`.
 
 ## One agent run (hand-drawn)
 
-![IRIS harness — one agent run](./harness-architecture-diagram.png)
+![Evarness harness — one agent run](./harness-architecture-diagram.png)
+
+*The rendered image predates the rename and still says IRIS; the editable source below is current. Re-export it from Excalidraw to refresh the image.*
 
 Editable source: [`harness-architecture-diagram.excalidraw`](./harness-architecture-diagram.excalidraw)
 (open at [excalidraw.com](https://excalidraw.com) or with the VS Code Excalidraw extension).
@@ -24,7 +26,7 @@ Editable source: [`harness-architecture-diagram.excalidraw`](./harness-architect
   AgentExecutor → ResponseCurator) → **Response to user**. Compaction
   (`compactor.py`, ~80% of the token window) is a context-window op, not a store write.
 - **Bottom = persistent memory**, grouped under the standard cognitive-memory
-  taxonomy as a *conceptual lens* over IRIS's real stores (the code does not name
+  taxonomy as a *conceptual lens* over Evarness's real stores (the code does not name
   them this way): **semantic** = `facts` + `wiki`; **episodic** = `turns` +
   `episodic`; **procedural** = `skills`/`tools` + `signals`. One **Memory subsystem**
   block (`SemanticIndex` + `MemoryStore`, SQLite `memory.db` = truth) mediates
@@ -63,7 +65,7 @@ flowchart TD
     TIERS["TIER ROUTING<br/>router 3b · T1 fast · T2 reason<br/>T3 big opt-in · cloud = coding only"]
     TOOLS["TOOLS<br/>core · skills (semantic router) · MCP bridge"]
     MEM["MEMORY<br/>5 ChromaDB collections:<br/>facts · signals · turns · wiki · episodic + SQLite"]
-    ID["IDENTITY (system prompt)<br/>SOUL.md · USER.md<br/>on-demand: AGENTS.md · iris-harness.md"]
+    ID["IDENTITY (system prompt)<br/>SOUL.md · USER.md<br/>on-demand: AGENTS.md · evarness.md"]
 
     S1 -. selects .-> TIERS
     S3 -. calls .-> TOOLS
@@ -102,7 +104,7 @@ before the answer reaches the user.
 ## Concept to code
 
 Where each box in the diagrams lives, and where the sketch simplifies. Paths are under
-`src/iris_harness/` unless noted. Verified against the code on 2026-10-11.
+`src/evarness/` unless noted. Verified against the code on 2026-10-11.
 
 | Diagram box | In the code | Where the sketch differs |
 |---|---|---|
@@ -114,7 +116,7 @@ Where each box in the diagrams lives, and where the sketch simplifies. Paths are
 | 5 · ResponseCurator | `agent/response_curator.py`, the `curate` stage | A deterministic answer skips it and goes through the `guard` stage, which runs the same model-free checks. |
 | (not drawn) deterministic handlers | `intercept` stage; plugins register them through the SDK | A handler that claims the turn answers with no model, so `classify` to `curate` do not run. |
 | (not drawn) input screen and record | `screen` and `record` stages | Every turn is screened first and recorded last, however it was answered. |
-| TIER ROUTING | `llm/tier_router.py`, `config/llm_tiers.yaml`; per host, `config/doctor.yaml` model sets applied through `llm/tier_edits.py` | The config names more tiers than the sketch: `router`, `tier1` to `tier3`, plus `code_exec`, `gemma`, `vision`, `email_judge` and `fallback`. A model set (`standard`, `lite`) overrides some of them for the machine `iris doctor` finds; the overrides live in the settings store, not in the file. |
+| TIER ROUTING | `llm/tier_router.py`, `config/llm_tiers.yaml`; per host, `config/doctor.yaml` model sets applied through `llm/tier_edits.py` | The config names more tiers than the sketch: `router`, `tier1` to `tier3`, plus `code_exec`, `gemma`, `vision`, `email_judge` and `fallback`. A model set (`standard`, `lite`) overrides some of them for the machine `evarness doctor` finds; the overrides live in the settings store, not in the file. |
 | TOOLS: core, skills, MCP bridge | `tools/skills/registry.py`, `tools/skills/semantic_router.py`, `tools/mcp_bridge.py` | Plugins add tools through `PluginAPI`. |
 | MEMORY: five collections and SQLite | `memory/semantic_index.py` (the five ChromaDB collections), `memory/store.py` (SQLite), `memory/retriever.py`, `memory/coordinator.py` | The semantic/episodic/procedural grouping is a lens; the code does not use those names. The `memris` package (`src/memris/`) is the claim graph, separate from these stores. |
 | IDENTITY (`SOUL.md`, `USER.md`) | `memory/identity/loader.py` | |

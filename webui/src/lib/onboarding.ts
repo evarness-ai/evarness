@@ -1,4 +1,4 @@
-/* Email setup's API (OSS plan R4): the same state machine `iris email setup` drives.
+/* Email setup's API (OSS plan R4): the same state machine `evarness email setup` drives.
  *
  *   GET  /api/v1/email/onboarding                        overview: steps, setups, accounts
  *   GET  /api/v1/email/onboarding/<id>/label-preview     step 6's preview (read-only)
@@ -7,7 +7,7 @@
  *   POST /api/v1/email/onboarding/<id>/restart           -> {restarted}
  *
  * Every decision is the server's (onboarding.py); this module only carries it. The
- * POSTs are gated writes (R17): a control-paired device or IRIS_WEBUI_ALLOW_WRITES.
+ * POSTs are gated writes (R17): a control-paired device or EVARNESS_WEBUI_ALLOW_WRITES.
  * Discovery still runs inside the POST (a naming call per cluster, fast); the first
  * fetch and the judge instead submit to the harness's background Activity spine and
  * return almost at once with `waiting_kind: "activity"` (issue #67) -- the screen
@@ -92,7 +92,7 @@ export interface LabelPreview {
   already_approved: boolean;
   /** Why nothing would be labelled, or "" when labels are due. */
   status: string;
-  /** What IRIS never does, and how to take the approval back. */
+  /** What Evarness never does, and how to take the approval back. */
   notes: string[];
   /** The approval card's lines (status, one per group, removals, notes). */
   lines: string[];

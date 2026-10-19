@@ -1,6 +1,6 @@
 # 07 · Verify email onboarding (the R14 proof bundle)
 
-IRIS promises three things about email onboarding, and this example proves them from
+Evarness promises three things about email onboarding, and this example proves them from
 the audit ledger rather than taking the code's word for it -- as a **proof bundle**, a
 versioned JSON document a CI job verifies offline
 ([docs/reference/proof-bundle.md](../../docs/reference/proof-bundle.md)):
@@ -23,14 +23,14 @@ pytest examples/07-verify-with-evarness -q
 
 Expected output: `3 passed` in about 31 s (11 s with `--no-cov`):
 
-- **the onboarding run** -- `iris email demo` in a temporary home (fetch 200 synthetic
+- **the onboarding run** -- `evarness email demo` in a temporary home (fetch 200 synthetic
   emails, judge them, preview the labels, approve mailbox writes for the demo's own
   account, write the labels, build the first digest), then
 
   ```bash
-  iris governance proof-bundle export --db <home>/governance/audit.db \
+  evarness governance proof-bundle export --db <home>/governance/audit.db \
       --session-logs <home>/logs --subject email-onboarding --out bundle.json
-  iris governance proof-bundle verify bundle.json
+  evarness governance proof-bundle verify bundle.json
   ```
 
   The labels the run wrote are observed from the ledger itself: the demo provider
@@ -39,7 +39,7 @@ Expected output: `3 passed` in about 31 s (11 s with `--no-cov`):
   (an `--observations` write must carry `at` for the same reason). The bundle's model calls carry `personal` data, every one on `tier_1`, and
   the approval row is in it -- under a pseudonym, never the address;
 - **an email chat turn** -- "Which emails need a reply?" in a governed harness with the
-  `email` profile, exported from Python (`iris_harness.testing.proof_bundle`) with the
+  `email` profile, exported from Python (`evarness.testing.proof_bundle`) with the
   model calls and the answer its session log recorded, and verified;
 - **the checks bite** -- a private call moved to `tier_3`, a model call the ledger never
   saw, a mailbox write with no approval row (each with its digest recomputed, so only
@@ -47,9 +47,9 @@ Expected output: `3 passed` in about 31 s (11 s with `--no-cov`):
 
 ## Evarness
 
-R14 makes IRIS Evarness's reference harness, with an Evarness proof bundle for email
-onboarding verified offline in CI. **Evarness is not a dependency of IRIS** (R14:
-optional, dev/CI only, never runtime). The bundle format is IRIS's own, documented and
+R14 makes Evarness Evarness's reference harness, with an Evarness proof bundle for email
+onboarding verified offline in CI. **Evarness is not a dependency of Evarness** (R14:
+optional, dev/CI only, never runtime). The bundle format is Evarness's own, documented and
 versioned, so wiring Evarness in means reading `bundle.json` (or calling
 `verify_bundle`) from its side; nothing here imports it.
 
@@ -73,5 +73,5 @@ an answer that no `pre_response` row covers, and invariant 3 catches it.
 
 ## Next
 
-[`08-mcp`](../08-mcp/): serve IRIS's tools to MCP clients, and allowlist and sign the
-servers IRIS consumes. Background: [Proof bundle](../../docs/reference/proof-bundle.md).
+[`08-mcp`](../08-mcp/): serve Evarness's tools to MCP clients, and allowlist and sign the
+servers Evarness consumes. Background: [Proof bundle](../../docs/reference/proof-bundle.md).

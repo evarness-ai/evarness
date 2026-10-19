@@ -8,17 +8,17 @@
  *
  * The name comes from two places:
  *
- * - at runtime, `deployment_label` from /capabilities (IRIS_DEPLOYMENT_LABEL on the
+ * - at runtime, `deployment_label` from /capabilities (EVARNESS_DEPLOYMENT_LABEL on the
  *   server). A console served by the API out of the server image is built once for
  *   every deployment, so only the server can say which one it is.
- * - at build time, VITE_IRIS_TARGET_LABEL: the local Vite UI pointed at another
- *   harness with IRIS_API_URL (and IRIS_API_LABEL). It is the fallback for
+ * - at build time, VITE_EVARNESS_TARGET_LABEL: the local Vite UI pointed at another
+ *   harness with EVARNESS_API_URL (and EVARNESS_API_LABEL). It is the fallback for
  *   a server that sets no label, or one whose /capabilities cannot be read yet.
  *
  * Nothing renders in the ordinary local case, so the usual UI is untouched. */
 import { useCapabilities } from "@/lib/queries";
 
-const buildLabel = import.meta.env.VITE_IRIS_TARGET_LABEL as string | undefined;
+const buildLabel = import.meta.env.VITE_EVARNESS_TARGET_LABEL as string | undefined;
 
 export function TargetBadge() {
   const runtimeLabel = useCapabilities().data?.deployment_label;

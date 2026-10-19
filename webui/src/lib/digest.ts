@@ -4,7 +4,7 @@
  * on /digest/<id>, and this is the one rendering that shows the whole thing,
  * including the in-app actions the other channels drop:
  *
- *   [👎](iris:not-useful/<url-quoted sender>)  →  a button that POSTs
+ *   [👎](evarness:not-useful/<url-quoted sender>)  →  a button that POSTs
  *   {"sender": "<sender>"} to /api/digest/not-useful, so that sender leaves
  *   tomorrow's Focus list (D17). */
 import { apiFetch } from "./http";
@@ -58,9 +58,9 @@ export async function fetchDigestList(limit = 14): Promise<DigestSummary[]> {
   return body.digests;
 }
 
-export const NOT_USEFUL_SCHEME = "iris:not-useful/";
+export const NOT_USEFUL_SCHEME = "evarness:not-useful/";
 
-/** The sender an `iris:not-useful/<quoted>` link names, or null for any other link. */
+/** The sender an `evarness:not-useful/<quoted>` link names, or null for any other link. */
 export function notUsefulSender(href: string | undefined | null): string | null {
   if (!href || !href.startsWith(NOT_USEFUL_SCHEME)) return null;
   const raw = href.slice(NOT_USEFUL_SCHEME.length);

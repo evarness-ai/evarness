@@ -1,13 +1,13 @@
 # Deterministic-path parity — design note
 
 Status: **approved 2026-09-29** (A, B, C as recommended, below). Rollout step (a) in progress. Tracks OSS plan R15 (launch blocker), public issue
-evarness-ai/iris-harness#1, private detail #713. Measured against `main` at `90645a49`.
+evarness-ai/evarness#1, private detail #713. Measured against `main` at `90645a49`.
 
 ## The claim we want to make
 
 "Determinism is a first-class primitive, and it is governed." A deterministic handler
 (`api.register_intercept`) answers a turn with no model: parse, call typed tools, return a
-grounded answer. Every answer IRIS gives, deterministic or generated, must pass the same
+grounded answer. Every answer Evarness gives, deterministic or generated, must pass the same
 model-free guards and leave the same audit trail.
 
 ## What the code does today
@@ -134,7 +134,7 @@ at=...)` so one hook instance serves two points; the data classifier and the opt
 Prompt Guard registered at `PRE_TURN` as well as `PRE_CLASSIFY`; the `screen` stage (logs the
 user message, fires `PRE_TURN`, records the classification, refuses on `deny` /
 `require_approval`); a refused turn skips to `record` only and never reaches session memory;
-`GOVERNANCE_BLOCKED_TEXT` is the one refusal text; `IrisRuntime.governance_kernel` (from
+`GOVERNANCE_BLOCKED_TEXT` is the one refusal text; `EvarnessRuntime.governance_kernel` (from
 `kernel_from_env()`) is the kernel the pipeline fires on; resumes skip `screen`.
 
 **What step (a) does not do.** The 2026-07-06 self-harm case is not caught by default: the
@@ -173,7 +173,7 @@ rewrite, which live there. `record` is the one recorder: the dispatcher's own
 `InputSafetyHook` at `PRE_TURN` (priority 7) runs the output guard's Llama Guard classifier
 on the user's message. `threat-detection.yaml` gained an `input_safety` section; its
 `enforce` / `log_only` default to the output guard's lists (`self_harm` enforced).
-`_input_safety_from_env` installs it only when `IRIS_GOVERNANCE_INPUT_SAFETY` is truthy
+`_input_safety_from_env` installs it only when `EVARNESS_GOVERNANCE_INPUT_SAFETY` is truthy
 **and** the section is enabled, and logs at WARNING when the flag is on but the screen is
 not (disabled section or a failed build), so its absence never looks like it is working.
 Shadow mode audits and allows; enforce refuses an enforced or uncategorized hazard and
@@ -191,7 +191,7 @@ said "the manifest"; intercepts are declared at registration and in the chain co
 in `manifest.yaml`, so the flag lives where the declaration does.) When set, the `guard`
 stage also runs `ResponseCurator.guard_output()`: the same Llama Guard judge, verdicts and
 fail-open-with-banner as `curate`, audited with the deterministic marker; `skipped` when
-`IRIS_CURATOR_OUTPUT_SAFETY` is off. `governance_warning_banner` is the one banner wording.
+`EVARNESS_CURATOR_OUTPUT_SAFETY` is off. `governance_warning_banner` is the one banner wording.
 
 Opted in, after a read of each handler's reply (the rule: the answer repeats text someone
 else wrote): `email_rebucket` (email subject and sender), `brief_request` (event, followup,
@@ -203,7 +203,7 @@ filenames, which a download may have named. Not traced: agent-created task title
 `reminder_action`.
 
 **Decided (owner, 2026-09-29): an opt-in input safety screen, after step (b).** Same shape as
-the existing model-based checks: an `IRIS_GOVERNANCE_INPUT_SAFETY` flag, **off by default**;
+the existing model-based checks: an `EVARNESS_GOVERNANCE_INPUT_SAFETY` flag, **off by default**;
 an `input_safety` section in `config/governance/threat-detection.yaml` reusing the output
 guard's model (`llama-guard3:1b`) and category lists (so `self_harm` is covered); registered at
 `PRE_TURN` only when the flag is on; shadow-first (logged and audited, not blocking, until

@@ -1,19 +1,19 @@
 # Send traces to your backend
 
-IRIS records every turn in its own session logs, and the web console's Call trace and
+Evarness records every turn in its own session logs, and the web console's Call trace and
 Sessions screens read those. You need nothing else to see what a turn did.
 
 For span-level detail (each pipeline stage, each model call, each outbound HTTP call)
-IRIS emits OpenTelemetry traces and sends them over OTLP to a backend you run: Arize
+Evarness emits OpenTelemetry traces and sends them over OTLP to a backend you run: Arize
 Phoenix, Jaeger, Grafana Tempo, Honeycomb, an OpenTelemetry Collector, or anything else
-that accepts OTLP. IRIS bundles no trace UI.
+that accepts OTLP. Evarness bundles no trace UI.
 
 With no endpoint set, nothing is exported, and `/healthz` reports
 `"tracing_enabled": false` with no error.
 
 ## The settings
 
-IRIS reads the standard OpenTelemetry variables, the way the OpenTelemetry SDK reads
+Evarness reads the standard OpenTelemetry variables, the way the OpenTelemetry SDK reads
 them:
 
 | Variable | What it does |
@@ -22,25 +22,25 @@ them:
 | `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | Full traces URL, used as given. Wins over the base URL. |
 | `OTEL_EXPORTER_OTLP_PROTOCOL` | `http/protobuf` (default, port 4318) or `grpc` (port 4317). `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL` overrides it for traces. |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Headers to send, such as an API key: `key1=value1,key2=value2`. |
-| `OTEL_SERVICE_NAME` | The service name traces are filed under. Default: `iris`. `OTEL_RESOURCE_ATTRIBUTES` works too. |
+| `OTEL_SERVICE_NAME` | The service name traces are filed under. Default: `evarness`. `OTEL_RESOURCE_ATTRIBUTES` works too. |
 | `OTEL_SDK_DISABLED=true` or `OTEL_TRACES_EXPORTER=none` | Turns export off even with an endpoint set. |
 
 The exporter also reads the standard timeout, compression and TLS certificate variables
 (`OTEL_EXPORTER_OTLP_TIMEOUT`, `OTEL_EXPORTER_OTLP_COMPRESSION`,
 `OTEL_EXPORTER_OTLP_CERTIFICATE` and their `_TRACES_` forms).
 
-Two IRIS settings choose which libraries get automatic client spans while export is on.
+Two Evarness settings choose which libraries get automatic client spans while export is on.
 Both default to on:
 
 | Variable | What it does |
 |---|---|
-| `IRIS_OTEL_LANGCHAIN_ENABLED` | LangChain spans (OpenInference attributes: model, messages, tokens). |
-| `IRIS_OTEL_HTTPX_ENABLED` | A span for every outbound `httpx` call. |
+| `EVARNESS_OTEL_LANGCHAIN_ENABLED` | LangChain spans (OpenInference attributes: model, messages, tokens). |
+| `EVARNESS_OTEL_HTTPX_ENABLED` | A span for every outbound `httpx` call. |
 
-The IRIS API traces when an endpoint is set. The channel gateway also needs
-`IRIS_CHANNEL_GATEWAY_TRACING_ENABLED=1`.
+The Evarness API traces when an endpoint is set. The channel gateway also needs
+`EVARNESS_CHANNEL_GATEWAY_TRACING_ENABLED=1`.
 
-Spans are batched before they are sent. Each batch sent is logged as one `iris.egress`
+Spans are batched before they are sent. Each batch sent is logged as one `evarness.egress`
 line naming the host, like every other outbound call.
 
 !!! warning "Traces carry your conversations"
@@ -48,7 +48,7 @@ line naming the host, like every other outbound call.
     them here; a hosted backend receives them. Point the endpoint at a remote service
     only if you mean to send it that data.
 
-Put the variables in `.env` (see `.env.example`) or export them before `iris serve`.
+Put the variables in `.env` (see `.env.example`) or export them before `evarness serve`.
 Under Docker Compose, `.env` is passed to the containers. From inside a container, the
 host is `host.docker.internal`, not `127.0.0.1`.
 
@@ -58,17 +58,17 @@ host is `host.docker.internal`, not `127.0.0.1`.
 its OTLP/HTTP receiver share port 6006:
 
 ```bash
-pip install arize-phoenix          # in an environment of its own, not IRIS's
+pip install arize-phoenix          # in an environment of its own, not Evarness's
 phoenix serve                      # UI at http://127.0.0.1:6006
 ```
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:6006
-iris serve
+evarness serve
 ```
 
-Phoenix files traces under a project. IRIS sets the `openinference.project.name`
-resource attribute to the service name, so they land in the `iris` project.
+Phoenix files traces under a project. Evarness sets the `openinference.project.name`
+resource attribute to the service name, so they land in the `evarness` project.
 
 ## Jaeger
 
@@ -82,15 +82,15 @@ docker run --rm --name jaeger \
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-iris serve
+evarness serve
 ```
 
-Open <http://127.0.0.1:16686> and pick the `iris` service. For gRPC instead, set
+Open <http://127.0.0.1:16686> and pick the `evarness` service. For gRPC instead, set
 `OTEL_EXPORTER_OTLP_PROTOCOL=grpc` and use port 4317.
 
 ## Any backend, through an OpenTelemetry Collector
 
-A collector receives OTLP from IRIS and forwards it wherever you like: Grafana Tempo,
+A collector receives OTLP from Evarness and forwards it wherever you like: Grafana Tempo,
 Honeycomb, a vendor, or several at once. A minimal `collector.yaml` that receives OTLP
 and forwards to Tempo:
 
@@ -125,7 +125,7 @@ docker run --rm -p 127.0.0.1:4318:4318 -p 127.0.0.1:4317:4317 \
 
 ```bash
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4318
-iris serve
+evarness serve
 ```
 
 A hosted backend that speaks OTLP directly needs no collector. Honeycomb, for example:

@@ -1,7 +1,7 @@
 """A SQLite GraphStore — one file, standard library only.
 
 Tables are prefixed ``memris_`` so the store can live inside a database an application
-already has (IRIS will put it in its memory database) without colliding with it.
+already has (Evarness will put it in its memory database) without colliding with it.
 Datetimes are stored as ISO-8601 text in UTC, which sorts and compares correctly as
 text.
 """

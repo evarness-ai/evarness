@@ -40,7 +40,7 @@ async function fakeServer(page: Page, opts: { running: boolean }): Promise<Fake>
     if (pathname === "/api/chat-status") {
       return json({
         session_id: "s",
-        iris_version: "test",
+        evarness_version: "test",
         provider: "local",
         provider_label: "Local",
         model: "m",

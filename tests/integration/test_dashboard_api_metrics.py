@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from iris_harness.foundation.auth import auth_headers
-from iris_harness.foundation.observability import session_log
-from iris_harness.server.iris_api.main import create_app
+from evarness.foundation.auth import auth_headers
+from evarness.foundation.observability import session_log
+from evarness.server.harness_api.main import create_app
 
 pytestmark = pytest.mark.integration
 
@@ -38,10 +38,10 @@ def test_llm_metrics_returns_summary_and_backend_status(tmp_path, monkeypatch) -
         },
     )
 
-    monkeypatch.setenv("IRIS_OBSERVABILITY_METRICS_ENABLED", "1")
+    monkeypatch.setenv("EVARNESS_OBSERVABILITY_METRICS_ENABLED", "1")
     monkeypatch.setattr(session_log, "LOG_DIR", log_dir)
     monkeypatch.setattr(
-        "iris_harness.foundation.observability.tracer.setup_tracing_state",
+        "evarness.foundation.observability.tracer.setup_tracing_state",
         lambda **_: SimpleNamespace(
             enabled=True,
             tracer=object(),
@@ -68,10 +68,10 @@ def test_llm_metrics_returns_summary_and_backend_status(tmp_path, monkeypatch) -
 
 
 def test_llm_metrics_handles_unavailable_backend_gracefully(tmp_path, monkeypatch) -> None:
-    monkeypatch.setenv("IRIS_OBSERVABILITY_METRICS_ENABLED", "1")
+    monkeypatch.setenv("EVARNESS_OBSERVABILITY_METRICS_ENABLED", "1")
     monkeypatch.setattr(session_log, "LOG_DIR", tmp_path / "missing-logs")
     monkeypatch.setattr(
-        "iris_harness.foundation.observability.tracer.setup_tracing_state",
+        "evarness.foundation.observability.tracer.setup_tracing_state",
         lambda **_: SimpleNamespace(
             enabled=True,
             tracer=None,
@@ -94,7 +94,7 @@ def test_llm_metrics_handles_unavailable_backend_gracefully(tmp_path, monkeypatc
 
 
 def test_llm_metrics_respects_env_gate(monkeypatch) -> None:
-    monkeypatch.delenv("IRIS_OBSERVABILITY_METRICS_ENABLED", raising=False)
+    monkeypatch.delenv("EVARNESS_OBSERVABILITY_METRICS_ENABLED", raising=False)
     with TestClient(
         create_app(runtime=SimpleNamespace(), auto_start_runtime=False), headers=auth_headers()
     ) as client:

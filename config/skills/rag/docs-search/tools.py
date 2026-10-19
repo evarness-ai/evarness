@@ -1,13 +1,13 @@
 """LangChain tool for the docs-search skill (RAG R0).
 
-Thin wrapper over ``iris_harness.services.rag.search_documents`` — returns the top matching
+Thin wrapper over ``evarness.services.rag.search_documents`` — returns the top matching
 chunks from the user's indexed documents with citations, so the agent can
-ground and attribute answers. Domain logic + tests live in src/iris/rag.
+ground and attribute answers. Domain logic + tests live in src/evarness/rag.
 """
 
 from __future__ import annotations
 
-from iris_harness.sdk.rag import DocumentIndex, DocumentStore, search_documents
+from evarness.sdk.rag import DocumentIndex, DocumentStore, search_documents
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 

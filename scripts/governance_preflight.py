@@ -8,7 +8,7 @@ only inspects current posture + prerequisites for the four operator enforce flip
   1. threat-detection  mode: shadow -> enforce   (needs guard models + clean battery)
   2. mcp-signing        mode: shadow -> enforce   (needs signed servers, verify clean)
   3. sandbox            runtime: docker -> gvisor (needs Linux host + runsc)
-  4. grounding judge    IRIS_CURATOR_GROUNDING_LLM (needs provenance through ReAct)
+  4. grounding judge    EVARNESS_CURATOR_GROUNDING_LLM (needs provenance through ReAct)
 
 See docs/usage-guides/governance-enforce-flips.md for the full runbook.
 
@@ -33,7 +33,7 @@ from shutil import which
 REPO_ROOT = Path(__file__).resolve().parents[1]
 GOV = REPO_ROOT / "config" / "governance"
 
-OLLAMA_ENDPOINT = os.getenv("IRIS_OLLAMA_ENDPOINT", "http://localhost:11434")
+OLLAMA_ENDPOINT = os.getenv("EVARNESS_OLLAMA_ENDPOINT", "http://localhost:11434")
 GUARD_MODELS = ("llama-guard3:1b", "llama-guard3")  # 1b default; bare name = any tag
 TRUTHY = {"1", "true", "yes", "on"}
 
@@ -133,9 +133,9 @@ def gather() -> dict:
         "host": {"platform": platform.system(), "is_linux": is_linux},
         "threat": {
             "mode": _read_yaml_scalar(GOV / "threat-detection.yaml", "mode"),
-            "prompt_guard_env": _env_on("IRIS_GOVERNANCE_PROMPT_GUARD"),
-            "input_safety_env": _env_on("IRIS_GOVERNANCE_INPUT_SAFETY"),
-            "output_safety_env": _env_on("IRIS_CURATOR_OUTPUT_SAFETY"),
+            "prompt_guard_env": _env_on("EVARNESS_GOVERNANCE_PROMPT_GUARD"),
+            "input_safety_env": _env_on("EVARNESS_GOVERNANCE_INPUT_SAFETY"),
+            "output_safety_env": _env_on("EVARNESS_CURATOR_OUTPUT_SAFETY"),
             "guard_model_present": guard_present,  # None = ollama unreachable
             "ollama_reachable": models is not None,
         },
@@ -143,18 +143,18 @@ def gather() -> dict:
             "mode": _read_yaml_scalar(GOV / "mcp-signing.yaml", "mode"),
             "unsigned_policy": _read_yaml_scalar(GOV / "mcp-signing.yaml", "unsigned_policy"),
             "trust_keys": _trust_store_key_count(),
-            "verify_cli": which("iris") is not None,
+            "verify_cli": which("evarness") is not None,
         },
         "sandbox": {
             "runtime": _read_yaml_scalar(GOV / "sandbox.yaml", "runtime"),
-            "runtime_env": os.getenv("IRIS_SANDBOX_RUNTIME") or None,
+            "runtime_env": os.getenv("EVARNESS_SANDBOX_RUNTIME") or None,
             "runsc_available": runsc,  # None = docker unreachable
             "docker_reachable": runtimes is not None,
         },
         "grounding": {
-            "enabled_env": _env_on("IRIS_CURATOR_GROUNDING_LLM"),
-            "faithfulness_env": _env_on("IRIS_CURATOR_FAITHFULNESS_LLM"),
-            "leak_env": _env_on("IRIS_CURATOR_LEAK_JUDGE"),
+            "enabled_env": _env_on("EVARNESS_CURATOR_GROUNDING_LLM"),
+            "faithfulness_env": _env_on("EVARNESS_CURATOR_FAITHFULNESS_LLM"),
+            "leak_env": _env_on("EVARNESS_CURATOR_LEAK_JUDGE"),
         },
     }
 
@@ -184,21 +184,21 @@ def render(s: dict) -> int:
     out.append(
         _line(
             OK if t["prompt_guard_env"] else NO,
-            "IRIS_GOVERNANCE_PROMPT_GUARD",
+            "EVARNESS_GOVERNANCE_PROMPT_GUARD",
             "on" if t["prompt_guard_env"] else "off (shadow-enable to test G1/G2)",
         )
     )
     out.append(
         _line(
             OK if t["input_safety_env"] else NO,
-            "IRIS_GOVERNANCE_INPUT_SAFETY",
+            "EVARNESS_GOVERNANCE_INPUT_SAFETY",
             "on" if t["input_safety_env"] else "off (shadow-enable to screen user turns)",
         )
     )
     out.append(
         _line(
             OK if t["output_safety_env"] else NO,
-            "IRIS_CURATOR_OUTPUT_SAFETY",
+            "EVARNESS_CURATOR_OUTPUT_SAFETY",
             "on" if t["output_safety_env"] else "off (shadow-enable to test G3)",
         )
     )
@@ -206,7 +206,7 @@ def render(s: dict) -> int:
         _line(
             NO if t["mode"] != "enforce" else OK,
             "live battery + shadow review",
-            "run IRIS_THREAT_BATTERY_LIVE=1 pytest ...test_live_battery... before flipping",
+            "run EVARNESS_THREAT_BATTERY_LIVE=1 pytest ...test_live_battery... before flipping",
         )
     )
     out.append("")
@@ -219,14 +219,14 @@ def render(s: dict) -> int:
         _line(
             OK if m["trust_keys"] else WARN,
             "trust-store keys",
-            f"{m['trust_keys']} key(s)" if m["trust_keys"] else "none (iris mcp keygen)",
+            f"{m['trust_keys']} key(s)" if m["trust_keys"] else "none (evarness mcp keygen)",
         )
     )
     out.append(
         _line(
             OK if m["verify_cli"] else NO,
-            "iris mcp verify",
-            "cli present (run it; must exit 0)" if m["verify_cli"] else "iris CLI not on PATH",
+            "evarness mcp verify",
+            "cli present (run it; must exit 0)" if m["verify_cli"] else "evarness CLI not on PATH",
         )
     )
     out.append("")
@@ -253,7 +253,7 @@ def render(s: dict) -> int:
     out.append(
         _line(
             OK if g["enabled_env"] else NO,
-            "IRIS_CURATOR_GROUNDING_LLM",
+            "EVARNESS_CURATOR_GROUNDING_LLM",
             "enabled" if g["enabled_env"] else "off (set =1 to enable)",
         )
     )

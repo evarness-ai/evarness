@@ -18,23 +18,23 @@ from typing import Any
 
 import pytest
 
-import iris_personal.plugins.email_workflows as email_workflows
-from iris_harness.agent.agentic_core import (
+import evarness_personal.plugins.email_workflows as email_workflows
+from evarness.agent.agentic_core import (
     AgenticCore,
     AgenticCoreConfig,
     resume_seed_from_checkpoint,
 )
-from iris_harness.kernel.governance import GovernanceKernel, HookContext, HookDecision, HookPoint
-from iris_harness.kernel.governance.approvals import ApprovalItem, ApprovalQueue
-from iris_harness.kernel.governance.audit import AuditLog
-from iris_harness.kernel.governance.plugins import DestructiveApprovalHook, ToolPolicyHook
-from iris_harness.kernel.governance.side_effects import SideEffectLedger
-from iris_harness.kernel.governance.wiring import register_side_effect_ledger
-from iris_harness.memory.state import CheckpointStore
-from iris_harness.runtime.plugin_host.manifest import load_manifest
-from iris_personal.email.contracts import EmailMessage
-from iris_personal.email.send_tools import build_send_tools
-from iris_personal.email.store import EmailStore
+from evarness.kernel.governance import GovernanceKernel, HookContext, HookDecision, HookPoint
+from evarness.kernel.governance.approvals import ApprovalItem, ApprovalQueue
+from evarness.kernel.governance.audit import AuditLog
+from evarness.kernel.governance.plugins import DestructiveApprovalHook, ToolPolicyHook
+from evarness.kernel.governance.side_effects import SideEffectLedger
+from evarness.kernel.governance.wiring import register_side_effect_ledger
+from evarness.memory.state import CheckpointStore
+from evarness.runtime.plugin_host.manifest import load_manifest
+from evarness_personal.email.contracts import EmailMessage
+from evarness_personal.email.send_tools import build_send_tools
+from evarness_personal.email.store import EmailStore
 
 pytestmark = pytest.mark.integration
 
@@ -238,11 +238,11 @@ def _model(self: Any, *, system_prompt: str, user_prompt: str, **kwargs: Any) ->
 
 @pytest.fixture()
 def runtime_world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    from iris_harness.llm.client import CodingLLMClient
-    from iris_harness.runtime import build_runtime
-    from iris_personal.email.providers import register_mail_provider
+    from evarness.llm.client import CodingLLMClient
+    from evarness.runtime import build_runtime
+    from evarness_personal.email.providers import register_mail_provider
 
-    monkeypatch.delenv("IRIS_GOVERNANCE_ENABLED", raising=False)
+    monkeypatch.delenv("EVARNESS_GOVERNANCE_ENABLED", raising=False)
     monkeypatch.setattr(CodingLLMClient, "invoke", _model)
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()
@@ -259,7 +259,7 @@ def runtime_world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
 
 
 def _ask(runtime: Any) -> str:
-    from iris_harness.agent.agent_executor import AgentTask
+    from evarness.agent.agent_executor import AgentTask
 
     result = runtime.agent_executor.execute(
         AgentTask(
@@ -275,7 +275,7 @@ def _ask(runtime: Any) -> str:
 
 
 def test_routed_to_the_email_agent_it_halts_then_approving_sends(runtime_world: Any) -> None:
-    from iris_harness.kernel.governance.approvals.service import respond_to_approval
+    from evarness.kernel.governance.approvals.service import respond_to_approval
 
     runtime, gmail = runtime_world
     approval_id = _ask(runtime)
@@ -293,7 +293,7 @@ def test_routed_to_the_email_agent_it_halts_then_approving_sends(runtime_world: 
 
 
 def test_routed_to_the_email_agent_rejecting_sends_nothing(runtime_world: Any) -> None:
-    from iris_harness.kernel.governance.approvals.service import respond_to_approval
+    from evarness.kernel.governance.approvals.service import respond_to_approval
 
     runtime, gmail = runtime_world
     approval_id = _ask(runtime)

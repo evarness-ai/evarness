@@ -1,0 +1,160 @@
+# The stable tier (OSS plan R16): what a plugin, an example and the `evarness plugin new`
+# scaffold may import and rely on. Anything listed here changes only after a
+# deprecation cycle (docs/reference/stable-api.md); everything else in the tree is
+# internal and may change in any release. `evarness.testing.check_stable_imports`
+# reads this file, and tests/unit/test_stable_tier.py holds the tree to it.
+version: 0.1.0
+
+# Whole packages: every module under each, and in every module exactly the names its
+# `__all__` lists. A name missing from `__all__` is internal even inside these packages.
+packages:
+  - evarness.sdk
+  - evarness.testing
+
+# The SDK's extension protocols ride on this rule: `sdk.research.SearchProvider` (what
+# `PluginAPI.register_search_provider` adds to the research tool's chain) with the frozen
+# `SearchHit` it returns, and `sdk.channels.IChannelConnector` (what `register_channel`
+# takes) are stable as names of their modules' `__all__`, recorded in the name snapshot.
+# `SearchResult` -- the research engine's own mutable result, with the score, trust and
+# content the engine fills -- left the tier before 0.1.0 (it was never released stable):
+# a provider returns `SearchHit`, and the engine keeps its result type to itself.
+
+# Single names at their home module, where only part of a module is stable. The mail
+# provider contract lives in the email slice, not the SDK: the core never imports
+# evarness_personal (contract core-does-not-import-evarness-personal), so the SDK cannot
+# re-export it. `provider_api` is its one facade: the interface, the types its methods
+# use, the narrow store a sync writes (MailSyncStore -- the record itself, EmailStore,
+# is not stable), registration, connecting an account, the write-approval check and
+# the governed write (`mailbox_write`: the check, then the write, then its ledger row,
+# with the `WriteTally` it yields).
+names:
+  evarness_personal.email.provider_api:
+    - MailProvider
+    - LabellingProvider
+    - MailSyncStore
+    - FetchResult
+    - DownloadedAttachment
+    - AttachmentCandidate
+    - EmailMessage
+    - EmailAttachment
+    - ProgressFn
+    - WriteTally
+    - connect_account
+    - default_sync_store
+    - mailbox_write
+    - register_mail_provider
+    - require_mailbox_writes
+
+# The top-level packages the tree ships. An import from any of them must be in the
+# tier above; imports from anything else (the standard library, third-party packages,
+# a plugin's own modules) are not the tier's business.
+project_roots:
+  - evarness
+  - evarness_personal
+  - iris_code
+  - memris
+
+# PluginAPI's registration kinds (RegistrationKind).
+registration_kinds:
+  - intercept
+  - tool
+  - intent_handler
+  - heartbeat
+  - channel
+  - confirmation_executor
+
+# The entry-point group installed plugins are discovered under.
+entry_point_group: evarness.plugins
+
+# The manifest schema: every top-level key a manifest.yaml may carry (PluginManifest).
+manifest_fields:
+  - name
+  - version
+  - description
+  - summary
+  - entrypoint
+  - cli
+  - flavor
+  - trust
+  # The server a `trust: mcp` plugin runs as (command, args, env, signature).
+  - server
+  # Provenance. The default is `untrusted` (fail-closed, ADR-0134); only the field's
+  # name and place are pinned here, and a plugin the project ships declares `first-party`.
+  - party
+  - provides
+  - requires
+  - uses
+  # Issue #103: the hosts the plugin's code may contact through the governed HTTP client.
+  - egress
+  - capabilities
+  - identity
+  - search_providers
+  - tools
+  - read_first_intents
+  - ontology
+  - settings
+  - expiry
+  - locked
+  - webui
+
+# The plugin flavors (PluginManifest.flavor): `python` mounts by running the plugin's
+# setup(); `declarative` is a manifest-only plugin (plan decision 5) whose tools bind to
+# plain functions. A declarative tool entry carries these keys beyond any tool's
+# declaration (ToolDeclaration), and each of its `args` these (ToolArg).
+manifest_flavors:
+  - python
+  - declarative
+declarative_tool_fields:
+  - description
+  - impl
+  - args
+declarative_arg_fields:
+  - type
+  - description
+  - required
+  - default
+  - options
+
+# The quickstart CLI (R6's hero path: `serve` runs the API the scheduled jobs live in), plus the owner's one-time mailbox-write
+# approval: every refused write names it, and the `mail-provider` scaffold's generated
+# test runs it, so a third party's tests depend on it.
+quickstart_cli:
+  - [doctor]
+  - [serve]
+  - [email, demo]
+  - [email, setup]
+  - [email, writes, approve]
+
+# The stable settings: the environment variables a release-1 email install relies on,
+# from what the getting-started pages, the email guide and `evarness doctor` tell a user to
+# set. A name and its default here change only after a deprecation cycle; every other
+# setting in the catalog is configuration and may change in a 0.x release.
+# scripts/gen_reference_docs.py lists these first on docs/reference/environment-variables.md
+# and fails when one is missing from the email profile's settings catalog.
+settings:
+  # Running the Evarness API (`evarness serve`) and reaching it from the CLI.
+  - EVARNESS_AUTH_SECRET
+  - EVARNESS_API_HOST
+  - EVARNESS_API_PORT
+  - EVARNESS_API_URL
+  # Serving beyond loopback: the names the Host-header guard answers to.
+  - EVARNESS_PUBLIC_URL
+  - EVARNESS_ALLOWED_HOSTS
+  # Where Evarness keeps its state, its vault key, and which plugins mount.
+  - EVARNESS_HOME
+  - EVARNESS_VAULT_MASTER_KEY
+  - EVARNESS_PROFILE
+  - EVARNESS_DEMO_HOME
+  # When the scheduled jobs run.
+  - EVARNESS_TZ
+  # The email judge.
+  - EVARNESS_EMAIL_JUDGE
+  - EVARNESS_EMAIL_JUDGE_LABELS
+  - EVARNESS_EMAIL_JUDGE_UNSURE_BELOW
+
+# Trees whose Python files may import only the tier above, relative to the repo root:
+# the examples, and the `evarness plugin new` templates (what they generate is a third
+# party's plugin, so it may import nothing else).
+enforced_roots:
+  - examples
+  - src/evarness/cli/templates/plugin

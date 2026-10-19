@@ -1,0 +1,122 @@
+"""Document-RAG domain models (RAG R0).
+
+The document layer indexes the user's *existing* sources (markdown folders,
+Obsidian vaults, PDFs later) for retrieval — it does not own them. Every
+retrieved chunk carries a ``Citation`` back to the source file so answers can
+attribute their evidence (the NotebookLM-style requirement).
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Literal
+
+SourceKind = Literal["file", "folder", "obsidian", "pdf", "image"]
+
+
+@dataclass(frozen=True)
+class DocumentSource:
+    """A registered source the user pointed Evarness at (the file, not a copy)."""
+
+    id: str
+    path: str
+    kind: SourceKind
+    title: str
+    content_sha: str
+    added_at: datetime
+    last_synced_at: datetime
+    tags: tuple[str, ...] = field(default_factory=tuple)
+    links: tuple[str, ...] = field(default_factory=tuple)  # outgoing [[wikilinks]]
+    mtime: float = 0.0  # filesystem mtime at last sync (incremental skip)
+    # Sensitivity of the source (FMX8), kept per source so it outlives any one set of
+    # chunks (an empty re-ingest keeps it). Every ingest sets it; None = a source
+    # indexed before classification existed, labelled on its next sync.
+    classification: str | None = None
+
+
+@dataclass(frozen=True)
+class DocumentChunk:
+    """One retrievable slice of a source, with where-it-came-from metadata."""
+
+    id: str  # f"{source_id}:{chunk_index}"
+    source_id: str
+    source_path: str
+    title: str  # nearest heading (or the file title)
+    chunk_index: int
+    text: str
+    page: int | None = None  # 1-based page number for PDF sources
+    # The source's sensitivity at ingest time (FMX8). None = legacy chunk ingested
+    # before classification; downstream egress gating treats it as unclassified.
+    classification: str | None = None
+
+
+@dataclass(frozen=True)
+class Citation:
+    source_path: str
+    title: str
+    chunk_index: int
+    page: int | None = None
+
+    def label(self) -> str:
+        """Human-readable attribution, e.g. ``Project X (notes/x.md#2)`` or,
+        for a PDF, ``Report (report.pdf p.3)``."""
+        if self.page is not None:
+            return f"{self.title} ({self.source_path} p.{self.page})"
+        return f"{self.title} ({self.source_path}#{self.chunk_index})"
+
+
+@dataclass(frozen=True)
+class RetrievedChunk:
+    chunk_id: str
+    text: str
+    score: float
+    citation: Citation
+    # Carried through from the chunk so egress gating can see how sensitive a
+    # retrieved passage is (FMX8). None = ingested before classification.
+    classification: str | None = None
+
+
+@dataclass(frozen=True)
+class IngestResult:
+    sources_added: int = 0
+    sources_updated: int = 0
+    sources_skipped: int = 0
+    chunks_indexed: int = 0
+    paths: tuple[str, ...] = field(default_factory=tuple)
+    # Files that classified secret: not indexed, and any earlier chunks of theirs
+    # removed (secret content never enters RAG).
+    sources_denied: int = 0
+    # Registered files that no longer exist on disk: ``sync_all`` took their chunks and
+    # index entries out of RAG (the file itself is never touched).
+    sources_removed: int = 0
+    # Registered files ``sync_all`` could not judge because their location is unavailable (the
+    # parent folder is missing or unreadable: an unmounted volume, a dropped share). Left as
+    # they were: not pruned, not reported.
+    sources_unavailable: int = 0
+
+    def summary(self) -> str:
+        text = (
+            f"{self.sources_added} added, {self.sources_updated} updated, "
+            f"{self.sources_skipped} unchanged; {self.chunks_indexed} chunk(s) indexed"
+        )
+        if self.sources_removed:
+            text += f"; {self.sources_removed} removed: file no longer on disk"
+        if self.sources_unavailable:
+            text += f"; {self.sources_unavailable} skipped: location unavailable"
+        if self.sources_denied:
+            text += (
+                f"; {self.sources_denied} refused: classified secret "
+                "(secret documents never enter RAG; use the vault)"
+            )
+        return text
+
+
+__all__ = [
+    "SourceKind",
+    "DocumentSource",
+    "DocumentChunk",
+    "Citation",
+    "RetrievedChunk",
+    "IngestResult",
+]

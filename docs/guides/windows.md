@@ -1,15 +1,15 @@
 # Windows
 
-On Windows, run IRIS with Docker Desktop: one script sets it up. To work on the code, a
+On Windows, run Evarness with Docker Desktop: one script sets it up. To work on the code, a
 native checkout works too: the CLI, the test suite and the local gate run on Windows directly,
-and `iris doctor` warns on the platform row instead of refusing. WSL2 remains an option for
+and `evarness doctor` warns on the platform row instead of refusing. WSL2 remains an option for
 either, the same as Linux.
 
 The commands below are for PowerShell unless they say Git Bash.
 
-## Run IRIS with Docker Desktop
+## Run Evarness with Docker Desktop
 
-IRIS runs in Docker Desktop and the models run on
+Evarness runs in Docker Desktop and the models run on
 [Ollama for Windows](https://ollama.com/download/windows). The models are not in a
 container because Docker Desktop passes only NVIDIA GPUs to one, while Ollama for Windows uses
 NVIDIA (CUDA), AMD (ROCm) and integrated Intel or AMD graphics (Vulkan), and the CPU when there
@@ -29,24 +29,24 @@ It asks before it installs or changes anything; `-Yes` answers yes to every ques
    nothing. Ollama skips an integrated GPU unless `OLLAMA_IGPU_ENABLE=1` is set, and logs
    `dropping integrated GPU` when it does; the script then offers to set it for your user and
    restart Ollama. It ends by saying what runs the models.
-4. **`.env`** (git-ignored). `IRIS_AUTH_SECRET`, the bearer token every API call carries, and
-   `IRIS_VAULT_MASTER_KEY`, which governed tool calls need (a container has no OS keyring),
+4. **`.env`** (git-ignored). `EVARNESS_AUTH_SECRET`, the bearer token every API call carries, and
+   `EVARNESS_VAULT_MASTER_KEY`, which governed tool calls need (a container has no OS keyring),
    are created once and never replaced: your secrets are encrypted under the key. It also
-   writes `IRIS_MODEL_HOST_RAM_GB`, this machine's RAM, because `iris doctor` in the container
+   writes `EVARNESS_MODEL_HOST_RAM_GB`, this machine's RAM, because `evarness doctor` in the container
    would otherwise size the model set for the Docker VM's memory instead of the machine the
    models run on. The file is written as ASCII: Windows PowerShell's `>` and `Out-File` write
    UTF-16, which Compose cannot read.
-5. **IRIS.** Builds the image from your checkout and starts the Governor and the IRIS API
+5. **Evarness.** Builds the image from your checkout and starts the Governor and the Evarness API
    against Ollama for Windows (`docker-compose.hostllm.yml`). It always rebuilds and
    recreates: `./config` is mounted from the checkout, and an old image reading new config
    fails.
-6. **Models.** Runs `iris doctor --fix` in the container: it picks the model set your RAM fits
+6. **Models.** Runs `evarness doctor --fix` in the container: it picks the model set your RAM fits
    (`config/doctor.yaml`), points the tiers at it and downloads its models (4.5 to 11.4 GB).
    `-ModelSet lite` forces a set; `-SkipModels` leaves the models alone.
-7. **A first answer.** Asks IRIS "hi, how are you?" and prints the reply and how long it took.
+7. **A first answer.** Asks Evarness "hi, how are you?" and prints the reply and how long it took.
 
 Then open http://127.0.0.1:8003/. To start again, or after a `git pull`, run the script again.
-`.\setup-windows.ps1 -Stop` stops IRIS; the data volume stays.
+`.\setup-windows.ps1 -Stop` stops Evarness; the data volume stays.
 
 ### How fast
 
@@ -58,7 +58,7 @@ Measured on a Core Ultra 7 155H laptop (32 GB, integrated Arc graphics), the `st
 | On the integrated GPU (`OLLAMA_IGPU_ENABLE=1`) | about 37 seconds |
 | The first answer after a start, on the integrated GPU (the models load) | 80 to 100 seconds |
 
-Nearly all of it is the model reading IRIS's prompt, not writing the answer; a discrete GPU is
+Nearly all of it is the model reading Evarness's prompt, not writing the answer; a discrete GPU is
 faster still. A run of the script after the first takes about two minutes before that first
 answer: the image rebuilds from cache, the containers restart, and doctor finds nothing to
 download.
@@ -71,12 +71,12 @@ Without the script, the same setup is:
 # .env: the secret, written as ASCII (create it once; Compose reads it for every command).
 $bytes = New-Object byte[] 32
 [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-"IRIS_AUTH_SECRET=$(-join ($bytes | ForEach-Object { $_.ToString('x2') }))" |
+"EVARNESS_AUTH_SECRET=$(-join ($bytes | ForEach-Object { $_.ToString('x2') }))" |
     Set-Content -Encoding ascii .env
 
-# IRIS against Ollama for Windows; never the bundled Ollama.
-docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up -d --build --force-recreate --no-deps governor iris-api
-docker compose exec iris-api iris doctor --fix
+# Evarness against Ollama for Windows; never the bundled Ollama.
+docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up -d --build --force-recreate --no-deps governor evarness-api
+docker compose exec evarness-api evarness doctor --fix
 ```
 
 Do not use plain `docker compose up` while Ollama for Windows runs: it starts a second Ollama,
@@ -95,19 +95,19 @@ uv tool install poetry
 
 poetry env use (py -3.12 -c "import sys; print(sys.executable)")
 poetry install
-poetry run iris --help
-poetry run iris doctor
+poetry run evarness --help
+poetry run evarness doctor
 ```
 
-`iris doctor` warns on the Platform row: native Windows is for development, and owner-only
+`evarness doctor` warns on the Platform row: native Windows is for development, and owner-only
 file modes are not enforced there (below). The vault master key goes in Windows Credential
 Manager, as it goes in the Keychain on a Mac.
 
 ### Tests and the gate
 
 ```powershell
-$env:IRIS_AUTH_SECRET = "test-secret-for-testing"
-$env:IRIS_DISABLE_WARMUP = "1"
+$env:EVARNESS_AUTH_SECRET = "test-secret-for-testing"
+$env:EVARNESS_DISABLE_WARMUP = "1"
 poetry run pytest tests/unit/<the path you changed>
 ```
 
@@ -124,10 +124,10 @@ pins: `winget install Gitleaks.Gitleaks`.
 ### What differs on Windows
 
 - **Audit locks.** The audit spool and compaction lock with `flock` on POSIX and
-  `msvcrt.locking` on Windows, so two IRIS processes writing the same home are kept apart on
+  `msvcrt.locking` on Windows, so two Evarness processes writing the same home are kept apart on
   both.
-- **File modes.** IRIS creates its databases and keys `0o600` on POSIX. Windows has no such
-  modes; what protects the files is the folder's access list. Keep `IRIS_HOME` under your user
+- **File modes.** Evarness creates its databases and keys `0o600` on POSIX. Windows has no such
+  modes; what protects the files is the folder's access list. Keep `EVARNESS_HOME` under your user
   profile (the default), which only your account can read.
 - **Symlinks.** Creating one needs Developer Mode (Settings, System, For developers). Without it
   the tests that build symlinks fail with `WinError 1314`.

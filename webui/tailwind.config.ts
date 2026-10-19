@@ -14,7 +14,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // IRIS semantic tokens
+        // Evarness semantic tokens
         bg: c("--bg"),
         sidebar: c("--sidebar"),
         surface: c("--surface"),

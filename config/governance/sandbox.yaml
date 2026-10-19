@@ -4,7 +4,7 @@
 # Firecracker is evaluated/deferred. gVisor/Firecracker are Linux-only — on
 # macOS the runtime check fails and falls back to docker.
 version: 1
-runtime: docker            # docker | gvisor | firecracker (IRIS_SANDBOX_RUNTIME overrides)
+runtime: docker            # docker | gvisor | firecracker (EVARNESS_SANDBOX_RUNTIME overrides)
 on_unavailable: fallback   # fallback (→ docker, logged) | disable (no code_exec)
 limits:
   memory: 1g

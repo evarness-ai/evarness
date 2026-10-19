@@ -16,11 +16,11 @@ from typing import Any
 
 import pytest
 
-from iris_harness.runtime import build_runtime
-from iris_harness.runtime.types import ChatResult
-from iris_personal.email.contracts import EmailMessage
-from iris_personal.email.store import EmailStore
-from iris_personal.plugins.email_workflows.judgments import JudgmentStore
+from evarness.runtime import build_runtime
+from evarness.runtime.types import ChatResult
+from evarness_personal.email.contracts import EmailMessage
+from evarness_personal.email.store import EmailStore
+from evarness_personal.plugins.email_workflows.judgments import JudgmentStore
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("offline_llm")]
 
@@ -61,7 +61,7 @@ def _seed(data_dir: Path) -> None:
 @pytest.fixture()
 def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[tuple[Any, list[str]]]:
     """A real runtime, the email plugin mounted, and a model scripted per turn."""
-    from iris_harness.llm.client import CodingLLMClient
+    from evarness.llm.client import CodingLLMClient
 
     script: list[str] = [_DIGEST]
 
@@ -69,8 +69,8 @@ def world(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[tuple[Any
         # Only the loop's ReAct steps are scripted; anything else (a narrator) says nothing.
         return script[0] if "Action Input" in user_prompt else ""
 
-    monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
-    monkeypatch.delenv("IRIS_AGENTIC_CORE_ENABLED", raising=False)  # the default: on
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
+    monkeypatch.delenv("EVARNESS_AGENTIC_CORE_ENABLED", raising=False)  # the default: on
     monkeypatch.setattr(CodingLLMClient, "invoke", model)
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()
@@ -130,7 +130,7 @@ def test_a_turn_the_loop_cannot_ground_degrades_to_the_fallback_on_both_surfaces
 def test_the_degrade_path_is_the_declared_fallback_not_the_digest_lane(world: Any) -> None:
     """A bill-email question the loop cannot ground: the fallback answers from the
     judge's bill bucket, which the digest lane never does."""
-    from iris_harness.agent.agent_executor import AgentTask
+    from evarness.agent.agent_executor import AgentTask
 
     rt, script = world
     script[0] = _UNREAD
@@ -152,8 +152,8 @@ def test_the_fallbacks_read_runs_through_the_runtimes_governed_runner(
 ) -> None:
     """The degrade path's read is ``api.tools``: the runtime's kernel sees PRE_TOOL_USE
     for it with the plugin as the caller, not a direct call of the tool's function."""
-    from iris_harness.agent.agent_executor import AgentTask
-    from iris_harness.kernel.governance import HookPoint
+    from evarness.agent.agent_executor import AgentTask
+    from evarness.kernel.governance import HookPoint
 
     rt, script = world
     script[0] = _UNREAD
@@ -182,7 +182,7 @@ def test_the_fallbacks_read_runs_through_the_runtimes_governed_runner(
 def test_with_the_loop_off_the_digest_lane_stands(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.setenv("IRIS_AGENTIC_CORE_ENABLED", "0")
+    monkeypatch.setenv("EVARNESS_AGENTIC_CORE_ENABLED", "0")
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()
     data_dir.mkdir()

@@ -1,18 +1,18 @@
-# One-command local IRIS stack:  docker compose up
+# One-command local Evarness stack:  docker compose up
 #
 # Brings up the full privacy-first stack — containerized Ollama (Tier 1/2 local
-# models, auto-pulled on first run), the Governor policy service, and the IRIS
+# models, auto-pulled on first run), the Governor policy service, and the Evarness
 # chat API. No .env is required: dev
 # defaults boot a working local-only instance; drop a .env beside this file to
 # add real credentials / overrides.
 #
 # Mac note: containerized Ollama is CPU-only. For Metal-accelerated tiers, run
 # the host's native Ollama and use the override:
-#   docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up governor iris-api
+#   docker compose -f docker-compose.yml -f docker-compose.hostllm.yml up governor evarness-api
 #
 # Every published port is bound to 127.0.0.1: the stack is for this machine only. A bare
 # "8003:8003" listens on every interface (on Linux, past the host firewall), which put
-# Ollama, which asks for no token, on the LAN. To reach IRIS from
+# Ollama, which asks for no token, on the LAN. To reach Evarness from
 # another device, put an authenticated tunnel (e.g. `tailscale serve`) in front instead.
 #
 # Every container: no Linux capabilities and no privilege gain after start
@@ -60,16 +60,16 @@ services:
     restart: "no"
 
   # ── Governor ──────────────────────────────────────────────────────────────
-  # Policy engine, rate limiter, and audit trail. Healthy before iris-api starts.
+  # Policy engine, rate limiter, and audit trail. Healthy before evarness-api starts.
   governor:
     build:
       context: .
-    image: iris:latest
-    command: uvicorn iris_harness.server.governor.main:app --host 0.0.0.0 --port 8080
+    image: evarness:latest
+    command: uvicorn evarness.server.governor.main:app --host 0.0.0.0 --port 8080
     ports:
       - "127.0.0.1:8080:8080"
     volumes:
-      - iris-data:/app/data
+      - evarness-data:/app/data
       - ./config:/app/config:ro
     env_file:
       - path: .env
@@ -77,7 +77,7 @@ services:
     environment:
       # Required — no default. A shipped default would be a publicly-known
       # shared secret; compose fails fast with this message if it is unset.
-      IRIS_AUTH_SECRET: "${IRIS_AUTH_SECRET:?set IRIS_AUTH_SECRET (e.g. in .env) to a long random string}"
+      EVARNESS_AUTH_SECRET: "${EVARNESS_AUTH_SECRET:?set EVARNESS_AUTH_SECRET (e.g. in .env) to a long random string}"
     healthcheck:
       test: ["CMD", "curl", "-sf", "http://localhost:8080/healthz"]
       interval: 15s
@@ -87,19 +87,19 @@ services:
     <<: *hardening
     restart: unless-stopped
 
-  # ── IRIS API ──────────────────────────────────────────────────────────────
+  # ── Evarness API ──────────────────────────────────────────────────────────────
   # Main chat API. Traces export over OTLP only when .env sets OTEL_EXPORTER_OTLP_ENDPOINT
   # to a backend you run (from a container, e.g. http://host.docker.internal:4318);
   # see docs/guides/tracing.md. No trace UI is bundled (ADR-0128).
-  iris-api:
+  evarness-api:
     build:
       context: .
-    image: iris:latest
-    command: uvicorn iris_harness.server.iris_api.main:app --host 0.0.0.0 --port 8003
+    image: evarness:latest
+    command: uvicorn evarness.server.harness_api.main:app --host 0.0.0.0 --port 8003
     ports:
       - "127.0.0.1:8003:8003"
     volumes:
-      - iris-data:/app/data
+      - evarness-data:/app/data
       - ./config:/app/config:ro
     env_file:
       - path: .env
@@ -107,14 +107,14 @@ services:
     environment:
       # Compose service names override the localhost defaults.
       OLLAMA_BASE_URL: "http://ollama:11434"
-      # The owner's time zone: "now"/"today", the digest and reminders read IRIS_TZ; the
+      # The owner's time zone: "now"/"today", the digest and reminders read EVARNESS_TZ; the
       # container clock follows it too.
-      IRIS_TZ: "${IRIS_TZ:-}"
-      TZ: "${IRIS_TZ:-UTC}"
-      IRIS_GOVERNOR_BASE_URL: "http://governor:8080"
+      EVARNESS_TZ: "${EVARNESS_TZ:-}"
+      TZ: "${EVARNESS_TZ:-UTC}"
+      EVARNESS_GOVERNOR_BASE_URL: "http://governor:8080"
       # Required — no default. A shipped default would be a publicly-known
       # shared secret; compose fails fast with this message if it is unset.
-      IRIS_AUTH_SECRET: "${IRIS_AUTH_SECRET:?set IRIS_AUTH_SECRET (e.g. in .env) to a long random string}"
+      EVARNESS_AUTH_SECRET: "${EVARNESS_AUTH_SECRET:?set EVARNESS_AUTH_SECRET (e.g. in .env) to a long random string}"
     depends_on:
       governor:
         condition: service_healthy
@@ -133,5 +133,5 @@ services:
 
 
 volumes:
-  iris-data:       # SQLite databases + ChromaDB vectors
+  evarness-data:       # SQLite databases + ChromaDB vectors
   ollama-models:   # Downloaded Ollama model weights

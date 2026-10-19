@@ -1,6 +1,6 @@
 """Your email categories, live in the email assistant: offline, on a scripted model.
 
-The test builds a config directory -- IRIS's own, plus ``email/judge.yaml`` from this
+The test builds a config directory -- Evarness's own, plus ``email/judge.yaml`` from this
 example -- and runs the ``email`` profile on it. In chat, "the carpool email is money"
 is a correction in your words ("money" is your name for the ``bill`` bucket): the
 judge's correction handler claims it, deterministically, with no model call. With the
@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.sdk.config import config_dir
-from iris_harness.testing import harness
+from evarness.sdk.config import config_dir
+from evarness.testing import harness
 
 HERE = Path(__file__).parent
 CORRECTION = "the carpool email is money"
@@ -25,7 +25,7 @@ SCRIPT = {"default": {"content": "Scripted answer."}}
 
 @pytest.fixture
 def your_config(tmp_path: Path) -> Path:
-    """IRIS's config directory with your ``email/judge.yaml`` in it."""
+    """Evarness's config directory with your ``email/judge.yaml`` in it."""
     target = tmp_path / "config"
     shutil.copytree(config_dir(), target)
     (target / "email").mkdir(exist_ok=True)
@@ -35,7 +35,7 @@ def your_config(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def shipped_config(tmp_path: Path) -> Path:
-    """IRIS's config directory as shipped."""
+    """Evarness's config directory as shipped."""
     target = tmp_path / "shipped"
     shutil.copytree(config_dir(), target)
     return target
@@ -45,7 +45,7 @@ def test_your_words_for_a_category_work_in_chat(your_config: Path) -> None:
     with harness(
         profile="email",
         config_dir=your_config,
-        env={"IRIS_CONFIG_DIR": str(your_config)},
+        env={"EVARNESS_CONFIG_DIR": str(your_config)},
         fake_model=SCRIPT,
     ) as h:
         assert h.plugin_loaded("email_workflows")
@@ -63,7 +63,7 @@ def test_with_the_shipped_categories_the_same_words_mean_nothing(shipped_config:
     with harness(
         profile="email",
         config_dir=shipped_config,
-        env={"IRIS_CONFIG_DIR": str(shipped_config)},
+        env={"EVARNESS_CONFIG_DIR": str(shipped_config)},
         fake_model=SCRIPT,
     ) as h:
         result = h.chat(CORRECTION)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.runtime import build_runtime
+from evarness.runtime import build_runtime
 
 pytestmark = pytest.mark.integration
 

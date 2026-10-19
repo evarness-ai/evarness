@@ -1,6 +1,6 @@
 """Email triage scenario — synthetic corpus with ground truth, real embeddings.
 
-Builds an isolated sandbox (tmp iris.db / email.db / workspace), seeds the
+Builds an isolated sandbox (tmp evarness.db / email.db / workspace), seeds the
 6-category taxonomy + proposals.jsonl representatives, injects the labeled
 synthetic corpus into the EmailStore, then runs the production pure-kNN
 triage path (``EmailTriageClassifier.classify``) and grades each prediction
@@ -26,17 +26,17 @@ def _load_corpus() -> dict[str, Any]:
 
 
 def _seed_sandbox(sandbox: Path, corpus: dict[str, Any]) -> tuple[Path, Path, Path]:
-    """Create iris.db categories, proposals.jsonl, and the email store."""
-    from iris_harness.data.categories import Category, CategoryStore, make_path
-    from iris_harness.email.store import EmailStore
-    from iris_harness.skills.contracts.email import EmailMessage
+    """Create evarness.db categories, proposals.jsonl, and the email store."""
+    from evarness.data.categories import Category, CategoryStore, make_path
+    from evarness.email.store import EmailStore
+    from evarness.skills.contracts.email import EmailMessage
 
     account_id = corpus["account_id"]
-    iris_db = sandbox / "iris.db"
+    evarness_db = sandbox / "evarness.db"
     email_db = sandbox / "email.db"
     workspace = sandbox / "workspace"
 
-    category_store = CategoryStore(db_path=iris_db)
+    category_store = CategoryStore(db_path=evarness_db)
     category_store.ensure_schema()
     proposals: list[dict[str, Any]] = []
     for cat in corpus["categories"]:
@@ -83,24 +83,24 @@ def _seed_sandbox(sandbox: Path, corpus: dict[str, Any]) -> tuple[Path, Path, Pa
                 received_at=base_time + timedelta(minutes=index),
             )
         )
-    return iris_db, email_db, workspace
+    return evarness_db, email_db, workspace
 
 
 def run() -> list[ScenarioRecord]:
-    from iris_harness.email.triage import EmailTriageClassifier
-    from iris_harness.skills.contracts.email import EmailMessage
+    from evarness.email.triage import EmailTriageClassifier
+    from evarness.skills.contracts.email import EmailMessage
 
     corpus = _load_corpus()
     account_id = corpus["account_id"]
     records: list[ScenarioRecord] = []
 
-    with tempfile.TemporaryDirectory(prefix="iris-scenario-email-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="evarness-scenario-email-") as tmp:
         sandbox = Path(tmp)
-        iris_db, email_db, workspace = _seed_sandbox(sandbox, corpus)
+        evarness_db, email_db, workspace = _seed_sandbox(sandbox, corpus)
 
         classifier = EmailTriageClassifier(
             workspace_dir=workspace,
-            db_path=iris_db,
+            db_path=evarness_db,
             email_db_path=email_db,
         )
         with Timer() as load_timer:

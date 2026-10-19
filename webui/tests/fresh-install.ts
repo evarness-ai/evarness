@@ -1,6 +1,6 @@
-/* A fresh install, as the console sees it: the IRIS API is up and nothing has run yet.
+/* A fresh install, as the console sees it: the Evarness API is up and nothing has run yet.
  *
- * FRESH holds what the API answers on an empty IRIS_HOME for the endpoints whose empty
+ * FRESH holds what the API answers on an empty EVARNESS_HOME for the endpoints whose empty
  * shape a screen depends on (the ledger, the proof window, the trace and session lists).
  * Every other endpoint gets `emptied(fixtureFor(path))`: the viewport fixture's shape
  * with every list emptied, which is how the API's collections read before the first
@@ -14,8 +14,8 @@ export const WELCOME = {
   session_id: "5e1c0a2b9d47",
   created: true,
   response:
-    "Hi, I'm IRIS. This is the first chat on this install. Here is what I can do:\n\n" +
-    "- Tell you the time and date, and check whether anything in IRIS is broken.\n\n" +
+    "Hi, I'm Evarness. This is the first chat on this install. Here is what I can do:\n\n" +
+    "- Tell you the time and date, and check whether anything in Evarness is broken.\n\n" +
     "Ask me something to get started.\n\n" +
     "No model wrote this reply: a deterministic handler did. Open Call trace to see " +
     "this turn's path and the check it passed, and Governance for its audit rows.",
@@ -27,14 +27,14 @@ export const FRESH: Record<string, unknown> = {
   "/chat/welcome": WELCOME,
   "/governance/state": {
     enabled: true,
-    audit_db: "/home/owner/.iris/governance/audit.db",
+    audit_db: "/home/owner/.evarness/governance/audit.db",
     audit_count: 0,
-    flags: [{ key: "IRIS_GOVERNANCE_ENABLED", label: "Kernel enabled", on: true }],
+    flags: [{ key: "EVARNESS_GOVERNANCE_ENABLED", label: "Kernel enabled", on: true }],
   },
   "/governance/audit": {
     count: 0,
     total: 0,
-    audit_db: "/home/owner/.iris/governance/audit.db",
+    audit_db: "/home/owner/.evarness/governance/audit.db",
     callers: [],
     entries: [],
   },

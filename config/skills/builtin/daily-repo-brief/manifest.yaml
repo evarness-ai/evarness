@@ -1,11 +1,11 @@
 name: daily-repo-brief
 version: 0.1.0
 description: Daily brief listing top GitHub Trending repositories.
-author: iris
+author: evarness
 license: Apache-2.0
 kind: brief
 brief:
-  subject: "IRIS Daily Repo Brief"
+  subject: "Evarness Daily Repo Brief"
   recipient: "user"
   uses:
     - web-fetch

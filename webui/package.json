@@ -1,9 +1,9 @@
 {
-  "name": "iris-webui",
+  "name": "evarness-webui",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "IRIS console \u2014 agent call-trace visualization. React + Vite + TS + Tailwind + React Flow.",
+  "description": "Evarness console \u2014 agent call-trace visualization. React + Vite + TS + Tailwind + React Flow.",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",

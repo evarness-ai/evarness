@@ -1,7 +1,7 @@
 """No test can reach the developer's OS keyring (tests/conftest.py).
 
-Regression: with IRIS_VAULT_MASTER_KEY stripped, the vault fell back to the macOS login
-Keychain, so the suite read the real `iris-vault` master key — found when a fresh
+Regression: with EVARNESS_VAULT_MASTER_KEY stripped, the vault fell back to the macOS login
+Keychain, so the suite read the real `evarness-vault` master key — found when a fresh
 python3.13 env made macOS ask for the login password (2026-09-26).
 """
 
@@ -13,7 +13,7 @@ import sys
 
 import keyring
 
-from iris_harness.kernel.governance.vault import keys
+from evarness.kernel.governance.vault import keys
 
 _SEEN_KEYS: list[str] = []
 
@@ -22,22 +22,22 @@ def test_the_keyring_a_test_sees_is_the_in_memory_one() -> None:
     backend = keyring.get_keyring()
     assert type(backend).__name__ == "_TestKeyring"
     # Nothing in it but the fixture's freshly generated vault master key (tests/conftest.py).
-    assert set(backend.entries) == {("iris-vault", "master-key")}  # type: ignore[attr-defined]
+    assert set(backend.entries) == {("evarness-vault", "master-key")}  # type: ignore[attr-defined]
 
 
 def test_the_vault_seeds_its_key_into_the_test_keyring_not_the_os(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    monkeypatch.delenv("IRIS_VAULT_MASTER_KEY", raising=False)
-    keyring.delete_password("iris-vault", "master-key")
+    monkeypatch.delenv("EVARNESS_VAULT_MASTER_KEY", raising=False)
+    keyring.delete_password("evarness-vault", "master-key")
 
     key = keys.resolve_master_key()
 
-    assert keyring.get_password("iris-vault", "master-key") == key.decode()
+    assert keyring.get_password("evarness-vault", "master-key") == key.decode()
     _SEEN_KEYS.append(key.decode())
 
 
 def test_each_test_starts_with_its_own_master_key() -> None:
     # The previous test seeded a master key; this one must not see it.
-    key = keyring.get_password("iris-vault", "master-key")
+    key = keyring.get_password("evarness-vault", "master-key")
     assert key is not None and key not in _SEEN_KEYS
 
 

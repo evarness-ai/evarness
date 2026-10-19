@@ -17,7 +17,7 @@ What it shows:
 | `opening_hours.py` | The plugin: `setup(api)` registers the handler. |
 | `hours.yaml` | The opening hours it answers with. |
 | `manifest.yaml` | The plugin's manifest (`provides: [intercept]`). |
-| `test_opening_hours.py` | Runs the plugin in a real governed IRIS, offline. |
+| `test_opening_hours.py` | Runs the plugin in a real governed Evarness, offline. |
 
 ## Run it
 
@@ -27,35 +27,35 @@ From the repository root:
 pytest examples/01-deterministic-handler -q
 ```
 
-Expected output: `2 passed` in about 21 s (7 s with `--no-cov`). The tests build a real IRIS in a
+Expected output: `2 passed` in about 21 s (7 s with `--no-cov`). The tests build a real Evarness in a
 throwaway home, on the scripted fake model, with the network refused, and check:
 
 - "When is the library open on Saturday?" is answered from `hours.yaml`, no model is
   called, and the answer's audit row says `deterministic=True`, `handler="opening_hours"`;
 - "Tell me a joke about libraries." is not claimed and goes to the model.
 
-## Use it in your IRIS
+## Use it in your Evarness
 
 Home plugins need no packaging. Copy the directory, then list the plugin in
-`~/.iris/profile.yaml` (merged over the shipped profile):
+`~/.evarness/profile.yaml` (merged over the shipped profile):
 
 ```bash
-mkdir -p ~/.iris/plugins
-cp -r examples/01-deterministic-handler ~/.iris/plugins/opening_hours
+mkdir -p ~/.evarness/plugins
+cp -r examples/01-deterministic-handler ~/.evarness/plugins/opening_hours
 ```
 
 ```yaml
-# ~/.iris/profile.yaml
+# ~/.evarness/profile.yaml
 plugins:
   - name: opening_hours
 ```
 
 ```bash
-iris --dump-config                   # opening_hours shows up under home:...
-iris -p "When is the library open?"
+evarness --dump-config                   # opening_hours shows up under home:...
+evarness -p "When is the library open?"
 ```
 
-Imports: only `iris_harness.sdk` in the plugin, `iris_harness.testing` in its test.
+Imports: only `evarness.sdk` in the plugin, `evarness.testing` in its test.
 
 ## Try changing
 

@@ -1,10 +1,10 @@
 # Unified Governance Layer — Design
 
 **Status:** Phases 1-5 shipped (Phase 5 multi-headed judge complete — safety/schema/consistency/faithfulness/leak/output_safety/**grounding**; grounding's ReAct retrieval-provenance prerequisite landed too). Phase 6 shipped shadow/opt-in (threat detection, MCP server signing, sandbox hardening — each default-off with a documented enforce/enable runbook). Verified in code 2026-06-18. **Note:** the "(Phase 4)" / "(Phase 5)" tags on file paths and sections below are *roadmap markers* (when the work was planned), not current status — see the "What's actually shipped" table immediately below for the authoritative map.
-**Owner:** IRIS maintainers
+**Owner:** Evarness maintainers
 **Created:** 2026-05-17
 **Status last verified:** 2026-06-18
-**Supersedes:** Scattered governance controls across `src/iris_harness/server/governor/`, `src/iris_harness/kernel/governor/`, `src/iris_harness/tools/sandbox/`, `src/iris_harness/llm/arbiter.py`, `src/iris_harness/tools/skills/`
+**Supersedes:** Scattered governance controls across `src/evarness/server/governor/`, `src/evarness/kernel/governor/`, `src/evarness/tools/sandbox/`, `src/evarness/llm/arbiter.py`, `src/evarness/tools/skills/`
 
 ---
 
@@ -14,14 +14,14 @@ The phase markers throughout this doc (e.g. `# Phase 4`) reflect *when each piec
 
 | Phase | Surface | Status | Evidence |
 |---|---|---|---|
-| 1 | Kernel skeleton; PreClassify / PreLLMCall / PreToolUse / PostToolUse / PostStep hook taxonomy (`PreResponse` is **defined but never fired** — see §12.x) | ✓ shipped | `src/iris_harness/kernel/governance/kernel.py`, `wiring.py` |
-| 1 | Data classifier + egress gate (public / internal / personal / secret) | ✓ shipped | `src/iris_harness/kernel/governance/wiring.py` (DataClassifierHook + ToolPolicyHook) |
-| 2 | Vault store + CredentialBroker + `vault://` handles | ✓ shipped | `src/iris_harness/kernel/governance/vault/` |
+| 1 | Kernel skeleton; PreClassify / PreLLMCall / PreToolUse / PostToolUse / PostStep hook taxonomy (`PreResponse` is **defined but never fired** — see §12.x) | ✓ shipped | `src/evarness/kernel/governance/kernel.py`, `wiring.py` |
+| 1 | Data classifier + egress gate (public / internal / personal / secret) | ✓ shipped | `src/evarness/kernel/governance/wiring.py` (DataClassifierHook + ToolPolicyHook) |
+| 2 | Vault store + CredentialBroker + `vault://` handles | ✓ shipped | `src/evarness/kernel/governance/vault/` |
 | 2 | Outbound redaction filter (regex packs) | ✓ shipped | `governance/vault/` redaction |
-| 2 | Skill manifest `required_credentials` | ✓ shipped | `src/iris_harness/tools/skills/models.py:RequiredCredential` |
-| 3 | Out-of-band evaluator (loops / goal drift / step cap) | ✓ shipped | `src/iris_harness/kernel/governance/evaluator/` |
-| 3 | Checkpoint store + resume | ✓ shipped | `src/iris_harness/memory/state/` (M6.2 layer 4 moved it out of the kernel) |
-| 3 | Cost ceiling per run | ✓ shipped | `src/iris_harness/kernel/governance/cost/` |
+| 2 | Skill manifest `required_credentials` | ✓ shipped | `src/evarness/tools/skills/models.py:RequiredCredential` |
+| 3 | Out-of-band evaluator (loops / goal drift / step cap) | ✓ shipped | `src/evarness/kernel/governance/evaluator/` |
+| 3 | Checkpoint store + resume | ✓ shipped | `src/evarness/memory/state/` (M6.2 layer 4 moved it out of the kernel) |
+| 3 | Cost ceiling per run | ✓ shipped | `src/evarness/kernel/governance/cost/` |
 | 4 | Per-persona tool surface (`allowed_tools`, `blocked_tools`) | ✓ shipped | `governance/plugins/persona_surface.py`, `wiring.py:161` |
 | 4 | `fs_write_jail` | ✓ shipped | `governance/plugins/fs_jail.py` |
 | 4 | `network_egress_domains` allowlist | ✓ shipped | `governance/plugins/network_egress.py` |
@@ -34,7 +34,7 @@ The phase markers throughout this doc (e.g. `# Phase 4`) reflect *when each piec
 | 5 | DuckDB analytics over hot+cold audit | ✓ shipped | `governance/audit/archive/query.py` |
 | 5 | Response Curator faithfulness judge | ✓ shipped | `core/response_curator.py:FaithfulnessJudgeClient`, `runtime/bootstrap.py:_CuratorFaithfulnessLLMJudge` |
 | 5 | Multi-headed judge breadth — safety / schema / consistency / faithfulness / leak signals wired into `_run_pre_response_judges` (with retry/repair + halt) | ✓ shipped | `core/response_curator.py:_run_pre_response_judges` (~287-372), `JudgeBundle` / `JudgeSignal` |
-| 5 | `grounding` judge signal (+ ReAct retrieval-provenance capture) | ✓ shipped (opt-in `IRIS_CURATOR_GROUNDING_LLM`) | `core/response_curator.py:_judge_grounding`, `core/provenance.py`, `runtime/bootstrap.py:_build_curator_grounding_client` |
+| 5 | `grounding` judge signal (+ ReAct retrieval-provenance capture) | ✓ shipped (opt-in `EVARNESS_CURATOR_GROUNDING_LLM`) | `core/response_curator.py:_judge_grounding`, `core/provenance.py`, `runtime/bootstrap.py:_build_curator_grounding_client` |
 | 6 | Prompt Guard / Llama Guard threat-detection plugins (G1/G2/G3 + battery) | ✓ shipped (shadow, opt-in) | `governance/threat/`, `governance/plugins/prompt_guard.py`, `core/response_curator.py:_judge_output_safety` |
 | 6 | MCP server signing | ✓ shipped (shadow, opt-in) | `governance/mcp_signing/`, `tools/mcp_bridge.py:_enforce_signature`, `cli/mcp.py` |
 | 6 | Sandbox upgrade (gVisor) | ✓ shipped (docker default, gVisor opt-in) | `sandbox/runtime.py`, `sandbox/docker_sandbox.py:GVisorSandbox` |
@@ -45,7 +45,7 @@ When you add a new governance primitive, add a row here and link the file.
 
 ## 1. Why this doc
 
-IRIS started as a privacy-first, local-first agentic platform: private/proprietary data stays on local LLM tiers, cloud LLMs are reserved for complex reasoning the user explicitly opts into. Today that promise is **stated in config but not enforced at runtime**. The Governor microservice is real and well-designed, but only the MCP bridge actually calls it. AgenticCore, the tier router, the coding agent, and skill execution all bypass it.
+Evarness started as a privacy-first, local-first agentic platform: private/proprietary data stays on local LLM tiers, cloud LLMs are reserved for complex reasoning the user explicitly opts into. Today that promise is **stated in config but not enforced at runtime**. The Governor microservice is real and well-designed, but only the MCP bridge actually calls it. AgenticCore, the tier router, the coding agent, and skill execution all bypass it.
 
 This doc unifies governance into a single mandatory-passage enforcement plane covering:
 
@@ -137,11 +137,11 @@ flowchart TB
 
 #### Embedded for the common path, HTTP for cross-service
 
-The `GovernanceKernel` runs **embedded in-process** for the CLI / agent path (no IPC overhead, no "is the governor running" problem when starting `iris run` or `iris-code`). The HTTP service at `src/iris_harness/server/governor/` (port 8080) wraps the same kernel and exposes it for cross-service calls (Dashboard, Background Worker, Channel Gateway, future Voice service).
+The `GovernanceKernel` runs **embedded in-process** for the CLI / agent path (no IPC overhead, no "is the governor running" problem when starting `evarness run` or `evarness-code`). The HTTP service at `src/evarness/server/governor/` (port 8080) wraps the same kernel and exposes it for cross-service calls (Dashboard, Background Worker, Channel Gateway, future Voice service).
 
 ```python
 # Common path — embedded
-from iris_harness.governance.kernel import GovernanceKernel
+from evarness.governance.kernel import GovernanceKernel
 kernel = GovernanceKernel.from_config()  # in-process
 decision = await kernel.fire(HookPoint.PreLLMCall, ctx)
 
@@ -164,7 +164,7 @@ If a required plugin fails (classifier model unavailable, vault DB locked, audit
 | Audit write failure | **Fail-closed everywhere** | A run that can't be audited can't proceed |
 | Vault unavailable | **Fail-closed for tools requiring credentials**, fail-open for tools that don't | Credential-free tools should not be blocked by vault outages |
 
-Every fail-open event writes a `WARN`/`ERROR` audit entry. A circuit breaker tracks fail-open frequency: more than N fail-opens in a 60s window escalates the kernel to **global fail-closed mode** until manually cleared (`iris governance reset-degraded`). This prevents silent drift into permissive operation.
+Every fail-open event writes a `WARN`/`ERROR` audit entry. A circuit breaker tracks fail-open frequency: more than N fail-opens in a 60s window escalates the kernel to **global fail-closed mode** until manually cleared (`evarness governance reset-degraded`). This prevents silent drift into permissive operation.
 
 ---
 
@@ -208,13 +208,13 @@ Hooks observe every prompt, every tool call, every credential handle resolution.
 
 | Source | Can register hooks in v1? | Future |
 |---|---|---|
-| `src/iris_harness/kernel/governance/plugins/` (ships with IRIS, reviewed in PR) | ✓ | ✓ |
-| Skills (`src/iris_harness/tools/skills/`) | ✗ | After skill signing exists, signed skills may register hooks scoped to their own tool calls only |
+| `src/evarness/kernel/governance/plugins/` (ships with Evarness, reviewed in PR) | ✓ | ✓ |
+| Skills (`src/evarness/tools/skills/`) | ✗ | After skill signing exists, signed skills may register hooks scoped to their own tool calls only |
 | MCP servers | ✗ | After MCP server signing (Phase 6) |
 | Auto-proposed quarantined skills | ✗ | Never |
 | Extensions registered via `ExtensionAPI` | ✗ | After signing |
 
-The hook registry is loaded once at kernel init from `src/iris_harness/kernel/governance/plugins/__init__.py`. Runtime registration is not supported. A test (`test_no_runtime_hook_registration.py`) asserts this — any attempt to add a hook after kernel init must raise.
+The hook registry is loaded once at kernel init from `src/evarness/kernel/governance/plugins/__init__.py`. Runtime registration is not supported. A test (`test_no_runtime_hook_registration.py`) asserts this — any attempt to add a hook after kernel init must raise.
 
 Hooks themselves are pure functions of `HookContext`; they have no read/write access to the agent's working memory, retrieval context, or trace beyond what the kernel provides in the context object.
 
@@ -239,7 +239,7 @@ Four classes, each with a maximum allowed LLM tier:
 | `personal` | Names, contacts, addresses, voice transcripts | Tier 2 (local 9B) | **Ask user** |
 | `secret` | API keys, passwords, tokens, vault contents | Tier 2 (any local model) | **Hard block** |
 
-IRIS-specific extensions to bake in (you noted these as relevant): `voice-transcript`, `telegram-message`, `coding-agent-secret`. These are sub-tags on `personal` / `secret`.
+Evarness-specific extensions to bake in (you noted these as relevant): `voice-transcript`, `telegram-message`, `coding-agent-secret`. These are sub-tags on `personal` / `secret`.
 
 ### 6.2 Classifier (two-stage)
 
@@ -247,7 +247,7 @@ IRIS-specific extensions to bake in (you noted these as relevant): `voice-transc
 
 - Microsoft Presidio for PII (email, phone, SSN, credit card, person name, location)
 - Regex packs for credentials: API key patterns (AWS, GitHub PAT, OpenAI, Anthropic, OpenRouter), JWT, private keys, `.env` line patterns
-- IRIS-specific packs: telegram bot tokens, voice transcript markers, vault handles
+- Evarness-specific packs: telegram bot tokens, voice transcript markers, vault handles
 
 **Stage 2 — LLM classifier (escalation, configurable model):**
 
@@ -298,7 +298,7 @@ cloud), and `tier_3` is refused.
 
 ### 6.4 Power-user "trust this provider" mode
 
-Per-session escape hatch: `iris config set egress.cloud_trusted_for=[internal,personal]` allows skipping `ask_user` for trusted cloud providers (still hard-block `secret` always). Logged with elevated severity to audit.
+Per-session escape hatch: `evarness config set egress.cloud_trusted_for=[internal,personal]` allows skipping `ask_user` for trusted cloud providers (still hard-block `secret` always). Logged with elevated severity to audit.
 
 ### 6.5 Output classification
 
@@ -322,7 +322,7 @@ threads the raised label into the next `PreLLMCall`.
 
 Classification only ever rises. A later harmless tool result cannot restore `public`,
 because the prompt keeps the personal content for the rest of the run.
-`src/iris_harness/kernel/governance/plugins/output_classifier.py`
+`src/evarness/kernel/governance/plugins/output_classifier.py`
 
 **The turn's label (2026-09-30).** A plugin's code calls (`api.tools`, `api.capability`)
 are not the loop's, so the loop's label never reached them. The turn pipeline now publishes
@@ -349,7 +349,7 @@ on a row is the governance check that wrote it): the plugin that registered the 
 (`tools/mcp_bridge.py`), the capability's provider for a capability call, and `system` for
 a core tool. A request a plugin makes through the governed HTTP client fires `pre_egress` / `post_egress` (`plugin_egress` hook; `docs/architecture/plugin-egress.md`), whose rows carry the same `tool_plugin`, `tool_name` and `caller` plus an `egress` value (host, port, scheme, method, outcome; never a path, query or body). Both are in the audit whitelist (`kernel._AUDITED_PAYLOAD_KEYS`) and the
 public fields (`audit_view.PUBLIC_PAYLOAD_FIELDS`, so `model`, `provider` and `tool_plugin`
-reach `GET /governance/audit`, `iris governance audit` (its `by` column) and the trace); the stable `TurnAuditRow` exposes
+reach `GET /governance/audit`, `evarness governance audit` (its `by` column) and the trace); the stable `TurnAuditRow` exposes
 `caller` and `tool_plugin`.
 
 **Which call a row is about (#134, stage 1).** The runner mints one ULID `call_id` per call
@@ -397,7 +397,7 @@ row lands in the ledger. Nothing is sent to the cloud client. Any other refusal 
 stands. On the shipped tiers `search` runs on `tier2` (`tier_2`), and `secret` is local
 only (§6.3), so the loop's own gate lets the step through and the fallback runs it on
 `tier2`: the answer comes from the local model and the cloud transport is never dialed
-(`tests/unit/iris_harness/runtime/test_bootstrap/test_search_synthesis_fallback.py`).
+(`tests/unit/evarness/runtime/test_bootstrap/test_search_synthesis_fallback.py`).
 
 ---
 
@@ -407,8 +407,8 @@ Secrets are never embedded in prompts. Tools fetch them by handle at execution t
 
 ### 7.1 Model
 
-- Storage: encrypted SQLite at `~/.config/iris/vault.db`, key derived from OS keychain
-  - **Implementation note:** v1 ships Fernet (AES-128-CBC + HMAC-SHA256) over a SQLite blob column rather than sqlcipher full-page encryption. The at-rest property is equivalent (an attacker who steals `vault.db` cannot decrypt without the master key), and avoiding the native `libsqlcipher` build keeps `pip install iris` working on stock macOS/Linux dev installs. Migrating to sqlcipher is a one-shot rewrite of `src/iris_harness/kernel/governance/vault/store.py` if column-level encrypted search ever becomes a requirement.
+- Storage: encrypted SQLite at `~/.config/evarness/vault.db`, key derived from OS keychain
+  - **Implementation note:** v1 ships Fernet (AES-128-CBC + HMAC-SHA256) over a SQLite blob column rather than sqlcipher full-page encryption. The at-rest property is equivalent (an attacker who steals `vault.db` cannot decrypt without the master key), and avoiding the native `libsqlcipher` build keeps `pip install evarness` working on stock macOS/Linux dev installs. Migrating to sqlcipher is a one-shot rewrite of `src/evarness/kernel/governance/vault/store.py` if column-level encrypted search ever becomes a requirement.
 - Each secret has a **handle** (e.g., `vault://github-pat-coding`), a `governor_route` it can be released to, and an optional TTL
 - Tools declare their required handles in `manifest.yaml`:
   ```yaml
@@ -421,7 +421,7 @@ Secrets are never embedded in prompts. Tools fetch them by handle at execution t
 
 ### 7.2 Migration path
 
-- v1 ships the broker + a `iris vault import-env` command that migrates the current `.env` secrets into the vault
+- v1 ships the broker + a `evarness vault import-env` command that migrates the current `.env` secrets into the vault
 - `.env` continues to work as fallback during migration; deprecated in v1.1
 
 ---
@@ -518,7 +518,7 @@ For tools that make outbound HTTP (`research`, `web_fetch`, GitHub API, custom H
           list_files: {effect: read}
   ```
 
-  A declared tool carries that effect into `PreToolUse` and `PostToolUse`, so it meets the same hooks a plugin tool does. A `destructive` one is refused before the server is reached unless the caller passes `approved_by`, the id of an approved queue row that pinned exactly this call (route `mcp/<server>/<tool>` and its arguments); with one it gets a pending write-ahead ledger row (key `<run_id>:0:<call_id>`, the call id minted by the bridge) before it runs, settled after, so `iris run resume` sees a call whose transport failed. Unknown effect values and empty tool names are rejected when the config is loaded. - **A tool nobody declared fails closed (issue #180).** A tool not listed under `tools` is treated as `destructive`: it needs an itemised approval and leaves a write-ahead row, exactly like a declared destructive one. A server that only reads opts out in one line, `governance.undeclared_tools: read`; any other value is rejected when the config is loaded, and a server with no `governance` block gets the fail-closed default. The server's own `readOnlyHint` never relaxes this. An undeclared tool must also be one the server lists (issues #292, #296): a name that `governance.tools` does not declare and the server's `tools/list` does not name is refused before any hook runs, with a `PermissionError` (HTTP 403) and one `pre_tool_use` `deny` row from `mcp_undeclared_tool`, and the server's `tools/call` is never sent. A server the bridge has not listed yet is listed first, once for the bridge's life, through the governed listing (its signature check and the governor's guard, with the call's own approval); a listing that fails or is refused refuses the call the same way (one `deny` row from `mcp_undeclared_tool`; when the governor refused it for want of approval, the error is `MCPApprovalRequired`, so the HTTP route answers its usual approval-required 403), and is tried again on the next call. A declared tool needs no listing. So `undeclared_tools: read` sets the effect of a tool the server lists, never lets through a name it does not. After `tools/list` the bridge logs one warning per server naming the tools that have no declared effect and the default they get. The HTTP call endpoint grants no approval (by design), so a gated call there is refused with a 403 and the reason; approve it through the approval queue and call the bridge with `approved_by`.
+  A declared tool carries that effect into `PreToolUse` and `PostToolUse`, so it meets the same hooks a plugin tool does. A `destructive` one is refused before the server is reached unless the caller passes `approved_by`, the id of an approved queue row that pinned exactly this call (route `mcp/<server>/<tool>` and its arguments); with one it gets a pending write-ahead ledger row (key `<run_id>:0:<call_id>`, the call id minted by the bridge) before it runs, settled after, so `evarness run resume` sees a call whose transport failed. Unknown effect values and empty tool names are rejected when the config is loaded. - **A tool nobody declared fails closed (issue #180).** A tool not listed under `tools` is treated as `destructive`: it needs an itemised approval and leaves a write-ahead row, exactly like a declared destructive one. A server that only reads opts out in one line, `governance.undeclared_tools: read`; any other value is rejected when the config is loaded, and a server with no `governance` block gets the fail-closed default. The server's own `readOnlyHint` never relaxes this. An undeclared tool must also be one the server lists (issues #292, #296): a name that `governance.tools` does not declare and the server's `tools/list` does not name is refused before any hook runs, with a `PermissionError` (HTTP 403) and one `pre_tool_use` `deny` row from `mcp_undeclared_tool`, and the server's `tools/call` is never sent. A server the bridge has not listed yet is listed first, once for the bridge's life, through the governed listing (its signature check and the governor's guard, with the call's own approval); a listing that fails or is refused refuses the call the same way (one `deny` row from `mcp_undeclared_tool`; when the governor refused it for want of approval, the error is `MCPApprovalRequired`, so the HTTP route answers its usual approval-required 403), and is tried again on the next call. A declared tool needs no listing. So `undeclared_tools: read` sets the effect of a tool the server lists, never lets through a name it does not. After `tools/list` the bridge logs one warning per server naming the tools that have no declared effect and the default they get. The HTTP call endpoint grants no approval (by design), so a gated call there is refused with a 403 and the reason; approve it through the approval queue and call the bridge with `approved_by`.
 
   ```yaml
   governance:
@@ -532,7 +532,7 @@ For tools that make outbound HTTP (`research`, `web_fetch`, GitHub API, custom H
 
 ### 8.6 Sandbox posture
 
-Today's Docker sandbox (`src/iris_harness/tools/sandbox/docker_sandbox.py`) is good but not enough for fully untrusted code. V1 keeps Docker with current hardening (`--cap-drop=ALL`, no docker.sock, pid/memory caps, no host network). Phase 6 (separate doc) will evaluate gVisor / Firecracker for the coding-agent `run_command` path specifically.
+Today's Docker sandbox (`src/evarness/tools/sandbox/docker_sandbox.py`) is good but not enough for fully untrusted code. V1 keeps Docker with current hardening (`--cap-drop=ALL`, no docker.sock, pid/memory caps, no host network). Phase 6 (separate doc) will evaluate gVisor / Firecracker for the coding-agent `run_command` path specifically.
 
 ---
 
@@ -574,7 +574,7 @@ compared against a moving baseline mis-fires on its own.
   production embedder, a short question ("wondering how my day looks like ?") puts
   every *correct* opening thought at distance 0.61-0.86, so the 0.65 cutoff lands
   inside the on-task band. The pre-tool hooks police what the opening step actually
-  does. `src/iris_harness/kernel/governance/evaluator/signals/goal_drift.py`
+  does. `src/evarness/kernel/governance/evaluator/signals/goal_drift.py`
 - **A repeat of an already-judged `(tool, args)` is exempt** — `action_repeat` owns
   identical calls.
 
@@ -583,7 +583,7 @@ production embedder, on-task thoughts reach 0.86 when the original task is a sho
 question and real drift starts at 0.88 — 0.65 sits inside the on-task band and halts
 correct turns. It is still a hand-picked constant compared against a distance whose
 baseline moves with the task's length, so it is a better default rather than a solved
-problem. `IRIS_GOVERNANCE_GOAL_DRIFT_MAX_DISTANCE` retunes it; every judged step writes
+problem. `EVARNESS_GOVERNANCE_GOAL_DRIFT_MAX_DISTANCE` retunes it; every judged step writes
 its `distance` into the audit ledger, which is the corpus a fitted default should come
 from.
 
@@ -597,12 +597,12 @@ rejection). A later thought is allowed without asking when **both** hold:
    at least 60% of the approved set.
 
 This is a governance control learning not to fire, so it is deliberately narrow,
-inspectable and reversible: `iris approvals exemptions` lists every grant with the
-task it was earned on and the words it requires, `iris approvals forget-exemptions`
+inspectable and reversible: `evarness approvals exemptions` lists every grant with the
+task it was earned on and the words it requires, `evarness approvals forget-exemptions`
 takes them all back, and every use is audited with the granting `exemption_id` and the
 keyword coverage that matched. Store:
-`src/iris_harness/kernel/governance/evaluator/drift_exemptions.py`
-(`~/.local/share/iris/drift_exemptions.db`, following `IRIS_HOME`).
+`src/evarness/kernel/governance/evaluator/drift_exemptions.py`
+(`~/.local/share/evarness/drift_exemptions.db`, following `EVARNESS_HOME`).
 
 ### 9.1b Display masking (outbound)
 
@@ -610,8 +610,8 @@ keyword coverage that matched. Store:
 control today is a display mask applied to the events the turn pipeline yields.
 `record` is the last stage and `done` is emitted after it, so the **audit ledger and
 session log keep the original text** and only the screen sees the mask. Email
-addresses are masked by default; `IRIS_GOVERNANCE_DISPLAY_MASK=0` turns it off.
-`src/iris_harness/kernel/governance/display_mask.py`
+addresses are masked by default; `EVARNESS_GOVERNANCE_DISPLAY_MASK=0` turns it off.
+`src/evarness/kernel/governance/display_mask.py`
 
 Known gap: `trace` events still carry raw tool output. They are diagnostic rather than
 prose.
@@ -619,23 +619,23 @@ prose.
 ### 9.2 LLM judge (async, opt-in)
 
 - **Configurable model** (Tier 2 default, custom fine-tune supported, cloud allowed but not default)
-- **Off by default, opt-in per task** via `iris run --judge` or via complexity heuristic
+- **Off by default, opt-in per task** via `evarness run --judge` or via complexity heuristic
 - Async — does not block the loop. Judgement attached to the trace and (if `Halt` recommended) raised as an alert; only affects the next run, not the current one in flight
 - Runs against the trace + final response, scoring on: hallucination, goal alignment, tool-misuse, dangerous action patterns
 
 **Wired 2026-09-23** (`runtime/governance_judge.py`; it had shipped with no caller, so
-`IRIS_GOVERNANCE_JUDGE_ENABLED` did nothing). Every `AgenticCore` names its `review_route`
+`EVARNESS_GOVERNANCE_JUDGE_ENABLED` did nothing). Every `AgenticCore` names its `review_route`
 and reports a run that ended (not one paused for the owner) to `agent/run_review.py`; the
 runtime installs the judge there at bootstrap. The owner's rules: **the owner picks the
-judge's model** with `IRIS_GOVERNANCE_JUDGE_TIER` — `run` (default) judges each run on the
+judge's model** with `EVARNESS_GOVERNANCE_JUDGE_TIER` — `run` (default) judges each run on the
 route the run used, any `llm_tiers.yaml` tier (local or cloud) judges every run on that
 tier; nothing locks it to local or cloud, and the governed client's egress gate still
-applies (`IRIS_GOVERNANCE_JUDGE_MODEL_TIER` / `_CLOUD_OPT_IN` are superseded). Only runs
+applies (`EVARNESS_GOVERNANCE_JUDGE_MODEL_TIER` / `_CLOUD_OPT_IN` are superseded). Only runs
 that **used tools** are judged; `halt_next` alerts every channel, `warn`/`allow` are
 audit-only. Measured 2026-09-23 on the Mac: `granite4` (tier 1) allowed a run that trashed
 412 emails; `qwen2.5:7b` recommended halt on it and on a run that mailed a statement out.
 One background worker, at most 4 reviews pending, and a judge failure writes a warn row
-and never touches the run. `IRIS_GOVERNANCE_JUDGE_ENABLED` is read per run.
+and never touches the run. `EVARNESS_GOVERNANCE_JUDGE_ENABLED` is read per run.
 
 ### 9.3 Isolation requirement (paranoia layer)
 
@@ -664,7 +664,7 @@ Three flavors, all backed by SQLite (hot) + Parquet archive (cold):
 - **Chat agent:** trace + working memory + retrieval context (~10–50KB per checkpoint)
 - **Coding agent:** trace + memory + retrieval + **side-effect ledger** (~50–500KB per checkpoint)
 - Granularity: configurable per agent type (chat = step, coding = tool call) — your `B1-d` answer
-- Cross-process resumable for the coding agent (`iris-code resume <run_id>`); in-process only for chat (rationale: chat sessions are short and conversational)
+- Cross-process resumable for the coding agent (`evarness-code resume <run_id>`); in-process only for chat (rationale: chat sessions are short and conversational)
 
 ### 10.3 Side-effect ledger (coding agent)
 
@@ -692,7 +692,7 @@ capability method by its declared effect and confirm) gets its row *before* it r
 `PostToolUseLedgerHook` settles that row by key: `completed` when the tool returned (also
 when a later `PostToolUse` hook withholds the result: it ran), `error` with the exception
 class name only when it raised. The row is written with no probe for every high-risk tool,
-so a crash leaves it `pending` and `iris run resume` asks the owner; the declared probe (and
+so a crash leaves it `pending` and `evarness run resume` asks the owner; the declared probe (and
 a mapped tool's subject, `git_commit` / `git_push`) is set only once the call has returned.
 The kernel carries the row's key on the `PreToolUse` context (`side_effect_id`), so a hook
 registered after the ledger hook cannot hide it from the runner; a call a later hook refuses
@@ -701,11 +701,11 @@ settles its row as an `error` (`NotRun`), and a capability whose result cannot b
 settled once, at its end. If the row cannot be written, or the kernel has no
 ledger, the call is denied and nothing runs; the runner also refuses a high-risk call the
 kernel allowed without confirming the row. Reads and other writes are unchanged. Two
-booleans set it. `IRIS_GOVERNANCE_SIDE_EFFECT_LEDGER` (default on; `=1` is the same as
+booleans set it. `EVARNESS_GOVERNANCE_SIDE_EFFECT_LEDGER` (default on; `=1` is the same as
 unset) says whether there is a ledger: on, the high-risk class is always recorded, in a
 ledger that is created when such a call first runs (`DeferredSideEffectLedger`) and a plain
 write or a read leaves no row, no commit and no file; off, the ledger is off, which also
-turns high-risk calls off. `IRIS_GOVERNANCE_SIDE_EFFECT_LEDGER_ALL` (default off) adds the
+turns high-risk calls off. `EVARNESS_GOVERNANCE_SIDE_EFFECT_LEDGER_ALL` (default off) adds the
 scope: every non-read call is also recorded after it runs (a failed write warns), and the
 ledger opens at build. Set while the ledger is off it has no effect and warns. Before the
 second setting existed `LEDGER=1` meant record-everything; it now means the default, so
@@ -733,7 +733,7 @@ Special-case of resume checkpoint. When the evaluator decides `require_approval`
 
 ### 10.5 TTL
 
-Default 7 days, configurable. `iris checkpoint pin <run_id>` keeps a checkpoint indefinitely. Pinned checkpoints survive purge.
+Default 7 days, configurable. `evarness checkpoint pin <run_id>` keeps a checkpoint indefinitely. Pinned checkpoints survive purge.
 
 ---
 
@@ -767,14 +767,14 @@ CREATE INDEX idx_approval_pending ON approval_queue(status, timeout_at);
 - **CLI (foreground):** If the originating session is an interactive CLI, the request prompts immediately (`Y/n`). Response writes to the queue table. On `n`, halt; on `Y`, resume.
 - **Telegram (background):** Message sent via `channel_gateway`. User replies `Y` / `n`. Bot routes to queue.
 - **Dashboard:** Approval queue surfaced in the dashboard UI (deferred — wire when dashboard supports it).
-- **CLI command for listing/responding:** `iris approvals list [--due]`, `iris approvals approve <id>`, `iris approvals reject <id>` — works regardless of original channel.
+- **CLI command for listing/responding:** `evarness approvals list [--due]`, `evarness approvals approve <id>`, `evarness approvals reject <id>` — works regardless of original channel.
 
 ### 11.3 Lifecycle
 
 - Default timeout: **10 minutes** (`B5-d` per-policy)
 - Default on timeout: **fail-closed** (halt + preserve checkpoint)
 - Per-signal override: `classification_violation` for `secret` is fail-closed always; `goal_drift` could be configured to ask longer (60min) before failing closed
-- If the user is offline and a Telegram approval times out, the run halts. User can run `iris approvals list --due` later, approve, and `iris run resume <run_id>` continues from the checkpoint.
+- If the user is offline and a Telegram approval times out, the run halts. User can run `evarness approvals list --due` later, approve, and `evarness run resume <run_id>` continues from the checkpoint.
 
 ### 11.4 Critical isolation
 
@@ -813,7 +813,7 @@ Five orthogonal signals, each a separate verifier. Default model per signal is c
 `grounding` required retrieval-context provenance through the ReAct loop. As recommended (option **b**), the rest of the judge shipped first; provenance + the grounding judge then landed as their own follow-up:
 
 - **Provenance (P1):** `core/provenance.py` `ProvenanceLedger` accumulates retrieval-class tool output during a request (via a `ContextVar` set in the general handler, recorded at the `_execute_general_tool_call` chokepoint) and surfaces it on `AgentResult.metadata["retrieved_context"]`.
-- **Grounding judge (P2):** `core/response_curator.py:_judge_grounding` consumes it. No retrieved context → `skipped` (non-RAG answers are never penalized); unsupported claims → `retry`; never `halt`. Opt-in via `IRIS_CURATOR_GROUNDING_LLM`. Full design: `docs/architecture/grounding-judge.md`.
+- **Grounding judge (P2):** `core/response_curator.py:_judge_grounding` consumes it. No retrieved context → `skipped` (non-RAG answers are never penalized); unsupported claims → `retry`; never `halt`. Opt-in via `EVARNESS_CURATOR_GROUNDING_LLM`. Full design: `docs/architecture/grounding-judge.md`.
 
 ---
 
@@ -823,10 +823,10 @@ Five orthogonal signals, each a separate verifier. Default model per signal is c
 
 | Tier | Where | What | Retention |
 |---|---|---|---|
-| Hot | SQLite — `~/.local/share/iris/audit.db` (`audit_log`, the chat/kernel ledger; override `IRIS_GOVERNANCE_AUDIT_DB_PATH`), plus `approvals.db`, `cost-ledger.db`, `side_effects.db`, `checkpoints.db`, and `~/.config/iris/vault.db` | Last 30 days, fast queries | Rolling 30d |
-| Cold | Parquet+zstd files under `~/.local/share/iris/audit-archive/YYYY/MM/` | Everything older than 30d | **Never purged** (your `C3` answer) |
+| Hot | SQLite — `~/.local/share/evarness/audit.db` (`audit_log`, the chat/kernel ledger; override `EVARNESS_GOVERNANCE_AUDIT_DB_PATH`), plus `approvals.db`, `cost-ledger.db`, `side_effects.db`, `checkpoints.db`, and `~/.config/evarness/vault.db` | Last 30 days, fast queries | Rolling 30d |
+| Cold | Parquet+zstd files under `~/.local/share/evarness/audit-archive/YYYY/MM/` | Everything older than 30d | **Never purged** (your `C3` answer) |
 
-Daily compaction job (`iris audit compact`) moves rows older than 30d from SQLite into a partitioned Parquet file, then drops them from SQLite. Each run leaves a `compaction` marker row in the same transaction as the delete, and `iris audit verify` checks the markers against the chunks (stage 4b: [call-identity-and-audit-replay.md](call-identity-and-audit-replay.md) section 6.4).
+Daily compaction job (`evarness audit compact`) moves rows older than 30d from SQLite into a partitioned Parquet file, then drops them from SQLite. Each run leaves a `compaction` marker row in the same transaction as the delete, and `evarness audit verify` checks the markers against the chunks (stage 4b: [call-identity-and-audit-replay.md](call-identity-and-audit-replay.md) section 6.4).
 
 ### 13.2 Schemas (hot)
 
@@ -857,13 +857,13 @@ CREATE TABLE audit_log (
 (`kernel.py:42`), never argument or result text. A governed call's rows carry
 `args_digest` (the arguments as written), `result_digest` and `digest_alg`
 (`hmac-sha256/v1/<key-id>`, `kernel.py:64`): HMAC-SHA256 under a key HKDF-derived
-(`info=iris/audit-digest/v1`) from the vault master key, so the audit key is not the
+(`info=evarness/audit-digest/v1`) from the vault master key, so the audit key is not the
 encryption key and a short value cannot be recovered by hashing guesses; the key id lets
 old rows name their key after a rotation (`kernel/governance/audit/digest.py`). The key
 resolves lazily, once per process, on the first governed call -- never at kernel build (a
 Keychain dialog at process start hangs it); a failure is not cached. **No key, no call:**
-with a kernel bound and no master key (env `IRIS_VAULT_MASTER_KEY`, then the OS keyring),
-every governed tool, capability and MCP call is refused before it runs, with "IRIS can't
+with a kernel bound and no master key (env `EVARNESS_VAULT_MASTER_KEY`, then the OS keyring),
+every governed tool, capability and MCP call is refused before it runs, with "Evarness can't
 audit this call: no vault master key ..."; an unkeyed digest is never written. System
 Health shows an "Audit key" row once a call has asked (`services/health/credentials.py:254`),
 read without resolving the key.
@@ -907,9 +907,9 @@ ORDER BY 4 DESC;
 
 ### 13.5 Operator commands
 
-- `iris audit compact` — run compaction (idempotent, runs on cron daily)
-- `iris audit query "<DuckDB SQL>"` — convenience wrapper
-- `iris audit export --since=2026-01-01 --format=jsonl` — for compliance exports
+- `evarness audit compact` — run compaction (idempotent, runs on cron daily)
+- `evarness audit query "<DuckDB SQL>"` — convenience wrapper
+- `evarness audit export --since=2026-01-01 --format=jsonl` — for compliance exports
 
 ---
 
@@ -923,7 +923,7 @@ V1 paranoia checklist (your decision: warranted):
 4. **LLM judge prompts use fixed templates.** Trace content goes into a clearly fenced section with hardened anti-injection system prompt.
 5. **Hook plugins cannot be registered by skills in v1.** Reserved until skill signing exists. Runtime hook registration is forbidden (§5.3).
 6. **Vault secrets never appear in LLM prompts.** Redaction filter scans every outbound prompt; raw secret detection is a `critical`-severity audit event.
-7. **Kill switch is out-of-band.** A file at `~/.config/iris/halt` (or a control-plane HTTP signal) checked by the kernel at every hook point. The agent has no tool that can write this file. `iris halt` sets it; `iris resume` clears it.
+7. **Kill switch is out-of-band.** A file at `~/.config/evarness/halt` (or a control-plane HTTP signal) checked by the kernel at every hook point. The agent has no tool that can write this file. `evarness halt` sets it; `evarness resume` clears it.
 8. **Approval queue rows are immutable except by approval channels.** Agent's DB credentials cannot UPDATE/DELETE rows.
 9. **Orchestrator persona cannot directly invoke tools.** Delegation only (§8.1).
 10. **Filesystem jail is symlink-resolved.** No symlink-escape (§8.3).
@@ -941,7 +941,7 @@ Phased so each milestone ships value without requiring the full design.
 
 Goal: mandatory passage + classification + egress gate.
 
-- `src/iris_harness/kernel/governance/` package skeleton: kernel, hook framework, hook context
+- `src/evarness/kernel/governance/` package skeleton: kernel, hook framework, hook context
 - Hook points: `PreClassify`, `PreLLMCall`, `PreToolUse` (the three that matter most for privacy)
 - `DataClassifier` (Stage 1 only — Presidio + regex packs)
 - `EgressGate` plugin enforcing class→tier policy
@@ -950,9 +950,9 @@ Goal: mandatory passage + classification + egress gate.
 - `test_no_bypass.py` — CI gate
 - `test_no_runtime_hook_registration.py` — trust-boundary CI gate
 - Migrate existing governor routes into the new policy engine; keep MCP integration working
-- Embedded kernel + thin HTTP wrapper at `src/iris_harness/server/governor/`
+- Embedded kernel + thin HTTP wrapper at `src/evarness/server/governor/`
 
-**Exit criteria:** `iris run` with a prompt containing PII to a cloud LLM tier → hard block or ask user, depending on class. Kernel-down test confirms cloud calls fail-closed.
+**Exit criteria:** `evarness run` with a prompt containing PII to a cloud LLM tier → hard block or ask user, depending on class. Kernel-down test confirms cloud calls fail-closed.
 
 **Explicitly NOT in Phase 1 (deferred):**
 - Cost ceiling enforcement (Phase 3, via evaluator `cost_budget` signal) — your `Q7-b` answer
@@ -963,11 +963,11 @@ Goal: mandatory passage + classification + egress gate.
 
 ### Phase 2 — Vault + redaction (Week 3) — **SHIPPED**
 
-- [x] `CredentialBroker` PreToolUse plugin (rewrites `vault://` handles in the call's `args`, last at PreToolUse so no other hook or log sees the value — see `src/iris_harness/kernel/governance/plugins/credential_broker.py`; payload keys: `kernel/governance/hooks/tool_payload.py`)
-- [x] `VaultStore` (Fernet-over-SQLite at `~/.config/iris/vault.db`, see §7.1 note on Fernet vs sqlcipher)
-- [x] `iris vault` CLI: `add`, `list`, `remove`, `import-env`, `export`
+- [x] `CredentialBroker` PreToolUse plugin (rewrites `vault://` handles in the call's `args`, last at PreToolUse so no other hook or log sees the value — see `src/evarness/kernel/governance/plugins/credential_broker.py`; payload keys: `kernel/governance/hooks/tool_payload.py`)
+- [x] `VaultStore` (Fernet-over-SQLite at `~/.config/evarness/vault.db`, see §7.1 note on Fernet vs sqlcipher)
+- [x] `evarness vault` CLI: `add`, `list`, `remove`, `import-env`, `export`
 - [x] Redaction filter on `PreLLMCall` scans for raw secrets — vault-handle substitution + credential regex packs (GitHub PAT, OpenAI, Anthropic, JWT, AWS, PEM keys); runs even with no vault
-- [x] LLM providers resolve `vault://...` env values via `iris_harness.governance.vault.resolve_secret_value` (coding `llm_client`, CLI `providers`)
+- [x] LLM providers resolve `vault://...` env values via `evarness.governance.vault.resolve_secret_value` (coding `llm_client`, CLI `providers`)
 - [x] Skill `manifest.yaml` schema extension: `required_credentials: [{handle, route}]`; loader records missing handles as `credential:vault://...` prerequisites
 
 **Exit criteria (met):** all current `.env` secrets accessible via vault handles; no raw secret values appear in any audit row or LLM prompt. Operator runbook at `docs/usage-guides/vault-operations.md`.
@@ -982,15 +982,15 @@ Goal: mandatory passage + classification + egress gate.
 - Loop detection via session-scoped FAISS
 - `CostLimiter` plugin + per-user daily budget store
 
-**Exit criteria (met):** `iris run` on a synthetic loop-prone prompt → loop signal fires, agent halts; resume checkpoint written; user can inspect via `iris run inspect <run_id>`.
+**Exit criteria (met):** `evarness run` on a synthetic loop-prone prompt → loop signal fires, agent halts; resume checkpoint written; user can inspect via `evarness run inspect <run_id>`.
 
 ### Phase 4 — Coding agent persona governance + HITL queue (Weeks 6–7)
 
 - Per-persona `PersonaSurface`, `FSJail`, `NetworkEgress`, `CommandSandbox` plugins (§8)
 - `persona-policy.yaml` shipped with default per-persona rules
 - Side-effect ledger for coding tools (git, github, file ops)
-- Cross-process resume for `iris-code` (`iris-code resume <run_id>`)
-- Approval queue schema + CLI commands (`iris approvals list/approve/reject`)
+- Cross-process resume for `evarness-code` (`evarness-code resume <run_id>`)
+- Approval queue schema + CLI commands (`evarness approvals list/approve/reject`)
 - CLI channel (interactive)
 - Telegram channel via `channel_gateway`
 - MCP server allowlist with per-persona scoping (§8.5)
@@ -1000,8 +1000,8 @@ Goal: mandatory passage + classification + egress gate.
 ### Phase 5 — Response Curator judge + archive (Week 8)
 
 - Multi-headed judge in `ResponseCurator` (4 signals first; `grounding` deferred)
-- Parquet+zstd cold archive + `iris audit compact` cron job
-- DuckDB-based `iris audit query`
+- Parquet+zstd cold archive + `evarness audit compact` cron job
+- DuckDB-based `evarness audit query`
 - Operator runbook
 
 Operator references:
@@ -1025,7 +1025,7 @@ Operator references:
 **Open:**
 
 - ~~Provenance tracking through the ReAct loop (needed for `grounding` judge)~~ — **shipped** (`core/provenance.py`; see §12.3)
-- Per-tenant policies (multi-user IRIS) — single-user assumed for v1
+- Per-tenant policies (multi-user Evarness) — single-user assumed for v1
 - Cost ledger UI / monthly budget reporting — out of scope, but the data is captured
 
 **Out of scope for this design:**
@@ -1033,7 +1033,7 @@ Operator references:
 - Sandbox hardening (Docker → gVisor/Firecracker) — separate doc
 - Threat detection plugins (Prompt Guard, Llama Guard) — Phase 6
 - EU AI Act formal compliance audit — separate ISO 42001 process
-- Federated / multi-device IRIS — single-host only
+- Federated / multi-device Evarness — single-host only
 
 ---
 
@@ -1076,7 +1076,7 @@ routes:
 
 plugins:
   classifier:
-    stage1: { presidio: enabled, regex_packs: [pii, credentials, iris_specific] }
+    stage1: { presidio: enabled, regex_packs: [pii, credentials, evarness_specific] }
     stage2: { enabled: false, model: tier_2, escalate_on: ambiguous }
   egress_gate: { fail_closed: true }
   redaction: { scan_outbound: true, alert_on_secret: critical }
@@ -1106,7 +1106,7 @@ approvals:
 
 storage:
   hot_retention_days: 30
-  cold_archive: { format: parquet_zstd, root: ~/.local/share/iris/audit-archive }
+  cold_archive: { format: parquet_zstd, root: ~/.local/share/evarness/audit-archive }
   purge: never
 
 chroma:
@@ -1132,7 +1132,7 @@ personas:
 ### 17.3 Where this lives in the tree
 
 ```
-src/iris_harness/kernel/governance/
+src/evarness/kernel/governance/
 ├── __init__.py
 ├── kernel.py             # GovernanceKernel — central dispatch
 ├── hooks/
@@ -1147,7 +1147,7 @@ src/iris_harness/kernel/governance/
 ├── plugins/
 │   ├── classifier.py        # Two-stage classifier
 │   ├── egress_gate.py
-│   ├── rate_limiter.py      # Migrated from src/iris_harness/kernel/governor/
+│   ├── rate_limiter.py      # Migrated from src/evarness/kernel/governor/
 │   ├── cost_limiter.py
 │   ├── redaction.py
 │   ├── credential_broker.py # PreToolUse broker — resolves vault:// handles
@@ -1155,12 +1155,12 @@ src/iris_harness/kernel/governance/
 │   ├── fs_jail.py           # Phase 4
 │   ├── network_egress.py    # Phase 4
 │   ├── command_sandbox.py   # Phase 4
-│   └── policy.py            # Migrated from src/iris_harness/kernel/governor/
+│   └── policy.py            # Migrated from src/evarness/kernel/governor/
 ├── vault/
 │   ├── __init__.py
-│   ├── store.py             # Fernet-over-SQLite at ~/.config/iris/vault.db
+│   ├── store.py             # Fernet-over-SQLite at ~/.config/evarness/vault.db
 │   ├── handle.py            # parses vault://... URIs
-│   └── cli.py               # `iris vault add|list|remove|import-env|export`
+│   └── cli.py               # `evarness vault add|list|remove|import-env|export`
 ├── evaluator/
 │   ├── service.py           # Out-of-process runner
 │   ├── signals/             # One file per signal
@@ -1182,7 +1182,7 @@ src/iris_harness/kernel/governance/
 src/iris_code/resources/config/
 └── persona-policy.yaml      # Per-persona tool surface (Phase 4)
 
-src/iris_harness/server/governor/           # Stays as the HTTP frontend; calls into src/iris_harness/kernel/governance/
+src/evarness/server/governor/           # Stays as the HTTP frontend; calls into src/evarness/kernel/governance/
 
 tests/
 ├── unit/test_governance/

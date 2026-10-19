@@ -2,7 +2,7 @@
 
 The Tier-3 MoE (qwen3.6:35b-a3b on MLX) was adopted on *throughput*
 evidence (exp-004: 4x decode, 118s->30s) plus exp-003's coding grade. It
-was never graded for *quality* in-harness on IRIS's own Tier-3 workloads
+was never graded for *quality* in-harness on Evarness's own Tier-3 workloads
 (complex_task / skill_writing). This closes that gap.
 
 Runs a small graded battery through the **production** Tier-3 client
@@ -17,7 +17,7 @@ Runs a small graded battery through the **production** Tier-3 client
 Every case also checks that no `<think>` block leaked into content (the
 exp-004 adoption guard) and records decode wall + completion tokens.
 
-    IRIS_GOVERNANCE_ENABLED=1 poetry run python -m scenarios.run tier3
+    EVARNESS_GOVERNANCE_ENABLED=1 poetry run python -m scenarios.run tier3
 """
 
 from __future__ import annotations
@@ -142,8 +142,8 @@ REASONING_TASKS: list[dict[str, Any]] = [
 
 
 def _tier3_client() -> Any:
-    from iris_harness.llm.client import CodingLLMClient
-    from iris_harness.llm.tier_router import TierRouter
+    from evarness.llm.client import CodingLLMClient
+    from evarness.llm.tier_router import TierRouter
 
     router = TierRouter.load_from_yaml(REPO_ROOT / "config" / "llm_tiers.yaml")
     cfg = router.get_llm_config("complex_task")

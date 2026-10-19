@@ -51,7 +51,7 @@ resolution:
 # after `min_observations` across `min_episodes` conversations, and is forgotten after
 # `expire_days` unseen otherwise. It is only counted until then — never stored as a fact.
 # An activated term's facts follow the confirmation tiers above like any other key's.
-# Learned terms are rows in the memory database, never YAML (`iris ontology terms`).
+# Learned terms are rows in the memory database, never YAML (`evarness ontology terms`).
 learned_terms:
   prefix: learned
   alias_similarity: 0.85

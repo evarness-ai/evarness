@@ -1,15 +1,15 @@
 # Architecture
 
-IRIS is a harness: a small set of primitives around a model loop. The loop and the
+Evarness is a harness: a small set of primitives around a model loop. The loop and the
 governance kernel are the core; everything else is a plugin on the SDK.
 
 The diagram is a conceptual overview, not a code map. The turn it shows is the pipeline in
-`src/iris_harness/runtime/turn/`, described stage by stage below.
+`src/evarness/runtime/turn/`, described stage by stage below.
 
 ```text
   CLI · web console · Telegram · MCP clients
                     │
-              IRIS API (:8003)
+              Evarness API (:8003)
                     │
   ┌──────────────── turn pipeline ────────────────┐
   │ input screen → deterministic handlers ───┐    │
@@ -31,7 +31,7 @@ The diagram is a conceptual overview, not a code map. The turn it shows is the p
 
 ## The turn
 
-Every message is one turn through one pipeline (`src/iris_harness/runtime/turn/`), the
+Every message is one turn through one pipeline (`src/evarness/runtime/turn/`), the
 same for the REPL, the API, streaming and every channel:
 
 1. **Input screen.** The message is classified and screened before anything acts on it.
@@ -58,36 +58,36 @@ is off until you configure it, and even then it sees only data the egress gate l
 out ([governance](governance.md)).
 
 The tiers are sized to the machine by a **model set** (`config/doctor.yaml`). A set names
-the RAM it fits, the models to pull and a sparse override of the tiers. `iris doctor`
+the RAM it fits, the models to pull and a sparse override of the tiers. `evarness doctor`
 picks the largest set the host fits, `standard` (the shipped tiers, 16 GB) or `lite`
 (8 GB: one 4B model, the email judge's, serves tier 2 as well), and `--fix` pulls that
 set's models and saves its overrides as settings, the same tier edits the console
 makes, so an upgrade keeps them and you can still change one tier afterwards. Separate
-from that install-time sizing, the resource governor (opt-in, `IRIS_ADAPTIVE_TIERS`)
+from that install-time sizing, the resource governor (opt-in, `EVARNESS_ADAPTIVE_TIERS`)
 downshifts a turn to tier 1 when the host is under memory or thermal pressure.
 
 ## Services
 
 | Service | Port | Module |
 |---|---|---|
-| IRIS API: chat, streaming chat, the MCP server, the web console and its data | 8003 | `iris_harness.server.iris_api.main:app` |
-| Governor: the HTTP front of the governance kernel | 8080 | `iris_harness.server.governor.main:app` |
-| Evaluator (out-of-process, optional) | 8090 | `iris_harness.server.evaluator.main:app` |
-| Channel gateway (Telegram) | 8006 | `iris_harness.server.channel_gateway.main:app` |
+| Evarness API: chat, streaming chat, the MCP server, the web console and its data | 8003 | `evarness.server.harness_api.main:app` |
+| Governor: the HTTP front of the governance kernel | 8080 | `evarness.server.governor.main:app` |
+| Evaluator (out-of-process, optional) | 8090 | `evarness.server.evaluator.main:app` |
+| Channel gateway (Telegram) | 8006 | `evarness.server.channel_gateway.main:app` |
 
 The CLI commands in the [quickstart](../getting-started/install.md) run in-process and
-need none of them; the scheduled jobs and the web console run in the IRIS API.
+need none of them; the scheduled jobs and the web console run in the Evarness API.
 
 ## Background work
 
 Heartbeats are scheduled jobs (the email sweep and judge are two). They run on one
-scheduler inside the IRIS API, under the same governance as a turn, and report each run
+scheduler inside the Evarness API, under the same governance as a turn, and report each run
 to System Health. An event bus carries work that finishes outside a turn to whoever
 subscribed, and channels deliver the results.
 
 ## Memory
 
-IRIS remembers in **memris**, a graph of claims with provenance (`src/memris/`): what
+Evarness remembers in **memris**, a graph of claims with provenance (`src/memris/`): what
 was said, by whom, from which source, with what confidence. Capture gates keep
 implausible or ungrounded facts out of the store, a recall filter keeps low-confidence
 ones out of the prompt, and every change is reversible.
@@ -96,11 +96,11 @@ ones out of the prompt, and every change is reversible.
 
 | Path | What lives there |
 |---|---|
-| `src/iris_harness/runtime/` | The composition root, the turn pipeline, the plugin host. |
-| `src/iris_harness/agent/` | The agentic core: router, planner, ReAct loop, executor, curator. |
-| `src/iris_harness/kernel/governance/` | The governance kernel. |
-| `src/iris_harness/sdk/` | The plugin SDK: the stable surface plugins import. |
-| `src/iris_harness/plugins_builtin/` | The reference plugins: system, channels, research, code execution. |
-| `src/iris_personal/` | The email assistant: the mail record and the email plugins. |
-| `src/iris_harness/server/` | The four HTTP services. |
+| `src/evarness/runtime/` | The composition root, the turn pipeline, the plugin host. |
+| `src/evarness/agent/` | The agentic core: router, planner, ReAct loop, executor, curator. |
+| `src/evarness/kernel/governance/` | The governance kernel. |
+| `src/evarness/sdk/` | The plugin SDK: the stable surface plugins import. |
+| `src/evarness/plugins_builtin/` | The reference plugins: system, channels, research, code execution. |
+| `src/evarness_personal/` | The email assistant: the mail record and the email plugins. |
+| `src/evarness/server/` | The four HTTP services. |
 | `webui/` | The web console (React). The released package carries a production build. |

@@ -74,7 +74,7 @@ Three mechanisms, one rule for which to use:
 ### 2. Declared capabilities
 
 - **The interface lives in the SDK.** A capability is a name (`mail.read`) plus a
-  `Protocol` published in `iris_harness.sdk.capabilities`, so provider and consumer agree
+  `Protocol` published in `evarness.sdk.capabilities`, so provider and consumer agree
   on a stable, versioned shape (part of the SDK stable tier, OSS plan R16).
 - **The manifest declares it:**
   ```yaml
@@ -93,7 +93,7 @@ Three mechanisms, one rule for which to use:
   yellow, naming the capability (`optional capability X unavailable (degraded)`), until a
   provider mounts (derived live, so a late mount or an unmount flips it).
   Providers mount before consumers.
-- **Visible:** `--dump-config` and `iris plugins show` print who provides and who uses
+- **Visible:** `--dump-config` and `evarness plugins show` print who provides and who uses
   what; provider calls go through the registry guard, so a failure is attributed to the
   provider plugin.
 - **The core can consume capabilities too.** Decision D of the email-slice work becomes
@@ -119,7 +119,7 @@ Unchanged.
   ```
   The harness compiles every mounted manifest into one caller policy; an operator can
   narrow it in `config/governance/tool-access.yaml` (the same override shape as
-  `IRIS_GOVERNANCE_ALLOWED_TOOLS` / `BLOCKED_TOOLS`). The model's loop keeps today's
+  `EVARNESS_GOVERNANCE_ALLOWED_TOOLS` / `BLOCKED_TOOLS`). The model's loop keeps today's
   surface: its tools are the ones on the governed pool, as now.
 - **The kernel enforces it.** A `CallerPolicyHook` at `PRE_TOOL_USE` — the pattern
   `PersonaSurface` already uses for coding-agent personas against `persona-policy.yaml` —
@@ -185,7 +185,7 @@ handler, a seam key filled for a plugin that is not mounted.
 
 **Enforcement: the closure check.** It builds the graph from config (manifests,
 `intercepts.yaml`, governance YAML) plus the live registry, fails on any orphan or loose
-end, and draws the graph. It runs in CI and as `iris plugins graph`, extending today's drift
+end, and draws the graph. It runs in CI and as `evarness plugins graph`, extending today's drift
 report and `--dump-config` rather than adding a mechanism. **Every rollout step's exit test
 is a closed graph** for what that step touches.
 
@@ -215,7 +215,7 @@ immediately.
    (with the burn-down list), mount rules, `--dump-config`, drift report.
 4. First capabilities: `credentials.accounts` (decision D) and `mail.read` (email provides;
    finance declares `uses`).
-4b. The closure check (§5) and `iris plugins graph`, then run against every step above.
+4b. The closure check (§5) and `evarness plugins graph`, then run against every step above.
    Step 1's exit test, before the checker exists: every tool call path — model loop and
    the runner — reaches the kernel, pinned by `test_no_bypass.py` and mutation checks.
 5. **Required before release 1:** retire the burn-down list. Every finance call site (and
@@ -241,7 +241,7 @@ on the `POST_TOOL_USE` metadata (`tool_effect`, `tool_content`, `tool_verify`,
 `PostOutcome` (`agent/tool_runner.py`, `post`): a deny withholds the result behind
 `governance_block_message`, a transform is what the caller hands on, on the sync and stream
 loops, the approved-resume path and both `ToolService` sites; `_governance_post_tool` is
-gone. `tests/unit/iris_harness/kernel/test_governance/test_tool_payload_contract.py` pins
+gone. `tests/unit/evarness/kernel/test_governance/test_tool_payload_contract.py` pins
 every producer to the builders and runs the tool hooks over built payloads.
 
 `tests/security/test_no_bypass.py` follows the governed call into the runner and is
@@ -282,7 +282,7 @@ approval no run can resume from. All come back `held`; nothing writes silently.
 through `api.tools` (as `plugin:planner`) instead of a direct `tool.call`, so it passes
 `PRE_TOOL_USE` and the operator's tool policy applies to it; the no-bypass baseline has one
 entry left, the runner. A related loose end, not tool-shaped, remains: the same handler
-imports `iris_personal.finance.dues_filters` (planner → finance), for step 3's import
+imports `evarness_personal.finance.dues_filters` (planner → finance), for step 3's import
 contract to catch.
 
 ## Step 3a as built (2026-09-29): the permission contract for tools
@@ -315,7 +315,7 @@ contract to catch.
   place to declare a capability dependency, not two.
 - **The catalogue:** static and closed. The Protocols, their `CapabilitySpec`s (the
   Protocol and, for a capability several plugins may provide, its `fan_out`) and the
-  `CAPABILITIES` map are defined in `foundation/capabilities.py`; `iris_harness.sdk.capabilities`
+  `CAPABILITIES` map are defined in `foundation/capabilities.py`; `evarness.sdk.capabilities`
   re-exports the same objects and is the stable import path. Defined low because the host
   (runtime) and the core's own consumers (services) must import it, and neither may import
   the SDK above them; nothing is registered at import time, so the host works in a process
@@ -446,7 +446,7 @@ contract to catch.
   drift yet: the core consumes capabilities too (step 4) without a manifest, so the
   "no consumer" edge waits for step 4b's closure check.
 - **Visible:** `--dump-config` prints, per capability, who provides, uses and requires it
-  (from manifests, before boot); `GET /plugins/{name}` and `iris plugins show` print each
+  (from manifests, before boot); `GET /plugins/{name}` and `evarness plugins show` print each
   plugin's side — what it provides and who uses it, what it uses and who provides it — and
   a declared-but-unprovided capability under drift.
 - **Closure (§5) for capabilities:** declared (manifest `capabilities:` and each
@@ -463,8 +463,8 @@ contract to catch.
 with the other contracts). It only pins: no import was removed. The pinned edges are
 debt, not permitted dependencies; step 5 retires every one before release 1.
 
-- **What a plugin is.** A package under `iris_harness/plugins_builtin/` or
-  `iris_personal/plugins/`. `iris_personal/{email,finance,filemanager,calendar}` are
+- **What a plugin is.** A package under `evarness/plugins_builtin/` or
+  `evarness_personal/plugins/`. `evarness_personal/{email,finance,filemanager,calendar}` are
   domain *libraries*, not plugins; a plugin may import its own. Domains: email = library +
   `connections` + `email_workflows` + `gmail`; finance = library + `finance_workflows`;
   files = library + `file_organizer`; calendar = library + plugin; `planner` has no
@@ -479,7 +479,7 @@ debt, not permitted dependencies; step 5 retires every one before release 1.
   as debt to retire before release 1. **Email's list is empty and checks indirect chains too**: email never
   imports finance, or any other domain, by any route.
 - **`libraries-import-no-plugin`** (empty): a library never imports a plugin.
-  `plugins-use-the-public-api` now also forbids `iris_personal`.
+  `plugins-use-the-public-api` now also forbids `evarness_personal`.
 - **Coverage.** `tests/unit/test_import_contract_coverage.py` fails when a new plugin or
   library is in no domain, or a domain contract does not forbid a library.
 
@@ -516,10 +516,10 @@ deferred for the same reason. The rest of step 5, `calendar.read` and `finance.d
 included, is still required before release 1.
 
 **L3 export item.** The email contract, `libraries-import-no-plugin` and the
-`iris_personal` line in `plugins-use-the-public-api` all sit inside private export
+`evarness_personal` line in `plugins-use-the-public-api` all sit inside private export
 fences, so the public tree (which ships the email slice) will need a public email
 contract of its own. The coverage test must then skip per missing domain, not, as today,
-per missing `iris_personal` root. Recorded here; no code in this step.
+per missing `evarness_personal` root. Recorded here; no code in this step.
 
 Deliberate breakage, then reverted: a new finance → email-workflows import, a new
 finance → email-library import, email library → finance, `connections` → finance,
@@ -573,13 +573,13 @@ inline terminal prompt for these rows; and the caller hears the outcome on an ev
   forges an outcome. The refusal is one table, `runtime/plugin_host/harness_topics.py`
   (`HARNESS_TOPICS`), that both use; the harness's own emitter keeps the raw bus. The SDK (`sdk.tools`) publishes the topic and payload.
 - **Every surface.** API `POST /governance/approvals/{id}/respond` (the web UI and Action
-  Center, and the gateway's Telegram through `ApiApprovalBackend`), `iris approvals
+  Center, and the gateway's Telegram through `ApiApprovalBackend`), `evarness approvals
   approve|reject`, and the runtime's in-process
   Telegram poller (`LocalApprovalBackend`) all pass `runtime.tool_service` as the
   executor. `CLIChannel` does not prompt inline for a deferred row — a yes there would
-  run inside the call's own `PRE_TOOL_USE` — and prints `iris approvals approve <id>`.
-  One test per surface: `tests/unit/iris_harness/runtime/test_runtime/test_approved_call_executor.py`.
-- **The CLI answers through the server.** For a deferred row, `iris approvals` posts to
+  run inside the call's own `PRE_TOOL_USE` — and prints `evarness approvals approve <id>`.
+  One test per surface: `tests/unit/evarness/runtime/test_runtime/test_approved_call_executor.py`.
+- **The CLI answers through the server.** For a deferred row, `evarness approvals` posts to
   the API endpoint (as `ApiApprovalBackend` does), so the call runs in the server and its
   `approval.call_completed` reaches the plugin that asked, there. Only when the API is
   unreachable does it build a local runtime, and it says the event then stays in that
@@ -588,7 +588,7 @@ inline terminal prompt for these rows; and the caller hears the outcome on an ev
 - **Loose end (closure rule):** no mounted plugin makes a gated code call or subscribes to
   `approval.call_completed` yet, so in a production profile the event has a producer and
   no subscriber. The closure check (step 4b) should list it until the first consumer
-  lands; it is not suppressed. The operator's `IRIS_GOVERNANCE_CONFIRM_ONCE_TOOLS`
+  lands; it is not suppressed. The operator's `EVARNESS_GOVERNANCE_CONFIRM_ONCE_TOOLS`
   override by name is not escalated for code callers: such a call is still held with no
   approval id. And a call denied at execution *before* the claim (the caller policy or
   the tool policy refused it) leaves its row `approved` with `executed_at` NULL: audited

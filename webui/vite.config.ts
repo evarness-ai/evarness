@@ -4,23 +4,23 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // Dev server. /api (traces/sessions) and /chat (streaming chat, NDJSON) are
-// proxied to src/iris_harness/server/iris_api (default port 8003, override with IRIS_API_PORT).
+// proxied to src/evarness/server/harness_api (default port 8003, override with EVARNESS_API_PORT).
 //
-// IRIS_API_URL points the whole UI at a DIFFERENT harness — a server over Tailscale,
+// EVARNESS_API_URL points the whole UI at a DIFFERENT harness — a server over Tailscale,
 // say — so the local UI can watch the deployment that is actually serving the owner's
-// phone. The secret must then be that harness's own IRIS_AUTH_SECRET, since each
+// phone. The secret must then be that harness's own EVARNESS_AUTH_SECRET, since each
 // deployment has its own.
-const apiPort = process.env.IRIS_API_PORT ?? "8003";
-const target = process.env.IRIS_API_URL ?? `http://127.0.0.1:${apiPort}`;
+const apiPort = process.env.EVARNESS_API_PORT ?? "8003";
+const target = process.env.EVARNESS_API_URL ?? `http://127.0.0.1:${apiPort}`;
 
 // Shown as a badge in the UI. Mistaking the cloud's data for the laptop's would make
 // every number on screen a lie, so the origin is always visible when it is not local.
-const targetLabel = process.env.IRIS_API_LABEL ?? (process.env.IRIS_API_URL ? target : "");
+const targetLabel = process.env.EVARNESS_API_LABEL ?? (process.env.EVARNESS_API_URL ? target : "");
 
-// The API requires `Authorization: Bearer $IRIS_AUTH_SECRET` on every route
+// The API requires `Authorization: Bearer $EVARNESS_AUTH_SECRET` on every route
 // (security floor, phase 0). The proxy injects it server-side so the secret
 // never reaches browser code; without it, API calls answer 401/503.
-const authSecret = process.env.IRIS_AUTH_SECRET;
+const authSecret = process.env.EVARNESS_AUTH_SECRET;
 const authHeaders = authSecret ? { Authorization: `Bearer ${authSecret}` } : undefined;
 
 // Several backend resource paths (/portfolio, /routines, /health, …) share a name
@@ -44,7 +44,7 @@ function api() {
 
 export default defineConfig({
   define: {
-    "import.meta.env.VITE_IRIS_TARGET_LABEL": JSON.stringify(targetLabel),
+    "import.meta.env.VITE_EVARNESS_TARGET_LABEL": JSON.stringify(targetLabel),
   },
   plugins: [react()],
   resolve: {
@@ -76,7 +76,7 @@ export default defineConfig({
       // Runtime inventory (#5) + self-learning experiments (#4), read-only.
       "/runtime": api(),
       "/learning": api(),
-      // Write-capability flag (IRIS_WEBUI_ALLOW_WRITES).
+      // Write-capability flag (EVARNESS_WEBUI_ALLOW_WRITES).
       "/capabilities": api(),
       // Playground — scenario suites, run, config↔runtime drift (Phase 1).
       "/playground": api(),

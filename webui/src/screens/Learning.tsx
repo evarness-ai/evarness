@@ -49,7 +49,7 @@ function SignalHealth() {
     return (
       <Section title="Signal health">
         <Notice>
-          Observability metrics are off. Set IRIS_OBSERVABILITY_METRICS_ENABLED=1 to
+          Observability metrics are off. Set EVARNESS_OBSERVABILITY_METRICS_ENABLED=1 to
           populate self-learning signal health.
         </Notice>
       </Section>
@@ -309,7 +309,7 @@ function Recommendations() {
         loading={isLoading}
         error={isError}
         empty={!data?.available}
-        emptyText="No recommendations yet. The learning analyst is opt-in (IRIS_LEARNING_ANALYST) and runs on a schedule; its advisory proposals appear here once it has analyzed the measured report."
+        emptyText="No recommendations yet. The learning analyst is opt-in (EVARNESS_LEARNING_ANALYST) and runs on a schedule; its advisory proposals appear here once it has analyzed the measured report."
       >
         <div className="space-y-3">
           {data?.summary && <p className="text-xs text-fg-muted">{data.summary}</p>}
@@ -419,7 +419,7 @@ function Experiments() {
 
 /* Experiment console (ADR-0083): hot-toggle the learning capabilities (no restart),
  * run them on demand, and watch the proposal-acceptance measurement — the tweak loop.
- * Toggles/run are write-gated (IRIS_WEBUI_ALLOW_WRITES); the state + measurement read
+ * Toggles/run are write-gated (EVARNESS_WEBUI_ALLOW_WRITES); the state + measurement read
  * openly. Toggles are process-scoped: env_default is what a restart reverts to. */
 const FLAG_LABELS: Record<string, string> = {
   behavior_miner: "Behavior miner (L1 habits)",
@@ -443,7 +443,7 @@ function ExperimentConsole() {
   return (
     <Section title="Experiment console">
       {!canWrite && (
-        <Notice>Read-only — set IRIS_WEBUI_ALLOW_WRITES=1 to flip flags and run miners.</Notice>
+        <Notice>Read-only — set EVARNESS_WEBUI_ALLOW_WRITES=1 to flip flags and run miners.</Notice>
       )}
       <QueryState
         loading={isLoading}

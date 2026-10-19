@@ -35,14 +35,14 @@ def _copies(tmp_path: Path) -> tuple[Path, Path]:
     init = tmp_path / "__init__.py"
     pyproject.write_text((ROOT / "pyproject.toml").read_text(encoding="utf-8"), "utf-8")
     init.write_text(
-        (ROOT / "src" / "iris_harness" / "__init__.py").read_text(encoding="utf-8"), "utf-8"
+        (ROOT / "src" / "evarness" / "__init__.py").read_text(encoding="utf-8"), "utf-8"
     )
     return pyproject, init
 
 
 def test_it_edits_the_real_version_files() -> None:
     assert stamp_dev_version.PYPROJECT == ROOT / "pyproject.toml"
-    assert stamp_dev_version.INIT == ROOT / "src" / "iris_harness" / "__init__.py"
+    assert stamp_dev_version.INIT == ROOT / "src" / "evarness" / "__init__.py"
 
 
 def test_the_dispatch_version_is_a_dev_release_of_pyprojects() -> None:

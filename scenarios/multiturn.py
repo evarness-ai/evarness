@@ -16,7 +16,7 @@ from scenarios.common import REPO_ROOT, ScenarioRecord, Timer
 
 
 def _runtime(tmp: Path) -> Any:
-    from iris_harness.runtime import build_runtime
+    from evarness.runtime import build_runtime
 
     data_dir = tmp / "data"
     data_dir.mkdir(exist_ok=True)
@@ -31,7 +31,7 @@ def _runtime(tmp: Path) -> Any:
 
 def run() -> list[ScenarioRecord]:
     records: list[ScenarioRecord] = []
-    with tempfile.TemporaryDirectory(prefix="iris-scenario-mt-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="evarness-scenario-mt-") as tmp:
         runtime = _runtime(Path(tmp))
 
         # 1. Deterministic follow-up: time then date in one session.

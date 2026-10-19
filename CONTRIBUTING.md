@@ -1,6 +1,6 @@
-# Contributing to IRIS
+# Contributing to Evarness
 
-IRIS is a governed agent harness for small local models. Most contributions are
+Evarness is a governed agent harness for small local models. Most contributions are
 **plugins**; changes to the core are welcome too, but they carry the governance rules
 below. Coding agents working on the repo: read [`AGENTS.md`](AGENTS.md) as well.
 
@@ -16,11 +16,11 @@ Python 3.12 or 3.13 (`.python-version` pins 3.12), [Poetry](https://python-poetr
 
 ```bash
 poetry install                 # add `-E ml` for the torch-backed embedders
-poetry run iris --help
+poetry run evarness --help
 ```
 
 Or run `./install.sh`, which does the `poetry install` above and hands off to
-`iris setup` — a guided wizard for the auth secret and the optional add-ons
+`evarness setup` — a guided wizard for the auth secret and the optional add-ons
 (background services, Telegram pairing, email).
 
 ## Start with a plugin
@@ -29,16 +29,16 @@ A plugin is a package with a `manifest.yaml` and a `setup(api)` that registers w
 adds. Scaffold one, with a passing test, by kind:
 
 ```bash
-poetry run iris plugin new my-plugin --kind tool   # or channel, mail-provider, research-provider, skill
+poetry run evarness plugin new my-plugin --kind tool   # or channel, mail-provider, research-provider, skill
 ```
 
 The contract and the registration kinds are in
 [`docs/architecture/plugin-contract.md`](docs/architecture/plugin-contract.md); runnable
 examples are in [`examples/`](examples/README.md). A plugin imports only the **stable
 tier** ([`docs/reference/stable-api.md`](docs/reference/stable-api.md)):
-`iris_harness.sdk`, `iris_harness.testing`, the `PluginAPI` kinds, the manifest schema and
-the `iris_harness.plugins` entry-point group. Everything else is internal and may change in
-any release. Hold your plugin to the tier with `iris_harness.testing.check_stable_imports`.
+`evarness.sdk`, `evarness.testing`, the `PluginAPI` kinds, the manifest schema and
+the `evarness.plugins` entry-point group. Everything else is internal and may change in
+any release. Hold your plugin to the tier with `evarness.testing.check_stable_imports`.
 
 ## Stable tier and deprecation
 
@@ -53,8 +53,8 @@ Adding is never breaking. `tests/unit/test_stable_tier.py` pins the tier; update
 A contribution must keep all of these; review rejects a PR that weakens one.
 
 - **Every tool call goes through the governed tool runner** (`GovernedToolRunner` in
-  `src/iris_harness/agent/tool_runner.py`), and every model call through the governance
-  kernel (`src/iris_harness/kernel/governance/`). `tests/security/test_no_bypass.py` fails
+  `src/evarness/agent/tool_runner.py`), and every model call through the governance
+  kernel (`src/evarness/kernel/governance/`). `tests/security/test_no_bypass.py` fails
   a new direct call site.
 - **Every model call, tool call and answer leaves an audit row.** Do not add a path that
   answers without one, including deterministic handlers.
@@ -63,13 +63,13 @@ A contribution must keep all of these; review rejects a PR that weakens one.
 - **Import contracts hold** (`poetry run lint-imports`, `[tool.importlinter]` in
   `pyproject.toml`): the core is layered, reference plugins import only the SDK, no plugin
   imports another. A new edge is a design question; do not add it to `ignore_imports`.
-- **User state resolves `IRIS_HOME`** (`iris_harness.foundation.paths`), never
+- **User state resolves `EVARNESS_HOME`** (`evarness.foundation.paths`), never
   `Path.home()` directly, so tests cannot write into a real profile.
 
 ## Tests and the local gate
 
 ```bash
-export IRIS_AUTH_SECRET="test-secret-for-testing" IRIS_DISABLE_WARMUP=1
+export EVARNESS_AUTH_SECRET="test-secret-for-testing" EVARNESS_DISABLE_WARMUP=1
 poetry run pytest tests/unit/<the path you changed>
 scripts/ci_local.sh --fast     # ruff, black, mypy, import contracts, changed-scope tests
 scripts/ci_local.sh            # the full gate (full suite, playground smoke, secret scan)
@@ -88,7 +88,7 @@ as passing, so it never blocks a merge. Every other check runs on every pull req
 
 Tests mirror the source tree under `tests/unit/`. Async tests run with
 `asyncio_mode = "auto"`: never add `@pytest.mark.asyncio`. Tests never reach a model or the
-network; use the scripted fake model in `iris_harness.testing`. New behaviour ships with
+network; use the scripted fake model in `evarness.testing`. New behaviour ships with
 tests; a bug fix ships with the test that would have caught it.
 
 Style: Black (line length 100), Ruff, MyPy strict. No emojis in code, docs or commits.
@@ -102,7 +102,7 @@ Style: Black (line length 100), Ruff, MyPy strict. No emojis in code, docs or co
   `refactor`, `test`, `chore`, `ci`, `perf`, `build`; scope optional. The PR title is linted
   the same way, because it becomes the commit message.
 - **Squash merge only.** One PR, one commit on `main`. Keep PRs focused.
-- One CODEOWNER review is required; `src/iris_harness/kernel/governance/` always needs one.
+- One CODEOWNER review is required; `src/evarness/kernel/governance/` always needs one.
 - No AI attribution in commits, PRs or credits: no `Co-Authored-By` trailers for tools, no
   "generated with" footers. You are the author of what you submit.
 

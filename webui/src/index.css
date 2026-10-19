@@ -43,7 +43,7 @@
 }
 
 /* Pulse on the active node during replay. */
-@keyframes iris-pulse {
+@keyframes evarness-pulse {
   0% {
     box-shadow: 0 0 0 0 rgb(93 202 165 / 0.5);
   }
@@ -51,8 +51,8 @@
     box-shadow: 0 0 0 10px rgb(93 202 165 / 0);
   }
 }
-.iris-node-active {
-  animation: iris-pulse 1.1s ease-out infinite;
+.evarness-node-active {
+  animation: evarness-pulse 1.1s ease-out infinite;
 }
 
 

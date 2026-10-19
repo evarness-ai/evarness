@@ -6,7 +6,7 @@
 #
 # Why: the file is ~7.5K chars (~1.9K tokens) on every turn, and the parts below are
 # the ones a turn rarely needs — an internals tour, style notes, and a tool policy the
-# per-turn tool catalog already states. `iris_doc("OPERATING")` returns them in full.
+# per-turn tool catalog already states. `evarness_doc("OPERATING")` returns them in full.
 
 # Section headings (## level, matched case-insensitively, without the ##) moved to L2.
 extended_sections:
@@ -23,4 +23,4 @@ tool_policy_summary: |
   ## Tool policy (summary)
   - Prefer a tool that returns real data over answering from memory; say so when you do.
   - Use the cheapest local tier that can do the job; escalate only when it cannot.
-  - Full policy and the harness internals: call iris_doc("OPERATING").
+  - Full policy and the harness internals: call evarness_doc("OPERATING").

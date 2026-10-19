@@ -1,10 +1,10 @@
 ---
-# IRIS console design system — the single source of truth for tokens.
+# Evarness console design system — the single source of truth for tokens.
 # Format: google-labs-code/design.md (YAML tokens + canonical prose below).
 # Edit tokens HERE; the Tailwind theme + CSS variables mirror these names
 # (src/styles/tokens.css). Lint with: npm run tokens:lint  (WCAG-AA contrast).
 # Values below are the DARK (default) theme; light overrides are in § Colors.
-name: IRIS Console
+name: Evarness Console
 version: 0.1.0
 
 colors:
@@ -102,11 +102,11 @@ components:
     typography: "{typography.xs}"
 ---
 
-# IRIS Console — Design System
+# Evarness Console — Design System
 
 ## Overview
 
-The IRIS console is an **operator surface** for a privacy-first agentic system:
+The Evarness console is an **operator surface** for a privacy-first agentic system:
 trace visualization, chat, control panels, and (later) RAG + knowledge-graph
 views. The aesthetic is a calm, information-dense **dark-first** console — high
 signal, low chrome — with a fully supported light theme.

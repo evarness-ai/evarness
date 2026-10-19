@@ -7,8 +7,8 @@ from typing import Any
 
 from todo_agent import INTENT, TodoList, setup
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.testing import harness, plugin
+from evarness.sdk import PluginAPI
+from evarness.testing import harness, plugin
 
 MANIFEST = Path(__file__).with_name("manifest.yaml")
 

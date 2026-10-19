@@ -18,7 +18,7 @@
 #   scripts/ci_local.sh --webui      # force the webui viewport smoke (auto when webui/ changed)
 #   scripts/ci_local.sh --no-webui   # skip it even when webui/ changed
 #   scripts/ci_local.sh --smoke      # ONLY the smoke tests: pytest -m smoke + playground run
-#   IRIS_PYTEST_WORKERS=4 scripts/ci_local.sh   # cap xdist workers (default auto = one per core)
+#   EVARNESS_PYTEST_WORKERS=4 scripts/ci_local.sh   # cap xdist workers (default auto = one per core)
 #
 # Hosted CI (.github/workflows/ci.yml) does NOT run the full suite on pull requests or pushes:
 # it runs scripts/changed_tests.sh with NO_FULL=1 on Python 3.12. The full suite on 3.12 and
@@ -51,17 +51,17 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-# Exactly the workflow's `env:` block. IRIS_DISABLE_ARBITER is deliberately NOT set:
+# Exactly the workflow's `env:` block. EVARNESS_DISABLE_ARBITER is deliberately NOT set:
 # CI does not set it, and the point of this script is to match CI.
-export IRIS_AUTH_SECRET=ci-only-secret
-export IRIS_DISABLE_WARMUP=1
+export EVARNESS_AUTH_SECRET=ci-only-secret
+export EVARNESS_DISABLE_WARMUP=1
 export PYTHONDONTWRITEBYTECODE=1
 
-# pytest-xdist worker count: IRIS_PYTEST_WORKERS=<n>|auto|logical, default auto (one per
+# pytest-xdist worker count: EVARNESS_PYTEST_WORKERS=<n>|auto|logical, default auto (one per
 # core). Set it lower when several gates share the machine; 0 runs without xdist.
-WORKERS="${IRIS_PYTEST_WORKERS:-auto}"
+WORKERS="${EVARNESS_PYTEST_WORKERS:-auto}"
 if [[ ! "$WORKERS" =~ ^(auto|logical|[0-9]+)$ ]]; then
-  echo "ci_local: IRIS_PYTEST_WORKERS must be a number, auto or logical (got '$WORKERS')" >&2
+  echo "ci_local: EVARNESS_PYTEST_WORKERS must be a number, auto or logical (got '$WORKERS')" >&2
   exit 2
 fi
 
@@ -135,7 +135,7 @@ if [[ $SMOKE_ONLY -eq 1 ]]; then
   RUN_WEBUI=0
   step "Pytest (smoke marker only)" run_smoke_pytest &&
   step "Playground smoke (deterministic suite)" \
-      poetry run iris playground run core-deterministic
+      poetry run evarness playground run core-deterministic
 fi
 
 # --------------------------------------------------------------- job: quality
@@ -149,7 +149,7 @@ if [[ $RUN_QUALITY -eq 1 ]]; then
   # From here, stop at the first failure, the way a CI job's steps do.
   step "Ruff (lint)"          poetry run ruff check src/ tests/ examples/ &&
   step "Black (format check)" poetry run black --check src/ tests/ examples/ &&
-  step "Mypy (types)"         poetry run mypy $MYPY_PLATFORM src/iris_harness/ src/memris/ $( [[ -d src/iris_personal ]] && echo src/iris_personal/ ) $( [[ -d src/iris_code ]] && echo src/iris_code/ ) &&
+  step "Mypy (types)"         poetry run mypy $MYPY_PLATFORM src/evarness/ src/memris/ $( [[ -d src/evarness_personal ]] && echo src/evarness_personal/ ) $( [[ -d src/iris_code ]] && echo src/iris_code/ ) &&
   # The examples type-check against the stable tier as a plugin author's would. MYPYPATH:
   # in a worktree sharing the main checkout's venv, the editable install points there.
   step "Mypy (examples)"      env MYPYPATH="$ROOT/src" poetry run mypy $MYPY_PLATFORM examples/ &&
@@ -178,7 +178,7 @@ if [[ $RUN_QUALITY -eq 1 ]]; then
     fi
   } &&
   step "Playground smoke (deterministic suite)" \
-      poetry run iris playground run core-deterministic
+      poetry run evarness playground run core-deterministic
 else
   skip "job: quality"
 fi

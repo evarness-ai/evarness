@@ -8,15 +8,15 @@
 # were fixed; they are the regression net for those fixes.
 #
 # Not CI: the three negative cases intentionally reach the agent loop, which
-# needs live Ollama. Run locally: iris playground run routing-breadth
+# needs live Ollama. Run locally: evarness playground run routing-breadth
 
 name: routing-breadth
 description: Natural phrasings hit the fast handlers; action verbs decline to the agent loop.
 
 env:
-  IRIS_DUES_INTERCEPT: "1"
-  IRIS_PORTFOLIO_INTERCEPT: "1"
-  IRIS_ON_DEMAND_BRIEF: "1"
+  EVARNESS_DUES_INTERCEPT: "1"
+  EVARNESS_PORTFOLIO_INTERCEPT: "1"
+  EVARNESS_ON_DEMAND_BRIEF: "1"
 
 scenarios:
   # --- positive: fast handler expected -------------------------------------

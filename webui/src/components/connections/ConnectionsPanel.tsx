@@ -211,7 +211,7 @@ function SetupBanner({ setup }: { setup: ConnectionSetup }) {
       )}
       {!setup.public_url_set && (
         <p>
-          IRIS_PUBLIC_URL is not set on the server, so there is no address {setup.group_label} could
+          EVARNESS_PUBLIC_URL is not set on the server, so there is no address {setup.group_label} could
           send you back to. Set it with <code className="font-mono">set_server_env.sh --public-url</code>.
         </p>
       )}

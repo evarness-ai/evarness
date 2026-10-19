@@ -1,7 +1,7 @@
 # ---- web console build stage ---------------------------------------------
 # The console is static files once built, so Node exists in this stage only and
 # never reaches the runtime image. The output lands at /app/webui/dist below, the
-# default of IRIS_WEBUI_DIST (src/iris_harness/server/iris_api/static_ui.py), so
+# default of EVARNESS_WEBUI_DIST (src/evarness/server/harness_api/static_ui.py), so
 # the API serves the console with nothing to configure.
 #
 # Base images are pinned by the multi-arch index digest, so a rebuild of the same commit
@@ -47,7 +47,7 @@ ARG POETRY_EXTRAS=""
 COPY pyproject.toml poetry.lock ./
 RUN poetry install --without dev --no-root ${POETRY_EXTRAS:+--extras "$POETRY_EXTRAS"}
 
-# Copy source and register iris package entry points
+# Copy source and register evarness package entry points
 COPY . .
 RUN poetry install --without dev ${POETRY_EXTRAS:+--extras "$POETRY_EXTRAS"}
 
@@ -72,7 +72,7 @@ COPY --from=builder /app /app
 # .dockerignore filters the build context only, not a copy between stages.
 COPY --from=webui /webui/dist /app/webui/dist
 
-# No PYTHONPATH: since M6.2 layer 10 the FastAPI apps are `iris_harness.server.*`,
+# No PYTHONPATH: since M6.2 layer 10 the FastAPI apps are `evarness.server.*`,
 # installed into the venv with the rest of the package, so `uvicorn` finds them the
 # same way it finds anything else that was pip-installed.
 ENV PATH="/app/.venv/bin:$PATH" \

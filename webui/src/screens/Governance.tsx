@@ -75,10 +75,10 @@ const EVIDENCE_LABEL: Record<string, string> = {
 };
 
 const PROOF_COMMANDS = [
-  `iris governance proof-bundle check --days ${WINDOW_DAYS}`,
-  "iris governance proof-bundle export --since <ISO time> --out proof-bundle.json \\",
+  `evarness governance proof-bundle check --days ${WINDOW_DAYS}`,
+  "evarness governance proof-bundle export --since <ISO time> --out proof-bundle.json \\",
   "    [--observations mailbox-writes.json]",
-  "iris governance proof-bundle verify proof-bundle.json",
+  "evarness governance proof-bundle verify proof-bundle.json",
 ].join("\n");
 
 function InvariantRow({ item }: { item: ProofInvariant }) {
@@ -144,7 +144,7 @@ function ProofBundleCard() {
             {data.ledger_rows === 0 && (
               <Notice>
                 Nothing recorded in this window yet, so each invariant holds over nothing. Ask
-                IRIS something in Chat and the check runs over what that turn wrote.
+                Evarness something in Chat and the check runs over what that turn wrote.
               </Notice>
             )}
             {(data.integrity ?? []).map((d) => (
@@ -274,7 +274,7 @@ function AuditTable() {
         emptyText={
           data && data.total > 0
             ? "No decisions match this filter."
-            : "No governance decisions yet. Every chat turn writes its decisions here: ask IRIS something in Chat, then come back."
+            : "No governance decisions yet. Every chat turn writes its decisions here: ask Evarness something in Chat, then come back."
         }
       >
         <div className="space-y-2">
@@ -321,7 +321,7 @@ function PiiShadowCard() {
           <div className="space-y-2" data-testid="pii-shadow">
             {data.mode === "off" && (
               <Notice>
-                IRIS_GOVERNANCE_OWNER_PII is off here, so nothing is recorded: an empty table would
+                EVARNESS_GOVERNANCE_OWNER_PII is off here, so nothing is recorded: an empty table would
                 not mean a quiet week.
               </Notice>
             )}

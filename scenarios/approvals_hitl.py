@@ -21,7 +21,7 @@ from scenarios.common import REPO_ROOT, ScenarioRecord, Timer
 
 
 def _runtime(tmp: Path) -> Any:
-    from iris_harness.runtime import build_runtime
+    from evarness.runtime import build_runtime
 
     data_dir = tmp / "data"
     data_dir.mkdir(exist_ok=True)
@@ -56,7 +56,7 @@ def _chat_case(
 
 def run_chat_approval_lifecycle() -> list[ScenarioRecord]:
     records: list[ScenarioRecord] = []
-    with tempfile.TemporaryDirectory(prefix="iris-scenario-hitl-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="evarness-scenario-hitl-") as tmp:
         runtime = _runtime(Path(tmp))
         session = "hitl-approve"
 
@@ -132,18 +132,18 @@ def run_chat_approval_lifecycle() -> list[ScenarioRecord]:
 
 
 def run_gate_cases() -> list[ScenarioRecord]:
-    from iris_harness.governance.approvals.gate import (
+    from evarness.governance.approvals.gate import (
         ApprovalGate,
         ApprovalRejectedError,
         ApprovalTimedOutError,
     )
-    from iris_harness.governance.approvals.queue import ApprovalQueue
-    from iris_harness.governance.approvals.store import ApprovalStore
+    from evarness.governance.approvals.queue import ApprovalQueue
+    from evarness.governance.approvals.store import ApprovalStore
 
     records: list[ScenarioRecord] = []
 
     async def _run() -> None:
-        with tempfile.TemporaryDirectory(prefix="iris-scenario-gate-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="evarness-scenario-gate-") as tmp:
             store = ApprovalStore(db_path=Path(tmp) / "approvals.db")
             queue = ApprovalQueue(store=store)
             gate = ApprovalGate(store=store)

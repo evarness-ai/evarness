@@ -1,14 +1,14 @@
-"""Every HTTP call the ``iris`` CLI makes goes through ``cli/api_client.py``.
+"""Every HTTP call the ``evarness`` CLI makes goes through ``cli/api_client.py``.
 
-The standing rule is that every outbound network call is logged on ``iris.egress``.
-The CLI's calls to the harness's own IRIS API were not: each command built its own
+The standing rule is that every outbound network call is logged on ``evarness.egress``.
+The CLI's calls to the harness's own Evarness API were not: each command built its own
 ``httpx`` / ``urllib`` call, the server logged the request as ingress, and the client
-side was silent. ``iris_harness.cli.api_client`` is now the one way out
+side was silent. ``evarness.cli.api_client`` is now the one way out
 (``harness_api_client`` / ``harness_urlopen``, both logging host-only), and this gate
 fails when a CLI module reaches the network any other way.
 
-What it scans: every module of ``iris_harness/cli/`` and the ``iris`` entry point
-``iris_harness/main.py``, except the helper itself. What it cannot see, stated plainly:
+What it scans: every module of ``evarness/cli/`` and the ``evarness`` entry point
+``evarness/main.py``, except the helper itself. What it cannot see, stated plainly:
 a CLI module calling into a *non-CLI* module that makes the request (e.g.
 ``llm/providers.py`` fetching a model catalog) — that module owns its own egress line.
 It reads syntax, so a transport reached through ``getattr`` or ``importlib`` is
@@ -21,7 +21,7 @@ import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-HARNESS = PROJECT_ROOT / "src" / "iris_harness"
+HARNESS = PROJECT_ROOT / "src" / "evarness"
 HELPER = HARNESS / "cli" / "api_client.py"
 
 # Calls that open a network connection. A dotted name resolves through the module's
@@ -122,7 +122,7 @@ def test_no_cli_module_calls_the_network_except_through_the_helper() -> None:
         label = str(path.relative_to(PROJECT_ROOT))
         offenders.extend(unlogged_calls(path.read_text(encoding="utf-8"), label))
     assert not offenders, (
-        "CLI HTTP calls that bypass iris_harness.cli.api_client (no egress line); "
+        "CLI HTTP calls that bypass evarness.cli.api_client (no egress line); "
         "use harness_api_client(...) or harness_urlopen(...):\n  " + "\n  ".join(offenders)
     )
 
@@ -170,7 +170,7 @@ def test_the_detector_catches_every_spelling() -> None:
         found = unlogged_calls(source, "snippet")
         assert any(line.endswith(f": {name}") for line in found), (source, found)
     clean = (
-        "from iris_harness.cli.api_client import harness_api_client, harness_urlopen\n"
+        "from evarness.cli.api_client import harness_api_client, harness_urlopen\n"
         "import httpx\n"
         "with harness_api_client(purpose='x', timeout=1.0) as c:\n"
         "    c.get('http://x')\n"

@@ -16,8 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.sdk.types import AgentTask
+from evarness.sdk import PluginAPI
+from evarness.sdk.types import AgentTask
 
 INTENT = "planner"
 

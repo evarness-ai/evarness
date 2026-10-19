@@ -1,4 +1,4 @@
-# Heartbeat definitions for IRIS proactive autonomy.
+# Heartbeat definitions for Evarness proactive autonomy.
 #
 # Each entry is registered with the HeartbeatScheduler at startup. The `handler`
 # field must match a callable registered via `HeartbeatScheduler.register_handler`.
@@ -13,7 +13,7 @@
 # are plugins whose manifest ships in this tree, the second are owners shipped elsewhere
 # (a private domain plugin), which this tree cannot check. A `plugin:` in neither list is a
 # typo, so its missing handler warns instead of reading as "plugin not installed", and
-# tests/unit/iris_harness/services/test_heartbeat/test_plugin_owners.py fails the build.
+# tests/unit/evarness/services/test_heartbeat/test_plugin_owners.py fails the build.
 # Add a new owner here, in the right list, in the same change that adds its heartbeat.
 #
 # Schedules support cron expressions (5-field) or `interval:<seconds>`.
@@ -71,7 +71,7 @@ heartbeats:
     handler: routine_reflection_tick
     schedule: "interval:43200"
     description: "Routines learning loop — propose changes to failing/stale
-      routines via the HITL approval queue (opt-in IRIS_ROUTINE_REFLECTION)."
+      routines via the HITL approval queue (opt-in EVARNESS_ROUTINE_REFLECTION)."
     enabled: true
     params: {}
 
@@ -79,7 +79,7 @@ heartbeats:
     handler: learning_analysis_tick
     schedule: "interval:43200"
     description: "Learning analyst — interpret the measured intelligence report and
-      persist ranked, advisory recommendations (opt-in IRIS_LEARNING_ANALYST;
+      persist ranked, advisory recommendations (opt-in EVARNESS_LEARNING_ANALYST;
       propose-only, never auto-applied)."
     enabled: true
     params: {}
@@ -88,8 +88,8 @@ heartbeats:
     handler: behavior_mining_tick
     schedule: "interval:86400"
     description: "Behavior-pattern mining (digital-twin layer) — analyze recent turns
-      and propose recurring habits for review (opt-in IRIS_BEHAVIOR_MINER; propose-only,
-      HITL via `iris behaviors`, never auto-written)."
+      and propose recurring habits for review (opt-in EVARNESS_BEHAVIOR_MINER; propose-only,
+      HITL via `evarness behaviors`, never auto-written)."
     enabled: true
     params: {}
 
@@ -98,8 +98,8 @@ heartbeats:
     schedule: "interval:86400"
     description: "Intention rollup (digital-twin layer 3) — aggregate open tasks,
       routines, confirmed habits, and steering signals into higher-level goals the user
-      is working toward (opt-in IRIS_INTENTION_ROLLUP; propose-only, HITL via
-      `iris intentions`, approved goals become ACTIVE identity items)."
+      is working toward (opt-in EVARNESS_INTENTION_ROLLUP; propose-only, HITL via
+      `evarness intentions`, approved goals become ACTIVE identity items)."
     enabled: true
     params: {}
 
@@ -117,7 +117,7 @@ heartbeats:
     schedule: "interval:43200"
     description: "Sandbox replay-eval pre-flight (ADR-0070): replay a frozen workload
       through an ISOLATED eval runtime under baseline vs a promoted experiment's
-      variant and stamp the verdict. Opt-in IRIS_SANDBOX_PREFLIGHT (off by default;
+      variant and stamp the verdict. Opt-in EVARNESS_SANDBOX_PREFLIGHT (off by default;
       builds a runtime + runs local LLMs); never applies the change."
     enabled: true
     params: {}
@@ -160,7 +160,7 @@ heartbeats:
   - name: email_sweep
     handler: email_sweep
     plugin: email_workflows
-    # 06:15, 12:15 and 18:15 in the owner's zone (IRIS_TZ; the scheduler reads cron in
+    # 06:15, 12:15 and 18:15 in the owner's zone (EVARNESS_TZ; the scheduler reads cron in
     # it). Loop-proof PR 5: new mail is invisible until the email judge has read it, so
     # the sweep only needs to run just before each judge run.
     schedule: "15 6,12,18 * * *"
@@ -178,14 +178,14 @@ heartbeats:
   - name: email_judge
     handler: email_judge
     plugin: email_workflows
-    # Fifteen minutes after each sweep, in the owner's zone (IRIS_TZ).
+    # Fifteen minutes after each sweep, in the owner's zone (EVARNESS_TZ).
     schedule: "30 6,12,18 * * *"
-    description: "Judge the waiting email oldest first, up to IRIS_EMAIL_JUDGE_MAX
+    description: "Judge the waiting email oldest first, up to EVARNESS_EMAIL_JUDGE_MAX
       (100) per run, on the Mac's email_judge model only (never another model or the
       cloud): one bucket each (Bill, Event, Needs reply, FYI, Unsure), then release
-      it to the rest of IRIS as email.new_arrived and label it IRIS/* in Gmail. The Mac
+      it to the rest of Evarness as email.new_arrived and label it Evarness/* in Gmail. The Mac
       unreachable stops the run; the rest waits for the next one. Off-switch:
-      IRIS_EMAIL_JUDGE=0 (new email then waits, hidden)."
+      EVARNESS_EMAIL_JUDGE=0 (new email then waits, hidden)."
     # The Mac asleep or restarting at a slot skips the run; retry every 30 min until
     # it answers, instead of leaving the mail hidden until the next slot (2026-09-28:
     # the Mac restarted at 18:21, the 18:30 run timed out, 5 emails waited overnight).
@@ -199,7 +199,7 @@ heartbeats:
     schedule: "interval:1800"
     description: "Fill the semantic email index with mail it lacks (from before it
       existed, or indexed by an older version), newest first, at most max_per_run per
-      run. New mail is indexed as it arrives. Off-switch: IRIS_EMAIL_SEMANTIC_SEARCH=0
+      run. New mail is indexed as it arrives. Off-switch: EVARNESS_EMAIL_SEMANTIC_SEARCH=0
       (ADR-0121 PR 4)."
     enabled: true
     params:
@@ -212,7 +212,7 @@ heartbeats:
     description: "Daily statement ingestion across ALL connected inboxes (e.g. an
       INR inbox + a USD inbox), then extraction of new pendings — so net worth and
       dues stay fresh without a manual statement-ingest run. Currency follows the
-      matched institution (ADR-0007). Off-switch: IRIS_FINANCE_AUTO_INGEST=0."
+      matched institution (ADR-0007). Off-switch: EVARNESS_FINANCE_AUTO_INGEST=0."
     enabled: true
     params: {}
 
@@ -268,7 +268,7 @@ heartbeats:
     schedule: "45 4 * * *"
     description: "Daily 4:45 AM image enrichment over cataloged photos/images:
       deterministic screenshot detection always runs; local model classification
-      runs only when IRIS_FM_VISION is enabled. Writes tags/caption/content_type
+      runs only when EVARNESS_FM_VISION is enabled. Writes tags/caption/content_type
       facets without changing classification."
     enabled: true
     params: {}
@@ -311,8 +311,8 @@ heartbeats:
     description: "Sample runtime health (services, credentials, hardware) into a
       cached HealthSnapshot for the system_health tool, GET /health, and the Web
       UI banner. Local + zero-egress by default; the network credential
-      refresh-probe is opt-in via IRIS_HEALTH_NET_PROBE. Kill-switch:
-      IRIS_HEALTH_ENABLED=0. Per ADR-0069."
+      refresh-probe is opt-in via EVARNESS_HEALTH_NET_PROBE. Kill-switch:
+      EVARNESS_HEALTH_ENABLED=0. Per ADR-0069."
     enabled: true
     params: {}
 
@@ -321,7 +321,7 @@ heartbeats:
     schedule: "interval:43200"
     description: "Proactive mission auto-creation — mine recurring episodic patterns
       into PENDING mission proposals surfaced in the Action Center for approval
-      (propose-not-act, HITL). Inert unless IRIS_MISSION_AUTOCREATE=1. Never runs a
+      (propose-not-act, HITL). Inert unless EVARNESS_MISSION_AUTOCREATE=1. Never runs a
       mission. The reactive trigger (multi-step chat goals) lives in the chat path."
     enabled: true
     params: {}

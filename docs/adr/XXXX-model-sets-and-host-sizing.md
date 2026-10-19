@@ -1,4 +1,4 @@
-# ADR-XXXX: Model sets sized to the host, chosen by `iris doctor`
+# ADR-XXXX: Model sets sized to the host, chosen by `evarness doctor`
 
 - Status: **Draft** (number and final location to be assigned in the private tree)
 - Date: 2026-10-16; decision 7 measured and the `lite` judge changed 2026-10-17
@@ -10,7 +10,7 @@
 The public product is the email assistant. Its minimum machine today is **16 GB of RAM**
 (`doctor.yaml` `ram.floor_gb`) and a **4.7 GB starter pull** (`qwen2.5:7b-instruct`).
 A tester with a current Windows laptop (Core Ultra 7, 32 GB) reported a 10-minute
-`pip install "iris-harness[email]"`; a user with 8 or 16 GB cannot run their own mail at
+`pip install "evarness[email]"`; a user with 8 or 16 GB cannot run their own mail at
 all. The goal of this ADR is that a user with a decent laptop can try the harness
 quickly, without taking anything away from a user with a big laptop or a GPU.
 
@@ -29,7 +29,7 @@ the problem.
 
 Three mechanisms already exist and are reused rather than duplicated:
 
-1. **`iris doctor`** reads the host (`platform.system/machine`, `ram_total_bytes`;
+1. **`evarness doctor`** reads the host (`platform.system/machine`, `ram_total_bytes`;
    `services/system/doctor.py:243-257`) and checks it against `doctor.yaml`. Today it
    answers yes/no; it does not answer *which size*.
 2. **Tier edits (ADR-0120, `llm/tier_edits.py`)** lay owner overrides for
@@ -37,7 +37,7 @@ Three mechanisms already exist and are reused rather than duplicated:
    `llm_tiers.yaml` from the settings store (section `llm_tiers`, keys `tier:<name>`).
    A deploy does not clobber them; only the fields that differ are stored.
 3. **`ResourceGovernor` (`llm/arbiter.py:266`)** downshifts to `tier1` at run time under
-   RAM or thermal pressure (opt-in, `IRIS_ADAPTIVE_TIERS=1`). That is moment-to-moment
+   RAM or thermal pressure (opt-in, `EVARNESS_ADAPTIVE_TIERS=1`). That is moment-to-moment
    pressure, not install-time sizing; the two must stay distinct.
 
 Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
@@ -78,13 +78,13 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
    then applied only when forced. Everything `lite` changes is now measured (decision
    7), so it is automatic: an 8-16 GB host lands on it without being asked.
 
-2. **`iris doctor` picks the largest set the host satisfies and says why.**
+2. **`evarness doctor` picks the largest set the host satisfies and says why.**
    `fits_when` is a conjunction of minimums; sets are ordered smallest to largest and
    the last one that fits wins. The report gains a line:
 
-   > Model set: lite (15.6 GB RAM, no GPU detected). Override: `iris doctor --model-set standard`
+   > Model set: lite (15.6 GB RAM, no GPU detected). Override: `evarness doctor --model-set standard`
 
-   `iris doctor --fix` pulls *that set's* `starter_models` and writes its `tiers` as tier
+   `evarness doctor --fix` pulls *that set's* `starter_models` and writes its `tiers` as tier
    edits. Nobody is pushed down: a 32 GB laptop or a GPU host lands on `standard` or
    `full` without being asked.
 
@@ -96,8 +96,8 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 4. **The choice is applied through tier edits (ADR-0120), not by rewriting the YAML.**
    Rationale: the mechanism exists, it survives upgrades, the owner can still change one
    tier in the app afterwards, and the app's existing guard on provider changes keeps
-   working. `iris doctor --model-set <name>` forces a set and is recorded in the same
-   section under a new key `model_set` so `iris system status` can print which set is
+   working. `evarness doctor --model-set <name>` forces a set and is recorded in the same
+   section under a new key `model_set` so `evarness system status` can print which set is
    active and whether it was chosen or forced.
 
 5. **The runtime governor is unchanged and stacks on top.** A `lite` host under thermal
@@ -118,7 +118,7 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
    *The judge, measured 2026-10-17.* The 50 holdout emails were judged from their stored
    sender, subject and snippet, through `judge_one` (the real `judge.yaml` prompt and the
-   governed schema-constrained Ollama call), in a throwaway `IRIS_HOME`. The holdout's
+   governed schema-constrained Ollama call), in a throwaway `EVARNESS_HOME`. The holdout's
    labels are category roots, not buckets, so the score is agreement with the shipped
    judge, read against the bucket definitions where the root makes the answer plain.
 
@@ -196,13 +196,13 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 
 1. A user on an 8-16 GB machine gets a working email assistant with a 4.5 GB pull and
    about 5 GB resident with the router and the one 4B model warm, instead of a refusal,
-   and `iris doctor` picks it without being asked. Both sets list the judge's model among
-   their starters (`standard` did not at first; `iris email setup` stops without it, and
+   and `evarness doctor` picks it without being asked. Both sets list the judge's model among
+   their starters (`standard` did not at first; `evarness email setup` stops without it, and
    every page told the owner to pull it by hand), so `--fix` leaves nothing to pull. A user
    on a big machine sees no change beyond that pull.
 2. `doctor.yaml` gains a schema (`model_sets`, `fits_when`, per-set `starter_models`);
    `services/system/doctor.py` gains host sizing and a `--model-set` flag; `tier_edits`
-   gains the `model_set` key; `iris system status` prints the set. Tests:
+   gains the `model_set` key; `evarness system status` prints the set. Tests:
    `tests/unit/.../test_doctor*` for the selection order and the override,
    `test_tier_edits.py` for the new key.
 3. `lite` judges exactly as `standard` does (decision 7); what it may lose is tier 2
@@ -260,7 +260,7 @@ Profiles (`config/profiles/*.yaml`) are **plugin sets** (`default`, `email`,
 2. **Thresholds.** 8 / 16 / 32 GB and 16 GB VRAM are proposals. They should be set from
    what the sets actually need resident (judge + tier 2 + context), measured, not from
    round numbers.
-3. **Surfacing the model.** Should the digest and `iris email` surfaces print the judging
+3. **Surfacing the model.** Should the digest and `evarness email` surfaces print the judging
    model when the owner is on a set other than `standard`, so a re-judge after changing
    sets is understood?
 4. **Naming.** "lite / standard / full" are working names. "lite" reads as a lesser

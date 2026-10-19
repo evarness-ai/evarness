@@ -42,19 +42,19 @@ The scripted model (`SCRIPT` in the test) is plain data: each rule matches what 
 loop sends and answers as a model would -- JSON for the router, an `Action:` to call a
 tool, a `Final Answer:` to finish.
 
-## Use it in your IRIS
+## Use it in your Evarness
 
 ```bash
-cp -r examples/02-governed-tool ~/.iris/plugins/noticeboard
+cp -r examples/02-governed-tool ~/.evarness/plugins/noticeboard
 ```
 
 ```yaml
-# ~/.iris/profile.yaml
+# ~/.evarness/profile.yaml
 plugins:
   - name: noticeboard
 ```
 
-Then ask `iris -p "Remove the dentist note"` and approve it with `iris approvals`, on
+Then ask `evarness -p "Remove the dentist note"` and approve it with `evarness approvals`, on
 the web Governance screen or on Telegram.
 
 ## Try changing

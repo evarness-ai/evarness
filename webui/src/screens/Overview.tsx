@@ -116,7 +116,7 @@ function LearningCard() {
     return (
       <Card title="Self-learning">
         <Notice>
-          Metrics disabled. Set <span className="font-mono">IRIS_OBSERVABILITY_METRICS_ENABLED=1</span>{" "}
+          Metrics disabled. Set <span className="font-mono">EVARNESS_OBSERVABILITY_METRICS_ENABLED=1</span>{" "}
           to surface LLM + learning health.
         </Notice>
       </Card>

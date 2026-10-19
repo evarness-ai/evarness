@@ -6,11 +6,11 @@ description: |
   uses Tier 3 local — user-invoked per ADR-0022's "Tier 3 only on demand"
   stance. Auto-resolution of existing followups runs continuously on
   email.new_arrived (no LLM call).
-author: iris-personal-assistant
+author: evarness-personal-assistant
 license: Apache-2.0
 default_enabled: true
 trust_level: first-party
-homepage: https://github.com/evarness-ai/iris-harness
+homepage: https://github.com/evarness-ai/evarness
 tools:
   - name: detect_followups
     description: |

@@ -2,16 +2,16 @@
 
 # CLI reference
 
-The stable commands: the ones `src/iris_harness/sdk/stable_tier.yaml` lists. They
-change only after a deprecation cycle ([Stable API](stable-api.md)). `iris --help`
+The stable commands: the ones `src/evarness/sdk/stable_tier.yaml` lists. They
+change only after a deprecation cycle ([Stable API](stable-api.md)). `evarness --help`
 lists every other command; those are internal and may change in any release.
 
-## `iris doctor`
+## `evarness doctor`
 
-Preflight: can IRIS run on this machine, and what to fix if not.
+Preflight: can Evarness run on this machine, and what to fix if not.
 
 ```text
-iris doctor [OPTIONS]
+evarness doctor [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
@@ -22,44 +22,44 @@ iris doctor [OPTIONS]
 | `--model-set` | TEXT |  | Size the report to this model set (config/doctor.yaml: lite, standard) instead of the one the host fits; --fix applies it. |
 | `--help` | flag |  | Show the command's help and exit. |
 
-## `iris serve`
+## `evarness serve`
 
-Run the IRIS API in the foreground: the scheduled jobs and the web console.
+Run the Evarness API in the foreground: the scheduled jobs and the web console.
 
 ```text
-iris serve [OPTIONS]
+evarness serve [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `--host` | TEXT | `127.0.0.1` | Address to bind (env IRIS_API_HOST). Anything but loopback is reachable from other machines, and the command warns. |
-| `--port` | INTEGER RANGE | `8003` | Port to listen on (env IRIS_API_PORT). |
+| `--host` | TEXT | `127.0.0.1` | Address to bind (env EVARNESS_API_HOST). Anything but loopback is reachable from other machines, and the command warns. |
+| `--port` | INTEGER RANGE | `8003` | Port to listen on (env EVARNESS_API_PORT). |
 | `--help` | flag |  | Show the command's help and exit. |
 
-## `iris email demo`
+## `evarness email demo`
 
-Try IRIS on a synthetic mailbox: fetch, judge, first digest. Offline, no credentials.
+Try Evarness on a synthetic mailbox: fetch, judge, first digest. Offline, no credentials.
 
 Runs in an isolated demo home with a scripted demo model (no model server needed),
-then prints the digest and what IRIS did, audit rows included. Re-running is safe.
+then prints the digest and what Evarness did, audit rows included. Re-running is safe.
 
 ```text
-iris email demo [OPTIONS]
+evarness email demo [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
 |---|---|---|---|
-| `--home` | PATH |  | The demo's own IRIS home (default: $IRIS_DEMO_HOME, else ~/.iris-demo). Never your real profile. |
+| `--home` | PATH |  | The demo's own Evarness home (default: $EVARNESS_DEMO_HOME, else ~/.evarness-demo). Never your real profile. |
 | `--reset` | flag |  | Delete the demo home first and start over. |
 | `--help` | flag |  | Show the command's help and exit. |
 
-## `iris email setup`
+## `evarness email setup`
 
 Set up email, step by step: connect, fetch, discover categories, classify, preview
 and approve labels, first digest, review queue, keep it current. Resumable.
 
 ```text
-iris email setup [OPTIONS]
+evarness email setup [OPTIONS]
 ```
 
 | Option | Type | Default | Description |
@@ -67,18 +67,18 @@ iris email setup [OPTIONS]
 | `--account` | TEXT |  | The account to set up (provider:address). |
 | `--provider` | TEXT |  | With no --account: 'demo' sets up the synthetic mailbox (inside a demo home only). |
 | `--yes`, `-y` | flag |  | Take every default without asking, except mailbox writes (those need --approve-writes). |
-| `--approve-writes` | flag |  | Approve the label preview: let IRIS label mail in this account. |
+| `--approve-writes` | flag |  | Approve the label preview: let Evarness label mail in this account. |
 | `--decline-writes` | flag |  | Decline it: keep the mailbox read-only. |
 | `--restart` | flag |  | Forget this account's setup and start over (fetched mail, judgments, categories and approvals stay). |
 | `--status` | flag |  | Show where setup stands; change nothing. |
 | `--help` | flag |  | Show the command's help and exit. |
 
-## `iris email writes approve`
+## `evarness email writes approve`
 
-Allow IRIS to change this mailbox: labels, moves to Trash, restores.
+Allow Evarness to change this mailbox: labels, moves to Trash, restores.
 
 ```text
-iris email writes approve [OPTIONS]
+evarness email writes approve [OPTIONS]
 ```
 
 | Option | Type | Default | Description |

@@ -14,18 +14,18 @@ import '@xyflow/react/dist/style.css';
 
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Card, Kpi } from '../components/Card';
-import { IRISNode } from '../components/IRISNode';
+import { EvarnessNode } from '../components/EvarnessNode';
 import { GovernanceTimeline } from '../components/GovernanceTimeline';
 import { NodeDetail } from '../components/NodeDetail';
 import { Reasoning } from '../components/Reasoning';
 import { Replay } from '../components/Replay';
 import { Waterfall } from '../components/Waterfall';
-import { buildGraph, type Direction, type IRISNodeData } from '../lib/layout';
+import { buildGraph, type Direction, type EvarnessNodeData } from '../lib/layout';
 import { fmtMs } from '../lib/nodeMeta';
 import { useTrace, useTraces } from '../lib/queries';
 import { ApiUnavailable } from '../components/control/parts';
 
-const nodeTypes = { iris: IRISNode };
+const nodeTypes = { evarness: EvarnessNode };
 
 function Toggle({
   options,
@@ -78,9 +78,9 @@ export function CallTraceScreen() {
   const [step, setStep] = useState(0);
   const [speed, setSpeed] = useState(1.5);
 
-  const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node<IRISNodeData>>([]);
+  const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node<EvarnessNodeData>>([]);
   const [rfEdges, setRfEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const rfi = useRef<ReactFlowInstance<Node<IRISNodeData>, Edge> | null>(null);
+  const rfi = useRef<ReactFlowInstance<Node<EvarnessNodeData>, Edge> | null>(null);
 
   // No trace in the URL → redirect to the newest (deep-linkable default).
   useEffect(() => {
@@ -214,7 +214,7 @@ export function CallTraceScreen() {
         <Card title="No turns traced yet">
           <p className="text-sm text-fg-muted">
             Every chat turn is traced here: each model call, tool call and governance
-            decision, in order, with where it ran. Ask IRIS something in Chat, then come back.
+            decision, in order, with where it ran. Ask Evarness something in Chat, then come back.
           </p>
           <Link
             to="/chat"

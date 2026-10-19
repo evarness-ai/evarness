@@ -30,25 +30,25 @@ from typing import Any
 from scenarios.common import REPO_ROOT, ScenarioRecord, Timer
 
 ACCOUNT_ID = "gmail:user@example.com"
-WORKSPACE = Path.home() / ".iris" / "workspace"
-AUDIT_DB = Path.home() / ".local" / "share" / "iris" / "audit.db"
+WORKSPACE = Path.home() / ".evarness" / "workspace"
+AUDIT_DB = Path.home() / ".local" / "share" / "evarness" / "audit.db"
 MAX_SYNC = 50
 TRIAGE_LIMIT = 50
 
 
 def _classifier() -> Any:
-    from iris_harness.email.triage import EmailTriageClassifier
+    from evarness.email.triage import EmailTriageClassifier
 
     return EmailTriageClassifier(
         workspace_dir=WORKSPACE,
-        db_path=REPO_ROOT / "data" / "iris.db",
+        db_path=REPO_ROOT / "data" / "evarness.db",
         email_db_path=REPO_ROOT / "data" / "email.db",
     )
 
 
 def run_live_sync() -> list[ScenarioRecord]:
-    from iris_harness.email.gmail_fetch import fetch_new_emails
-    from iris_harness.email.store import EmailStore
+    from evarness.email.gmail_fetch import fetch_new_emails
+    from evarness.email.store import EmailStore
 
     store = EmailStore(db_path=REPO_ROOT / "data" / "email.db")
     try:
@@ -63,7 +63,7 @@ def run_live_sync() -> list[ScenarioRecord]:
                 expected=f"read-only sync, <= {MAX_SYNC} messages",
                 actual=f"{type(exc).__name__}: {str(exc)[:140]}",
                 latency_ms=0.0,
-                detail={"remediation": "iris auth gmail login --user <address>"},
+                detail={"remediation": "evarness auth gmail login --user <address>"},
             )
         ]
     return [
@@ -83,7 +83,7 @@ def run_live_sync() -> list[ScenarioRecord]:
 
 
 def run_live_triage() -> list[ScenarioRecord]:
-    from iris_harness.email.store import EmailStore
+    from evarness.email.store import EmailStore
 
     classifier = _classifier()
     store = EmailStore(db_path=REPO_ROOT / "data" / "email.db")
@@ -123,8 +123,8 @@ def run_live_triage() -> list[ScenarioRecord]:
 
 
 def run_holdout() -> list[ScenarioRecord]:
-    from iris_harness.email.holdout import holdout_path, load_holdout
-    from iris_harness.skills.contracts.email import EmailMessage
+    from evarness.email.holdout import holdout_path, load_holdout
+    from evarness.skills.contracts.email import EmailMessage
 
     classifier = _classifier()
     classifier.load_categories(ACCOUNT_ID)

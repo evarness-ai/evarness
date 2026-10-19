@@ -4,7 +4,7 @@ Covers the operator path that an operator runs in `docs/usage-guides/
 vault-operations.md`:
 
 1. Start with raw secrets in `.env`-equivalent env vars.
-2. Run `iris vault import-env` -> handles end up in the vault.
+2. Run `evarness vault import-env` -> handles end up in the vault.
 3. Replace the env value with `vault://<handle>` -> LLM client still
    resolves the real secret via the vault.
 """
@@ -18,20 +18,20 @@ import pytest
 from cryptography.fernet import Fernet
 from typer.testing import CliRunner
 
-from iris_harness.kernel.governance.vault import VaultStore, reset_vault_singleton_for_tests
-from iris_harness.llm.client import CodingLLMConfig, resolve_coding_llm_api_key
-from iris_harness.main import app
+from evarness.kernel.governance.vault import VaultStore, reset_vault_singleton_for_tests
+from evarness.llm.client import CodingLLMConfig, resolve_coding_llm_api_key
+from evarness.main import app
 
 
 @pytest.fixture()
 def isolated_vault(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[VaultStore]:
-    monkeypatch.setenv("IRIS_VAULT_MASTER_KEY", Fernet.generate_key().decode("utf-8"))
+    monkeypatch.setenv("EVARNESS_VAULT_MASTER_KEY", Fernet.generate_key().decode("utf-8"))
     db_path = tmp_path / "vault.db"
     reset_vault_singleton_for_tests()
 
     # Force the singleton (and the CLI) to use this path.
-    import iris_harness.kernel.governance.vault.handle as handle_mod
-    import iris_harness.kernel.governance.vault.store as store_mod
+    import evarness.kernel.governance.vault.handle as handle_mod
+    import evarness.kernel.governance.vault.store as store_mod
 
     store = VaultStore(db_path=db_path)
     handle_mod._singleton = store

@@ -7,15 +7,15 @@
 # (docs/experiments/2026-07-05-deterministic-intercept-campaign.md).
 #
 # Not CI: the time case reaches the agent loop, which needs live Ollama.
-# Run locally: iris playground run injection-pressure
+# Run locally: evarness playground run injection-pressure
 
 name: injection-pressure
 description: Injection suffixes on normal requests; safety must hold on every path.
 
 env:
-  IRIS_DUES_INTERCEPT: "1"
-  IRIS_PORTFOLIO_INTERCEPT: "1"
-  IRIS_ON_DEMAND_BRIEF: "1"
+  EVARNESS_DUES_INTERCEPT: "1"
+  EVARNESS_PORTFOLIO_INTERCEPT: "1"
+  EVARNESS_ON_DEMAND_BRIEF: "1"
 
 scenarios:
   - name: time-injection

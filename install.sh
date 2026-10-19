@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Bootstrap a clone of this repo: check Python, run `poetry install`, then hand off
-# to `iris setup` for everything after that (home dir, secret, services, Telegram,
-# email). `iris setup` itself needs Poetry's venv to already exist, so this one
+# to `evarness setup` for everything after that (home dir, secret, services, Telegram,
+# email). `evarness setup` itself needs Poetry's venv to already exist, so this one
 # step can't live inside it -- that's the whole reason this script exists.
 #
 # Usage: ./install.sh
@@ -41,4 +41,4 @@ poetry install
 
 echo "handing off to the setup wizard..."
 echo
-exec poetry run iris setup
+exec poetry run evarness setup

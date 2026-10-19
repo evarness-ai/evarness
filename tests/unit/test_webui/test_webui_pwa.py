@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.server.iris_api.static_ui import ROOT_FILES
+from evarness.server.harness_api.static_ui import ROOT_FILES
 
 ROOT = Path(__file__).resolve().parents[3]
 PUBLIC = ROOT / "webui" / "public"

@@ -1,6 +1,6 @@
 # Plugins and profiles
 
-The core of IRIS is mechanisms: the turn pipeline, the agentic loop, the governance
+The core of Evarness is mechanisms: the turn pipeline, the agentic loop, the governance
 kernel, the scheduler, memory. Everything that knows about a particular app, data
 source or delivery surface is a plugin, the email assistant included.
 
@@ -8,13 +8,13 @@ source or delivery surface is a plugin, the email assistant included.
 
 A plugin's `setup(api)` registers what it adds (deterministic handlers, tools, agents,
 heartbeats, channels, approval executors) through `PluginAPI`, the plugin SDK
-(`src/iris_harness/sdk/`). Each registration lands on the same machinery the core
+(`src/evarness/sdk/`). Each registration lands on the same machinery the core
 uses: a plugin tool joins the same ReAct tool pool and runs through the same
 `pre_tool_use` path; an agent runs on the same executor; a heartbeat on the same
 scheduler; a channel on the same gateway. There is no side door, so there is nothing
 extra to govern.
 
-A plugin runs in the IRIS process (`trust: in-process`). That is a contract, not a
+A plugin runs in the Evarness process (`trust: in-process`). That is a contract, not a
 sandbox: the plugin imports only the [stable API](../reference/stable-api.md), and an
 import-linter contract holds the reference plugins to it.
 
@@ -52,22 +52,22 @@ shipped ones:
 | `default` | `minimal` plus the reference plugins: Telegram, web and web-push channels, `research`, `code_exec`. |
 | `email` | `default` plus the email assistant: the `gmail` and `imap` providers (each optional) and `email_workflows`. |
 
-`IRIS_PROFILE` picks one. Unset, IRIS runs `email` when the email plugins are installed
-and loadable, otherwise `default`. Your own `$IRIS_HOME/profile.yaml` layers on top
-(add plugins, change the handler order), and `IRIS_PLUGINS_DISABLE=a,b` /
-`IRIS_PLUGINS_ENABLE=c,d` override both. `iris --dump-config` prints the result without
+`EVARNESS_PROFILE` picks one. Unset, Evarness runs `email` when the email plugins are installed
+and loadable, otherwise `default`. Your own `$EVARNESS_HOME/profile.yaml` layers on top
+(add plugins, change the handler order), and `EVARNESS_PLUGINS_DISABLE=a,b` /
+`EVARNESS_PLUGINS_ENABLE=c,d` override both. `evarness --dump-config` prints the result without
 starting anything.
 
 ## Discovery
 
-1. **Built in**: `iris_harness.plugins_builtin.<name>`.
-2. **Installed**: a package with an entry point in the `iris_harness.plugins` group
-   (what `iris plugins new` scaffolds).
-3. **Home**: `$IRIS_HOME/plugins/<name>/manifest.yaml`, no packaging needed.
+1. **Built in**: `evarness.plugins_builtin.<name>`.
+2. **Installed**: a package with an entry point in the `evarness.plugins` group
+   (what `evarness plugins new` scaffolds).
+3. **Home**: `$EVARNESS_HOME/plugins/<name>/manifest.yaml`, no packaging needed.
 
 ## Failure stays local
 
 Every registration runs inside one fault boundary. A plugin whose requirements are not
 met is not loaded; one that fails at setup or at run time is recorded against its name
 and shows as a yellow (degraded) or red (failed) `plugin:<name>` row in System Health
-(the `system_health` tool, `GET /health`, the web console's Health screen). The rest of IRIS keeps running.
+(the `system_health` tool, `GET /health`, the web console's Health screen). The rest of Evarness keeps running.

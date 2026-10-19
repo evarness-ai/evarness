@@ -1,6 +1,6 @@
 /* RAG document client (Phase 4).
  *
- * Wraps the new IRIS API endpoints: POST /rag/upload (multipart → ingest +
+ * Wraps the new Evarness API endpoints: POST /rag/upload (multipart → ingest +
  * register in the FileManager catalog, ADR-0066), GET /rag/documents (catalog
  * listing, owner_module=rag), POST /rag/search (vector search with keyword
  * fallback). Read + a single create (upload); no delete in this phase. */
@@ -86,12 +86,12 @@ export interface RagDeleteResult {
   file_removed: boolean;
 }
 
-/** De-index a document; only deletes on-disk bytes IRIS itself created (ADR-0067). */
+/** De-index a document; only deletes on-disk bytes Evarness itself created (ADR-0067). */
 export async function deleteRagDocument(fileId: string): Promise<RagDeleteResult> {
   const r = await apiFetch(`/rag/documents/${encodeURIComponent(fileId)}`, { method: "DELETE" });
   if (!r.ok) throw new Error(await detail(r));
   return (await r.json()) as RagDeleteResult;
 }
 
-/** Extensions the backend accepts (mirrors RAG_SUPPORTED_SUFFIXES in iris_api). */
+/** Extensions the backend accepts (mirrors RAG_SUPPORTED_SUFFIXES in harness_api). */
 export const RAG_ACCEPT = ".md,.markdown,.txt,.text,.pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp,.docx";

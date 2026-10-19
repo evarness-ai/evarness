@@ -80,7 +80,7 @@ export function ChatMoreMenu({
 
           <div className="px-2 py-1.5 font-mono text-[10.5px] leading-relaxed text-fg-subtle">
             <div>
-              IRIS v{chatStatus?.iris_version ?? "-"} · session {session}
+              Evarness v{chatStatus?.evarness_version ?? "-"} · session {session}
             </div>
             <div>
               {chatStatus?.provider ?? "-"} · {chatStatus?.model ?? "-"}

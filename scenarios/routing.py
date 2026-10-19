@@ -25,13 +25,13 @@ def load_golden() -> list[dict[str, Any]]:
 
 
 def _build_classifier(mode: str) -> Any:
-    from iris_harness.agent.intent_router import KeywordClassifier, LLMRouterClassifier
+    from evarness.agent.intent_router import KeywordClassifier, LLMRouterClassifier
 
     if mode == "keyword":
         return KeywordClassifier()
     if mode == "llm":
-        from iris_harness.llm.client import CodingLLMClient
-        from iris_harness.llm.tier_router import TierRouter
+        from evarness.llm.client import CodingLLMClient
+        from evarness.llm.tier_router import TierRouter
 
         router = TierRouter.load_from_yaml(REPO_ROOT / "config" / "llm_tiers.yaml")
         cfg = router.get_llm_config("intent_classification")

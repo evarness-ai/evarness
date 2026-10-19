@@ -8,13 +8,13 @@
 # - rules: the regex rules, in order. Each `pattern` is a list of regex fragments that
 #   are joined with nothing in between (like adjacent Python string literals), matched
 #   with re.search against the lower-cased message. `agent` is stated per rule: the
-#   keyword path never remaps (search stays on `system` even with IRIS_RESEARCH_AGENT
+#   keyword path never remaps (search stays on `system` even with EVARNESS_RESEARCH_AGENT
 #   on). Order matters: earlier rules win, and several comments below say why.
 #
 # These were the Python list _KEYWORD_RULES until 2026-09-28, moved here verbatim
 # (every pattern byte-identical; 4,223 messages routed the same before and after).
 # Tunable without code (owner rule 2026-09-13: vocabulary lives in YAML, never in
-# code). An IRIS_CONFIG_DIR without this file falls back to the shipped copy; a
+# code). An EVARNESS_CONFIG_DIR without this file falls back to the shipped copy; a
 # broken file (bad YAML, a bad regex, an unknown intent) is refused at load with an
 # error naming the rule, never silently skipped.
 pre_rules:
@@ -52,7 +52,7 @@ rules:
   - intent: profile_query
     agent: system
     # "do you know (about) my <thing>", "did I tell you my <thing>" — a recall of
-    # something the user told IRIS about themselves; answer from stored facts, not
+    # something the user told Evarness about themselves; answer from stored facts, not
     # a web guess (issue 0020). Calendar/temporal nouns are excluded (they route
     # to the calendar agent).
     # NB: the gerund lookahead keeps "who am I meeting/seeing tomorrow"

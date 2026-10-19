@@ -14,7 +14,7 @@ function govH(verbose: boolean): number {
   return verbose ? 80 : 58;
 }
 
-export interface IRISNodeData extends Record<string, unknown> {
+export interface EvarnessNodeData extends Record<string, unknown> {
   trace: Trace['nodes'][number];
   active: boolean; // currently firing (replay)
   revealed: boolean; // already reached by the playhead (replay)
@@ -41,7 +41,7 @@ export function edgeLabel(e: Trace['edges'][number]): string | undefined {
  * Lay the trace out with dagre. Direction TB (top→bottom) or LR (left→right);
  * deterministic — same (trace, dir, verbose) -> same coordinates.
  */
-export function buildGraph(trace: Trace, opts: BuildOpts): { nodes: Node<IRISNodeData>[]; edges: Edge[] } {
+export function buildGraph(trace: Trace, opts: BuildOpts): { nodes: Node<EvarnessNodeData>[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph();
   g.setGraph({ rankdir: opts.dir, nodesep: 48, ranksep: opts.dir === 'LR' ? 90 : 64, marginx: 24, marginy: 24 });
   g.setDefaultEdgeLabel(() => ({}));
@@ -59,14 +59,14 @@ export function buildGraph(trace: Trace, opts: BuildOpts): { nodes: Node<IRISNod
 
   dagre.layout(g);
 
-  const nodes: Node<IRISNodeData>[] = trace.nodes.map((n) => {
+  const nodes: Node<EvarnessNodeData>[] = trace.nodes.map((n) => {
     const pos = g.node(n.id);
     const gov = n.kind === 'governance';
     const w = gov ? GOV_W : NODE_W;
     const hh = gov ? gh : h;
     return {
       id: n.id,
-      type: 'iris',
+      type: 'evarness',
       position: { x: pos.x - w / 2, y: pos.y - hh / 2 },
       data: {
         trace: n,

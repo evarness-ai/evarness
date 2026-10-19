@@ -12,17 +12,17 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.playground.models import Scenario, ScenarioExpectation, ScenarioSuite
-from iris_harness.playground.runner import PlaygroundRunner
-from iris_harness.runtime import build_runtime
+from evarness.playground.models import Scenario, ScenarioExpectation, ScenarioSuite
+from evarness.playground.runner import PlaygroundRunner
+from evarness.runtime import build_runtime
 
 pytestmark = pytest.mark.smoke
 
 
 @pytest.fixture()
 def runtime(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
-    monkeypatch.setenv("IRIS_DISABLE_WARMUP", "1")
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
+    monkeypatch.setenv("EVARNESS_DISABLE_WARMUP", "1")
     config_dir = tmp_path / "config"
     data_dir = tmp_path / "data"
     config_dir.mkdir(exist_ok=True)

@@ -1,6 +1,6 @@
 /* Read-only control-surface client (Phase 3).
  *
- * Thin typed wrappers over the IRIS API's operator endpoints — LLM mode +
+ * Thin typed wrappers over the Evarness API's operator endpoints — LLM mode +
  * pressure, self-learning metrics, routines, heartbeats. All GET / read-only;
  * UI-driven writes (approve a routine, pin a mode, trigger a heartbeat) come in
  * a later phase behind the approval flow. Like the trace/session client these
@@ -11,7 +11,7 @@ import { apiFetch } from "./http";
 export interface Capabilities {
   writes_enabled: boolean;
   feedback_capture?: boolean;
-  /* IRIS_DEPLOYMENT_LABEL on the server; "" when unset (or absent on an older API). */
+  /* EVARNESS_DEPLOYMENT_LABEL on the server; "" when unset (or absent on an older API). */
   deployment_label?: string;
 }
 
@@ -589,7 +589,7 @@ export const getProofBundleCheck = (days = 7) =>
 //
 // A `require_approval` verdict halts a run and waits for a human. The queue is
 // channel-agnostic and so is the capability behind these two calls — the CLI
-// (`iris approvals`) and the Telegram handler go through the same server-side
+// (`evarness approvals`) and the Telegram handler go through the same server-side
 // function, so answering here does exactly what answering there does.
 
 /** How a destructive-tool approval reads to the owner (ADR-0118 step 4): the plugin's
@@ -742,7 +742,7 @@ export const getFactHistoryRetention = (olderThanDays = 180, limit = 200) =>
     `/memory/history/retention?older_than_days=${olderThanDays}&limit=${limit}`,
   );
 
-/** Prune chosen history entries (terminal). Write-gated by IRIS_WEBUI_ALLOW_WRITES. */
+/** Prune chosen history entries (terminal). Write-gated by EVARNESS_WEBUI_ALLOW_WRITES. */
 export async function pruneFactHistory(entryIds: string[]): Promise<{ removed: number }> {
   const r = await apiFetch("/memory/history/prune", {
     method: "POST",
@@ -789,7 +789,7 @@ export const getContradictions = (includeAcknowledged = false) =>
     `/memory/contradictions?include_acknowledged=${includeAcknowledged}`,
   );
 
-/** Acknowledge reviewed conflicts. Write-gated by IRIS_WEBUI_ALLOW_WRITES. */
+/** Acknowledge reviewed conflicts. Write-gated by EVARNESS_WEBUI_ALLOW_WRITES. */
 export async function ackContradictions(ids: string[]): Promise<{ acknowledged: number }> {
   const r = await apiFetch("/memory/contradictions/ack", {
     method: "POST",
@@ -819,7 +819,7 @@ export interface HealthCheck {
   state: HealthState;
   detail: string;
   endpoint: string | null;
-  /** Exact remediation command for a red check (e.g. `iris auth gmail login`). */
+  /** Exact remediation command for a red check (e.g. `evarness auth gmail login`). */
   action: string | null;
   /** The one thing under `target` the row is about (a Gmail row's account). */
   subject?: string | null;
@@ -922,7 +922,7 @@ export function runHealthWatch(): Promise<HealthWatchPass> {
   return postJSON<HealthWatchPass>("/health/watch");
 }
 
-// ---- System Check (iris doctor's install preflight, OSS plan R5) ---------
+// ---- System Check (evarness doctor's install preflight, OSS plan R5) ---------
 
 export interface DoctorCheck {
   name: string;
@@ -949,14 +949,14 @@ export interface DoctorReport {
   /** Something a fix (a model pull, this screen's one write) could do. */
   fixable: boolean;
   /** The model set the report is sized to (config/doctor.yaml), chosen from the
-   * host's RAM or forced with `iris doctor --model-set`. */
+   * host's RAM or forced with `evarness doctor --model-set`. */
   model_set: {
     name: string;
     description: string;
     fits: boolean;
     forced: boolean;
     reason: string;
-    /** The set `iris doctor --fix` last applied, or null for the file's tiers. */
+    /** The set `evarness doctor --fix` last applied, or null for the file's tiers. */
     recorded: string | null;
     /** `--fix` still has to write this set's tiers. */
     apply_needed: boolean;
@@ -964,7 +964,7 @@ export interface DoctorReport {
   } | null;
 }
 
-/** The same preflight `iris doctor` prints: hardware, Ollama, the starter model,
+/** The same preflight `evarness doctor` prints: hardware, Ollama, the starter model,
  * the vault key. Pure read. */
 export const getDoctorReport = () => getJSON<DoctorReport>("/health/doctor");
 
@@ -974,7 +974,7 @@ export function pullStarterModel(model: string): Promise<{ activity_id: string }
   return postJSON<{ activity_id: string }>("/health/doctor/pull-model", { model });
 }
 
-// ---- Setup (iris setup's own progress) -----------------------------------
+// ---- Setup (evarness setup's own progress) -----------------------------------
 
 export type SetupStepName = "preflight" | "home_secret" | "services" | "telegram" | "email";
 export type SetupStepStatus = "done" | "skipped" | "failed";
@@ -993,7 +993,7 @@ export interface SetupProgress {
   steps: Partial<Record<SetupStepName, SetupStepRecord>>;
 }
 
-/** `iris setup`'s own progress (`$IRIS_HOME/setup.json`), read-only -- running or
+/** `evarness setup`'s own progress (`$EVARNESS_HOME/setup.json`), read-only -- running or
  * resuming a step stays the CLI's. */
 export const getSetupProgress = () => getJSON<SetupProgress>("/health/setup");
 
@@ -1126,7 +1126,7 @@ export function updateTaskStatus(id: string, status: TaskStatus): Promise<void> 
 
 /* The one reminder store (loop-proof D14): GET /api/v1/reminders, and from PR 3b one
  * reminder with Done / Snooze / Undo. `remind_at` is ISO UTC; `remind_at_local` is the
- * owner's zone (IRIS_TZ), ready to show. */
+ * owner's zone (EVARNESS_TZ), ready to show. */
 /** The backend's reminder lifecycle (notifications/models.py ReminderStatus). */
 export type ReminderStatus =
   | "pending"
@@ -1231,7 +1231,7 @@ export interface ReminderActionResult {
   already_paid?: boolean;
 }
 
-/** The reminder is not in the store (deleted, or a link from another IRIS). */
+/** The reminder is not in the store (deleted, or a link from another Evarness). */
 export class ReminderGone extends Error {
   constructor() {
     super("reminder not found");
@@ -1415,7 +1415,7 @@ export async function invokeAction(id: string, answer?: ActionAnswer): Promise<I
   return (await r.json()) as InvokeResult;
 }
 
-/** Mark a surfaced item "not useful" (or useful) so IRIS suppresses similar ones
+/** Mark a surfaced item "not useful" (or useful) so Evarness suppresses similar ones
  * (issue 0028). Records a learning signal only — no external effect — so it is NOT
  * write-gated; a read-only user can still suppress noise. Pass the item's
  * `feedback_ref`. */
@@ -1668,7 +1668,7 @@ export interface OllamaModel {
 }
 
 export interface RuntimeInventory {
-  iris_version: string;
+  evarness_version: string;
   git_branch: string | null;
   git_rev: string | null;
   python_version: string;
@@ -1810,7 +1810,7 @@ export async function promoteRecommendation(index: number): Promise<PromoteResul
   return (await r.json()) as PromoteResult;
 }
 
-/* Digital-twin review surfaces (HITL). Three propose-only layers IRIS builds about
+/* Digital-twin review surfaces (HITL). Three propose-only layers Evarness builds about
  * the user over time: mined habits (behaviors), how the user steers (signals), and
  * rolled-up longitudinal goals (intentions). Reads are open; approve/reject/dismiss
  * are write-gated and close the loop into durable identity layers. */
@@ -2037,7 +2037,7 @@ export async function runPlaygroundSuite(suite: string): Promise<PlaygroundRunRe
 }
 
 /* ── Memory: profile, facts, review queue, sessions, context, housekeeping ──
- * Every screen action below has a CLI twin (`iris facts …`, `iris memory …`) —
+ * Every screen action below has a CLI twin (`evarness facts …`, `evarness memory …`) —
  * the UI is a client of the same API, never the only way to do something. */
 
 export interface CuratedProfile {
@@ -2192,7 +2192,7 @@ export const getContextInspection = (sessionId: string) =>
 export const getHousekeepingRuns = () =>
   getJSON<{ runs: HousekeepingRun[] }>("/memory/housekeeping");
 
-/** A sender IRIS saw but did not propose, or one the owner ignored (ADR-0121). */
+/** A sender Evarness saw but did not propose, or one the owner ignored (ADR-0121). */
 export interface SkippedSender {
   domain: string;
   status: "not_proposed" | "ignored";

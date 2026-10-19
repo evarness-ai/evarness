@@ -43,7 +43,7 @@ screens:
   - id: chat
     label: Chat
     route: /chat
-    subtitle: Talk to IRIS — streaming, local-first
+    subtitle: Talk to Evarness — streaming, local-first
     icon: message-square
     group: chat
     order: 10
@@ -107,7 +107,7 @@ screens:
   - id: activity
     label: System Jobs
     route: /activity
-    subtitle: Background system jobs — what IRIS is doing and has done (read-only)
+    subtitle: Background system jobs — what Evarness is doing and has done (read-only)
     icon: activity
     group: operations
     order: 40
@@ -122,7 +122,7 @@ screens:
     label: Call Trace
     route: /calltrace
     title: Agent Call Trace
-    subtitle: End-to-end graph trace of an IRIS request, reconstructed from logs
+    subtitle: End-to-end graph trace of an Evarness request, reconstructed from logs
     icon: waypoints
     group: operations
     order: 60
@@ -130,7 +130,7 @@ screens:
   - id: memory
     label: Memory
     route: /memory
-    subtitle: What IRIS knows about you, what is waiting for your yes, and what it keeps
+    subtitle: What Evarness knows about you, what is waiting for your yes, and what it keeps
     icon: brain
     group: knowledge
     order: 10
@@ -155,7 +155,7 @@ screens:
   - id: twin
     label: Digital Twin
     route: /twin
-    subtitle: What IRIS has learned about you — habits, steering & goals (HITL review)
+    subtitle: What Evarness has learned about you — habits, steering & goals (HITL review)
     icon: user-round
     group: learning
     order: 20
@@ -173,7 +173,7 @@ screens:
     label: System Check
     route: /system-check
     title: System Check
-    subtitle: Hardware, Ollama & the starter model — the install preflight (iris doctor)
+    subtitle: Hardware, Ollama & the starter model — the install preflight (evarness doctor)
     icon: list-checks
     group: system
     order: 15
@@ -181,7 +181,7 @@ screens:
     label: Onboarding
     route: /onboarding
     title: Onboarding
-    subtitle: Progress through `iris setup` — preflight, secret, services, Telegram, email (read-only)
+    subtitle: Progress through `evarness setup` — preflight, secret, services, Telegram, email (read-only)
     icon: list-checks
     group: system
     order: 16
@@ -195,7 +195,7 @@ screens:
   - id: devices
     label: Devices
     route: /devices
-    subtitle: Phones and browsers paired with this IRIS — pair a new one, revoke a lost one
+    subtitle: Phones and browsers paired with this Evarness — pair a new one, revoke a lost one
     icon: monitor-smartphone
     group: system
     order: 30

@@ -1,4 +1,4 @@
-/* Email setup (OSS plan R4 + R17): the steps `iris email setup` walks, on the web.
+/* Email setup (OSS plan R4 + R17): the steps `evarness email setup` walks, on the web.
  *
  * A thin renderer over /api/v1/email/onboarding (lib/onboarding.ts). The server decides
  * every step, what it waits for and what it did; this screen shows that and sends the
@@ -267,7 +267,7 @@ function LabelApproval({
           </ul>
           {p.removals > 0 && (
             <p className="mt-2 text-xs text-fg-muted">
-              IRIS labels removed from {p.removals} email(s) marked promo.
+              Evarness labels removed from {p.removals} email(s) marked promo.
             </p>
           )}
           {(p.notes ?? []).map((line) => (
@@ -292,7 +292,7 @@ function LabelApproval({
             disabled={busy || !p}
             onClick={() => onAnswer(true)}
           >
-            Approve: let IRIS label mail
+            Approve: let Evarness label mail
           </button>
           <button type="button" className={BUTTON} disabled={busy} onClick={() => onAnswer(false)}>
             Decline: keep it read-only
@@ -356,7 +356,7 @@ function CurrentStep({
       {s.step === "connect" && s.waiting_kind === "blocked" && s.connect_command && (
         <>
           <p className="mt-2 text-xs text-fg-muted">
-            Run this at a terminal on the machine IRIS runs on, then check again:
+            Run this at a terminal on the machine Evarness runs on, then check again:
           </p>
           <CopyCommand command={s.connect_command} label="Connect command" />
         </>
@@ -482,7 +482,7 @@ function AccountSetup({ s, canWrite }: { s: SetupState; canWrite: boolean }) {
           </p>
           <p className="mt-1 text-xs text-fg-muted">
             Finding categories runs inside this request and can take a little while. Keep
-            this page open; the buttons come back when IRIS answers.
+            this page open; the buttons come back when Evarness answers.
           </p>
         </div>
       )}
@@ -490,7 +490,7 @@ function AccountSetup({ s, canWrite }: { s: SetupState; canWrite: boolean }) {
         <div role="alert" className={`${PANEL} border-danger/40`}>
           <p className="break-words text-sm text-danger">{error}</p>
           <p className="mt-1 text-xs text-fg-muted">
-            If the connection dropped, IRIS may have kept going: what is shown here is
+            If the connection dropped, Evarness may have kept going: what is shown here is
             re-read from the server.
           </p>
         </div>
@@ -498,7 +498,7 @@ function AccountSetup({ s, canWrite }: { s: SetupState; canWrite: boolean }) {
       {notice && (
         <div className={`${PANEL} border-warning/40`} data-testid="setup-notice">
           <p className="text-sm text-fg">
-            Shown once and not stored: add this to your shell profile and IRIS's environment.
+            Shown once and not stored: add this to your shell profile and Evarness's environment.
           </p>
           <CopyCommand command={notice} label="Notice" />
         </div>
@@ -516,7 +516,7 @@ function AccountSetup({ s, canWrite }: { s: SetupState; canWrite: boolean }) {
       {!canWrite && s.status !== "done" && (
         <p className="text-xs text-fg-muted" data-testid="setup-readonly">
           Setup's steps are writes. Pair this browser with control access, or set
-          IRIS_WEBUI_ALLOW_WRITES=1, to continue here; or run `iris email setup`.
+          EVARNESS_WEBUI_ALLOW_WRITES=1, to continue here; or run `evarness email setup`.
         </p>
       )}
 
@@ -567,7 +567,7 @@ function StartPanel({
       {nothing && (
         <div>
           <p className="text-sm text-fg">
-            No mailbox is connected yet. Connect one at a terminal on the machine IRIS runs
+            No mailbox is connected yet. Connect one at a terminal on the machine Evarness runs
             on, then start its setup here:
           </p>
           {data.connect_hints.map((h) => (
@@ -657,7 +657,7 @@ export function SetupScreen() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4">
       <p className="text-sm text-fg-muted">
-        The same steps as <code className="font-mono text-xs">iris email setup</code>: connect,
+        The same steps as <code className="font-mono text-xs">evarness email setup</code>: connect,
         fetch, find categories, classify, preview the labels, then decide. Nothing is written
         to your mailbox before you approve the label preview.
       </p>

@@ -37,12 +37,12 @@ function senderCard(id: string, name: string, domain: string, kind: string | nul
       card: {
         tag: "new sender",
         facts: [
-          { label: "IRIS read", value: name },
+          { label: "Evarness read", value: name },
           { label: "Country", value: "IN · INR" },
         ],
         evidence: [{ when: "2026-09-20", text: "E-account statement for your account(s)." }],
-        evidence_label: "Why IRIS asks",
-        note: `If it's yours, IRIS trusts ${domain} and reads its 6 email(s).`,
+        evidence_label: "Why Evarness asks",
+        note: `If it's yours, Evarness trusts ${domain} and reads its 6 email(s).`,
       },
     },
   };
@@ -117,7 +117,7 @@ async function fakeServer(page: Page): Promise<Fake> {
 const card = (page: Page, name: string) =>
   page.locator("div.rounded-xl", { hasText: `Is ${name} one of your accounts or bills?` });
 
-test("a sender card shows what IRIS read and answers with the picked type", async ({ page }) => {
+test("a sender card shows what Evarness read and answers with the picked type", async ({ page }) => {
   const fake = await fakeServer(page);
   await page.goto("/actions");
 
@@ -127,7 +127,7 @@ test("a sender card shows what IRIS read and answers with the picked type", asyn
   await expect(woodgrove.getByText("E-account statement for your account(s).")).toBeVisible();
   await expect(woodgrove.getByRole("button", { name: "Bank" })).toHaveAttribute("aria-pressed", "true");
 
-  // The owner changes IRIS's guess before confirming.
+  // The owner changes Evarness's guess before confirming.
   await woodgrove.getByRole("button", { name: "Card" }).click();
   await woodgrove.getByRole("button", { name: "Yes, it's mine" }).click();
 
@@ -154,17 +154,17 @@ test("ignore moves the sender to the list, where it can be undone", async ({ pag
   await card(page, "Woodgrove Bank").getByRole("button", { name: "Ignore" }).click();
   expect(fake.answers[0]).toEqual({ id: "t-woodgrove", body: { choice: "ignore", option: null } });
 
-  await page.getByText("Senders IRIS saw in your mail but didn't ask about").click();
+  await page.getByText("Senders Evarness saw in your mail but didn't ask about").click();
   const row = page.locator("details li", { hasText: "woodgrovebank.test" });
   await expect(row.getByText("you chose Ignore")).toBeVisible();
   await expect(row.getByRole("button", { name: "Undo ignore" })).toBeVisible();
 });
 
-test("add anyway opens a card for a sender IRIS skipped", async ({ page }) => {
+test("add anyway opens a card for a sender Evarness skipped", async ({ page }) => {
   await fakeServer(page);
   await page.goto("/actions");
 
-  await page.getByText("Senders IRIS saw in your mail but didn't ask about").click();
+  await page.getByText("Senders Evarness saw in your mail but didn't ask about").click();
   const fabrikam = page.locator("details li", { hasText: "alerts.fabrikambank.test" });
   await expect(fabrikam.getByText("41 emails · promotional offers and travel perks")).toBeVisible();
   await fabrikam.getByRole("button", { name: "Add anyway" }).click();

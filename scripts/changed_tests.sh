@@ -7,10 +7,10 @@
 # up until a directory exists —
 #     src/<root>/<layer>/<pkg>/x.py  ->  tests/unit/<root>/<layer>/<pkg>/  (or a parent)
 #     tests/...                      ->  that test file / directory
-#     src/iris_harness/main.py       ->  tests/unit/iris_harness/test_cli/  (the CLI entry point)
-#     src/iris_harness/cli/x.py      ->  tests/unit/iris_harness/test_cli/  (its command modules)
+#     src/evarness/main.py       ->  tests/unit/evarness/test_cli/  (the CLI entry point)
+#     src/evarness/cli/x.py      ->  tests/unit/evarness/test_cli/  (its command modules)
 # with the pre-M6 flat convention kept as a fallback until every package has moved:
-#     src/iris_harness/<pkg>/...     ->  tests/unit/test_<pkg>/
+#     src/evarness/<pkg>/...     ->  tests/unit/test_<pkg>/
 #     services/<svc>/...             ->  tests/unit/test_<svc>/
 # A source change that maps to NO test directory escalates to the full suite and
 # says so. It never reports "nothing to run" for code — a green line the script did
@@ -23,7 +23,7 @@
 #   scripts/changed_tests.sh              # run the selected tests
 #   scripts/changed_tests.sh --print      # only print what would run
 #   FULL=1 scripts/changed_tests.sh       # force the full suite (what CI runs)
-#   IRIS_PYTEST_WORKERS=4 scripts/changed_tests.sh   # cap xdist workers (default auto)
+#   EVARNESS_PYTEST_WORKERS=4 scripts/changed_tests.sh   # cap xdist workers (default auto)
 #   CHANGED_OVERRIDE=$'a.py\nb.py' ...     # bypass git: map these paths (tests use this)
 #   NO_FULL=1 scripts/changed_tests.sh    # hosted PR policy: never escalate to the full suite.
 #                                         # Where it would, run `-m smoke` plus the tests the
@@ -37,11 +37,11 @@ PRINT=0
 ESCALATED=0
 [[ "${1:-}" == "--print" ]] && PRINT=1
 
-# pytest-xdist worker count: IRIS_PYTEST_WORKERS=<n>|auto|logical, default auto (one per
+# pytest-xdist worker count: EVARNESS_PYTEST_WORKERS=<n>|auto|logical, default auto (one per
 # core). Set it lower when several gates share the machine; 0 runs without xdist.
-WORKERS="${IRIS_PYTEST_WORKERS:-auto}"
+WORKERS="${EVARNESS_PYTEST_WORKERS:-auto}"
 if [[ ! "$WORKERS" =~ ^(auto|logical|[0-9]+)$ ]]; then
-  echo "changed_tests: IRIS_PYTEST_WORKERS must be a number, auto or logical (got '$WORKERS')" >&2
+  echo "changed_tests: EVARNESS_PYTEST_WORKERS must be a number, auto or logical (got '$WORKERS')" >&2
   exit 2
 fi
 
@@ -115,12 +115,12 @@ add_target() { TARGETS="${TARGETS}${1}
 # Mirror rule: tests/unit/<path under src/>, walking up to (not including) tests/unit.
 # Prints the first existing directory, or nothing.
 #
-# A match at the ROOT level (tests/unit/<root>, e.g. tests/unit/iris_harness) counts
+# A match at the ROOT level (tests/unit/<root>, e.g. tests/unit/evarness) counts
 # only when that directory holds test files of its own — as tests/unit/iris_code does.
 # When it is merely a container of per-layer directories, landing there means the path
 # mapped to nothing in particular, and the caller must escalate to the full suite. Until
 # M6.2 finishes, most of the core has no mirrored home, so without this check the
-# existence of tests/unit/iris_harness/ would quietly answer for all of it: a change to
+# existence of tests/unit/evarness/ would quietly answer for all of it: a change to
 # an untested package would "run tests" that cannot reach it. That is the green line the
 # script did not earn, which this whole mechanism exists to prevent (M6.0).
 mirror_target() {
@@ -159,21 +159,21 @@ while IFS= read -r path; do
       fi
       # Pre-M6 flat convention, kept until every package has moved (M6.2).
       case "$path" in
-        src/iris_harness/main.py | src/iris_harness/cli/*)
+        src/evarness/main.py | src/evarness/cli/*)
           # The CLI: the entry point (Typer wiring + cmd_* handlers) and its command
           # modules. main.py mirrors to the container root, which answers for nothing,
           # and cli/ mirrors to a `cli/` test dir that does not exist: the CLI tests
           # live in `test_cli/`. Name that home, or every subcommand escalates.
-          [[ -d "tests/unit/iris_harness/test_cli" ]] && { hit=1; add_target "tests/unit/iris_harness/test_cli"; } ;;
-        src/iris_harness/plugins_builtin/*/*)
+          [[ -d "tests/unit/evarness/test_cli" ]] && { hit=1; add_target "tests/unit/evarness/test_cli"; } ;;
+        src/evarness/plugins_builtin/*/*)
           # A built-in plugin: tests live under its own name, not the container's.
           plug=$(echo "$path" | cut -d/ -f4)
           [[ -d "tests/unit/test_${plug}" ]] && { hit=1; add_target "tests/unit/test_${plug}"; }
           [[ -d "tests/unit/test_plugins" ]] && { hit=1; add_target "tests/unit/test_plugins"; } ;;
-        src/iris_harness/*/*)
+        src/evarness/*/*)
           pkg=$(echo "$path" | cut -d/ -f3)
           [[ -d "tests/unit/test_${pkg}" ]] && { hit=1; add_target "tests/unit/test_${pkg}"; } ;;
-        src/iris_harness/*.py)
+        src/evarness/*.py)
           mod=$(basename "$path" .py)
           [[ -d "tests/unit/test_${mod}" ]] && { hit=1; add_target "tests/unit/test_${mod}"; }
           [[ -f "tests/unit/test_${mod}.py" ]] && { hit=1; add_target "tests/unit/test_${mod}.py"; } ;;
@@ -245,7 +245,7 @@ SELECTED=$(printf '%s' "$SELECTED" | grep -v '^$' || true)
 
 # Drop a target that sits inside another selected DIRECTORY: the directory already runs
 # it. This is not tidiness — pytest (8.4) given `dir` plus `dir/.../test_x.py` collects
-# only the file, so tests/unit/iris_harness/memory (477 tests) + one file inside it ran
+# only the file, so tests/unit/evarness/memory (477 tests) + one file inside it ran
 # 29. The narrowing was silent: the summary line still said "passed".
 NESTED=""
 while IFS= read -r target; do

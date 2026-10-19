@@ -1,9 +1,9 @@
 """Web content fetcher — dispatches on (type, category).
 
-News categories route through the research engine (`src/iris/research/`); git-trending
+News categories route through the research engine (`src/evarness/research/`); git-trending
 and stocks remain structured-source fetchers (GitHub Trending HTML, Yahoo Finance quotes)
 that a generic web search can't replicate (star counts, live quotes). The stocks source
-base URL + watchlist are env-overridable (IRIS_STOCKS_SOURCE_URL / IRIS_STOCKS_SYMBOLS)."""
+base URL + watchlist are env-overridable (EVARNESS_STOCKS_SOURCE_URL / EVARNESS_STOCKS_SYMBOLS)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; iris-web-fetch/0.1)"}
+HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; evarness-web-fetch/0.1)"}
 TIMEOUT = 20.0
 
 GITHUB_TRENDING_URL = "https://github.com/trending"
@@ -35,10 +35,10 @@ GITHUB_TRENDING_URL = "https://github.com/trending"
 # and the default watchlist are env-overridable so the source can be retargeted
 # without code changes.
 YAHOO_CHART_URL = os.environ.get(
-    "IRIS_STOCKS_SOURCE_URL", "https://query1.finance.yahoo.com/v8/finance/chart/"
+    "EVARNESS_STOCKS_SOURCE_URL", "https://query1.finance.yahoo.com/v8/finance/chart/"
 )
 YAHOO_SCREENER_URL = os.environ.get(
-    "IRIS_STOCKS_SCREENER_URL",
+    "EVARNESS_STOCKS_SCREENER_URL",
     "https://query1.finance.yahoo.com/v1/finance/screener/predefined/saved",
 )
 DEFAULT_STOCK_SYMBOLS = (
@@ -58,14 +58,14 @@ DEFAULT_STOCK_SYMBOLS = (
 def _stock_symbols(explicit: tuple[str, ...] | None = None) -> tuple[str, ...]:
     """Resolve the watchlist for an explicit-symbols stock fetch.
 
-    Priority: ``explicit`` (tool param) → ``IRIS_STOCKS_SYMBOLS`` (CSV env) →
+    Priority: ``explicit`` (tool param) → ``EVARNESS_STOCKS_SYMBOLS`` (CSV env) →
     ``DEFAULT_STOCK_SYMBOLS``.
     """
     if explicit:
         symbols = tuple(s.strip().upper() for s in explicit if s and s.strip())
         if symbols:
             return symbols
-    raw = os.environ.get("IRIS_STOCKS_SYMBOLS", "").strip()
+    raw = os.environ.get("EVARNESS_STOCKS_SYMBOLS", "").strip()
     if raw:
         symbols = tuple(item.strip().upper() for item in raw.split(",") if item.strip())
         if symbols:
@@ -81,8 +81,8 @@ INDEX_SYMBOLS: dict[str, tuple[str, ...]] = {
 
 
 def _index_symbols(region: str = "ALL") -> tuple[str, ...]:
-    """Resolve index symbols. IRIS_INDEX_SYMBOLS (CSV) overrides; else by region."""
-    raw = os.environ.get("IRIS_INDEX_SYMBOLS", "").strip()
+    """Resolve index symbols. EVARNESS_INDEX_SYMBOLS (CSV) overrides; else by region."""
+    raw = os.environ.get("EVARNESS_INDEX_SYMBOLS", "").strip()
     if raw:
         symbols = tuple(item.strip().upper() for item in raw.split(",") if item.strip())
         if symbols:
@@ -294,12 +294,12 @@ def _fetch_digest_topics(limit: int, news_group: str | None = None) -> list[dict
     """
     from pathlib import Path  # noqa: PLC0415
 
-    from iris_harness.sdk.digest import (  # noqa: PLC0415
+    from evarness.sdk.digest import (  # noqa: PLC0415
         load_digest_settings,
         news_group_topics,
     )
 
-    settings = load_digest_settings(Path(os.environ.get("IRIS_DATA_DIR") or "data"))
+    settings = load_digest_settings(Path(os.environ.get("EVARNESS_DATA_DIR") or "data"))
     if news_group:
         if news_group not in settings.news_groups:
             raise RuntimeError(f"no digest news group {news_group!r}")
@@ -354,8 +354,8 @@ def _research_news(
     in another language raises too (the engine's ``error``), rather than looking empty.
     """
     try:
-        from iris_harness.plugins_builtin.research.models import ResearchInput  # noqa: PLC0415
-        from iris_harness.plugins_builtin.research.tool import get_engine  # noqa: PLC0415
+        from evarness.plugins_builtin.research.models import ResearchInput  # noqa: PLC0415
+        from evarness.plugins_builtin.research.tool import get_engine  # noqa: PLC0415
 
         result = get_engine().research(
             ResearchInput(
@@ -502,7 +502,7 @@ def _fetch_yahoo_quotes(
 ) -> list[dict[str, object]]:
     """Quote explicit symbols (watchlist / portfolio).
 
-    Resolves the symbol list from ``symbols`` → ``IRIS_STOCKS_SYMBOLS`` →
+    Resolves the symbol list from ``symbols`` → ``EVARNESS_STOCKS_SYMBOLS`` →
     default. Handles US and Indian (``.NS`` / ``.BO``) tickers identically.
     """
     return _quote_each(_stock_symbols(symbols)[:limit])
@@ -511,7 +511,7 @@ def _fetch_yahoo_quotes(
 def _fetch_yahoo_indexes(limit: int, region: str = "ALL") -> list[dict[str, object]]:
     """Quote the major market indexes (NIFTY/SENSEX/BankNifty + S&P/Dow/NASDAQ).
 
-    Region "IN" / "US" / "ALL"; IRIS_INDEX_SYMBOLS overrides. Yahoo returns the
+    Region "IN" / "US" / "ALL"; EVARNESS_INDEX_SYMBOLS overrides. Yahoo returns the
     index level as ``regularMarketPrice``, so the quote shape matches stocks.
     """
     return _quote_each(_index_symbols(region)[:limit])
