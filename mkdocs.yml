@@ -26,10 +26,14 @@ exclude_docs: |
   !/guides/
   !/concepts/
   !/reference/
+  !/adr/
   !/assets/
   !/stylesheets/
 
 strict: true
+# The decision records are reached from adr/index.md, not listed one by one in the nav.
+not_in_nav: |
+  /adr/*.md
 validation:
   omitted_files: warn
   absolute_links: warn
