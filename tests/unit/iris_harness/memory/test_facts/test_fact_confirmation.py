@@ -80,7 +80,9 @@ class TestProposalQueue:
         store.add_fact_proposal(key="city", value="Springfield", confidence=0.9, source="llm")
         assert store.expire_fact_proposals(older_than_days=30) == 0
 
-        assert store.expire_fact_proposals(older_than_days=0) == 1
+        # A cutoff a day ahead: everything pending. Not 0 days: Windows' clock can stamp
+        # the proposal and the cutoff in one tick, and the comparison is strict.
+        assert store.expire_fact_proposals(older_than_days=-1) == 1
         assert store.fetch_fact_proposals() == []
         assert len(store.fetch_fact_proposals(status="expired")) == 1
 

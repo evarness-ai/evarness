@@ -121,5 +121,7 @@ def test_unreviewed_lessons_expire(store: MemoryStore) -> None:
     LessonCurator(store).propose(trigger="card dues", lesson="check finance first", source="t")
 
     assert store.expire_lesson_proposals(older_than_days=30) == 0
-    assert store.expire_lesson_proposals(older_than_days=0) == 1
+    # A cutoff a day ahead: everything pending. Not 0 days: Windows' clock can stamp the
+    # proposal and the cutoff in one tick, and the comparison is strict.
+    assert store.expire_lesson_proposals(older_than_days=-1) == 1
     assert store.fetch_lesson_proposals() == []
