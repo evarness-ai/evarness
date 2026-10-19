@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-19
+
+### Changed
+
+- The README, which is also the PyPI page: shorter, one tagline and one line under it (local by default, deterministic where it can be, governed before action, learns in the open), a diagram with the governance kernel on both the deterministic and the agent path, the hook-point and learning-flag tables replaced by links to the concept pages, and the proof-bundle step after the demo passing `--db` for the demo home, without which the export read the owner's empty ledger. The launch recording is two commands (the demo and the proof bundle) and is attached to each release instead of committed.
+
 ### Fixed
 
 - `evarness email demo` no longer says the run recorded signals for the learning loop. A scripted run has no corrections or confirmations to learn from, so nothing was recorded; the summary now says where the loop's signals come from.
