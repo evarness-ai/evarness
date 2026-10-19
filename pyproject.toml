@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "evarness"
-version = "0.2.1"
+version = "0.2.2"
 description = "The governed agent harness for small local models. It proves what it did."
 authors = ["Evarness contributors"]
 readme = "README.md"

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-19
+
+### Changed
+
+- The README, which PyPI renders as the project page, carries its diagram and its recording as images committed in the repository. The 0.2.1 page showed the diagram as Mermaid source and the recording as a broken image: PyPI renders no Mermaid, and its image proxy refuses the release-asset URL. The diagram is a hand-drawn PNG with its Excalidraw source beside the architecture drawing, which is re-exported with the Evarness collection names.
+- The README's proof-bundle command after the demo passes `--session-logs` for the demo home as well as `--db`. With `--db` alone the export read the owner's own session logs and failed `every-call-and-answer-audited` against sessions the demo never ran (#362).
+
 ## [0.2.1] - 2026-10-19
 
 ### Changed
