@@ -1,7 +1,7 @@
-# The first-chat welcome (ADR-0127): the one turn IRIS opens itself, the first time a
-# chat is opened on this install (once per IRIS_HOME, recorded in $IRIS_HOME/welcome.json).
+# The first-chat welcome (ADR-0127): the one turn Evarness opens itself, the first time a
+# chat is opened on this install (once per EVARNESS_HOME, recorded in $EVARNESS_HOME/welcome.json).
 #
-# The list of what IRIS can do is not written here: it is the `summary` line of every
+# The list of what Evarness can do is not written here: it is the `summary` line of every
 # mounted plugin's manifest, so it says what THIS install can do. These keys word the
 # rest; a missing key falls back to the built-in wording (runtime/welcome.py).
 #
@@ -11,7 +11,7 @@
 #   invitation      - asks for a first question
 #   trace_note      - says where to see this turn: Call trace and Governance
 
-intro: "Hi, I'm IRIS. This is the first chat on this install. Here is what I can do:"
+intro: "Hi, I'm Evarness. This is the first chat on this install. Here is what I can do:"
 capability: "- {summary}"
 no_capabilities: >-
   No plugins are mounted yet, so for now I can talk with you and remember what you

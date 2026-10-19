@@ -1,6 +1,6 @@
 """Acceptance: the memory chain, end to end, deterministically.
 
-Nine PRs changed what IRIS remembers and what reaches a prompt. Each proved its own
+Nine PRs changed what Evarness remembers and what reaches a prompt. Each proved its own
 piece. This proves the chain — one runtime, one conversation, asserting on the PROMPT
 rather than on a model's words, so it can run in the gate instead of only by hand.
 
@@ -15,10 +15,10 @@ from typing import Any
 
 import pytest
 
-from iris_harness.agent.agentic_core import _build_react_prompt
-from iris_harness.memory.coordinator import FactCoordinator
-from iris_harness.memory.lessons import SOURCE_CORRECTION, LessonCurator
-from iris_harness.runtime.bootstrap import build_runtime
+from evarness.agent.agentic_core import _build_react_prompt
+from evarness.memory.coordinator import FactCoordinator
+from evarness.memory.lessons import SOURCE_CORRECTION, LessonCurator
+from evarness.runtime.bootstrap import build_runtime
 
 # No model server in tests (tests/conftest.py network guard): runtime turns here
 # reach the LLM on their degrade paths, so the model is a stubbed dead server.
@@ -39,13 +39,13 @@ BUDGET = 4300
 @pytest.fixture
 def runtime(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
     """A real runtime on a throwaway store, with a deterministic summarizer."""
-    monkeypatch.setenv("IRIS_DATA_DIR", str(tmp_path / "data"))
-    monkeypatch.setenv("IRIS_HOME", str(tmp_path / "home"))
-    monkeypatch.setenv("IRIS_DISABLE_WARMUP", "1")
-    monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
+    monkeypatch.setenv("EVARNESS_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("EVARNESS_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("EVARNESS_DISABLE_WARMUP", "1")
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
     # Small window so a six-exchange script actually rolls over (the real budget is
     # derived from the chat model's context and would need a far longer script).
-    monkeypatch.setenv("IRIS_COMPACTION_TOKEN_BUDGET", "110")
+    monkeypatch.setenv("EVARNESS_COMPACTION_TOKEN_BUDGET", "110")
     rt = build_runtime(use_background_scheduler=False)
     rt.compactor._llm = lambda prompt: (
         "Goal: track the Springfield flat.\n"
@@ -112,7 +112,7 @@ class TestTheConversationSurvives:
         assert "recall_conversation" in prompt
 
     def test_recall_conversation_returns_it_word_for_word(self, runtime: Any) -> None:
-        from iris_harness.runtime.react_tools import builtin_react_tools
+        from evarness.runtime.react_tools import builtin_react_tools
 
         _talk(runtime, FLAT_CONVERSATION)
         specs = {
@@ -145,7 +145,7 @@ class _CannedExtractor:
 @pytest.fixture
 def extractor_reads_northwind(offline_llm: None, monkeypatch: pytest.MonkeyPatch) -> None:
     # Requests offline_llm so this patch lands after (over) the module-wide dead model.
-    from iris_harness.llm import client
+    from evarness.llm import client
 
     monkeypatch.setattr(client, "_default_model_factory", lambda **_kw: _CannedExtractor())
 
@@ -193,7 +193,7 @@ class TestLessonsAndRuns:
 
         name = curator.approve(pid)
 
-        from iris_harness.memory.identity import match_behavior
+        from evarness.memory.identity import match_behavior
 
         matched = match_behavior("finance", "what are my credit card dues this month?")
         assert name is not None
@@ -232,7 +232,7 @@ class TestTheContextIsInspectable:
         assert ctx.pointers, "L1 should say what is not in the prompt"
 
     def test_the_memory_block_stays_inside_its_budget(self, runtime: Any) -> None:
-        from iris_harness.llm.budget import estimate_tokens
+        from evarness.llm.budget import estimate_tokens
 
         _talk(runtime, FLAT_CONVERSATION)
         prompt = _prompt(runtime, "what do we know?")

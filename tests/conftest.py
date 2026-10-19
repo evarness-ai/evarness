@@ -23,26 +23,26 @@ if str(SRC_ROOT) not in sys.path:
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-# CRITICAL test isolation — strip the developer's IRIS_* feature flags from the
-# environment BEFORE anything resolves them. A real IRIS install exports dozens of
-# them (IRIS_CALENDAR_AUTO_APPROVE_INVITES, IRIS_INTENT_ROUTER_SEMANTIC,
-# IRIS_LEARNING_ANALYST/BEHAVIOR_MINER/INTENTION_ROLLUP, IRIS_CALENDAR_APPLE_WRITE,
-# IRIS_PORTFOLIO_INTERCEPT, IRIS_ON_DEMAND_BRIEF, ...). Inherited, they make the
+# CRITICAL test isolation — strip the developer's EVARNESS_* feature flags from the
+# environment BEFORE anything resolves them. A real Evarness install exports dozens of
+# them (EVARNESS_CALENDAR_AUTO_APPROVE_INVITES, EVARNESS_INTENT_ROUTER_SEMANTIC,
+# EVARNESS_LEARNING_ANALYST/BEHAVIOR_MINER/INTENTION_ROLLUP, EVARNESS_CALENDAR_APPLE_WRITE,
+# EVARNESS_PORTFOLIO_INTERCEPT, EVARNESS_ON_DEMAND_BRIEF, ...). Inherited, they make the
 # suite non-deterministic and machine-dependent: tests assert default/off behavior
 # while the shell turns features ON. Worse, some pull REAL local state into a test
-# (IRIS_CALENDAR_APPLE_WRITE reads the developer's macOS Calendar; IRIS_SEARXNG_URL
-# hits a live search box; IRIS_SPIKE_GMAIL_PASSWORD is a live secret). Keep only the
+# (EVARNESS_CALENDAR_APPLE_WRITE reads the developer's macOS Calendar; EVARNESS_SEARXNG_URL
+# hits a live search box; EVARNESS_SPIKE_GMAIL_PASSWORD is a live secret). Keep only the
 # handful the suite itself controls — a test that needs a flag opts in explicitly via
-# ``monkeypatch.setenv``. Mirrors the IRIS_HOME/IRIS_DATA_DIR relocation below.
-_KEEP_IRIS_ENV = {
-    "IRIS_HOME",
-    "IRIS_DATA_DIR",
-    "IRIS_AUTH_SECRET",
-    "IRIS_DISABLE_WARMUP",
-    "IRIS_DISABLE_ARBITER",
-    "IRIS_TEST_NULL_EMBEDDINGS",
+# ``monkeypatch.setenv``. Mirrors the EVARNESS_HOME/EVARNESS_DATA_DIR relocation below.
+_KEEP_EVARNESS_ENV = {
+    "EVARNESS_HOME",
+    "EVARNESS_DATA_DIR",
+    "EVARNESS_AUTH_SECRET",
+    "EVARNESS_DISABLE_WARMUP",
+    "EVARNESS_DISABLE_ARBITER",
+    "EVARNESS_TEST_NULL_EMBEDDINGS",
 }
-for _key in [k for k in os.environ if k.startswith("IRIS_") and k not in _KEEP_IRIS_ENV]:
+for _key in [k for k in os.environ if k.startswith("EVARNESS_") and k not in _KEEP_EVARNESS_ENV]:
     del os.environ[_key]
 
 
@@ -64,12 +64,12 @@ def _strip_git_env(environ: dict[str, str] | os._Environ[str]) -> list[str]:
 
 _strip_git_env(os.environ)
 
-# CRITICAL test isolation — the OS keyring. With IRIS_VAULT_MASTER_KEY stripped above,
+# CRITICAL test isolation — the OS keyring. With EVARNESS_VAULT_MASTER_KEY stripped above,
 # the vault (kernel/governance/vault/keys.py) and the credential helpers fall back to the
 # OS keyring, which on macOS is the developer's login Keychain: a test that builds a vault
-# without faking it read the REAL `iris-vault` master key (and the credential helpers can
+# without faking it read the REAL `evarness-vault` master key (and the credential helpers can
 # set and delete real entries). Found 2026-09-26 when a fresh python3.13 test env made
-# macOS ask for the login password to read `iris-vault`. Every test now gets an
+# macOS ask for the login password to read `evarness-vault`. Every test now gets an
 # in-memory keyring, cleared per test (`_fresh_keyring` below); subprocesses get the
 # "fail" backend, so nothing a test starts can reach the Keychain either. Tests that
 # need a specific keyring still monkeypatch it, as before.
@@ -105,13 +105,13 @@ else:
 
 # The services enforce bearer auth on every route (security floor, phase 0), so the
 # suite always needs a secret — the documented test value unless the shell already
-# exports one. Tests reach it via ``iris_harness.foundation.auth.auth_headers()``.
-os.environ.setdefault("IRIS_AUTH_SECRET", "test-secret-for-testing")
+# exports one. Tests reach it via ``evarness.foundation.auth.auth_headers()``.
+os.environ.setdefault("EVARNESS_AUTH_SECRET", "test-secret-for-testing")
 
 # The services refuse a Host name they are not reached by (DNS rebinding). Many API
-# tests use ``TestClient(app, base_url="http://iris.test")``; ``.test`` is reserved
+# tests use ``TestClient(app, base_url="http://evarness.test")``; ``.test`` is reserved
 # (RFC 2606), and the allowlist tests set their own value.
-os.environ["IRIS_ALLOWED_HOSTS"] = "iris.test"
+os.environ["EVARNESS_ALLOWED_HOSTS"] = "evarness.test"
 
 # Deterministic terminal rendering. Rich/Click emit ANSI colour codes when the
 # shell exports FORCE_COLOR / CLICOLOR_FORCE (Rich forces colour when the var is
@@ -138,10 +138,10 @@ for _width_var in ("COLUMNS", "LINES", "TERMINAL_WIDTH", "PY_COLORS"):
 os.environ["_TYPER_FORCE_DISABLE_TERMINAL"] = "1"
 
 # Never load the developer's repo-root ``.env`` into the test process. Several modules
-# call ``load_dotenv()`` at import time (e.g. ``iris_harness.server.iris_api.main`` so uvicorn sees
+# call ``load_dotenv()`` at import time (e.g. ``evarness.server.harness_api.main`` so uvicorn sees
 # provider keys) — but that ``.env`` holds the developer's real feature flags
-# (``IRIS_BEHAVIOR_MINER``, ``IRIS_CALENDAR_AUTO_APPROVE_INVITES``, …) and live secrets
-# (``IRIS_SPIKE_GMAIL_PASSWORD``). Loaded at import, it would repopulate ``os.environ``
+# (``EVARNESS_BEHAVIOR_MINER``, ``EVARNESS_CALENDAR_AUTO_APPROVE_INVITES``, …) and live secrets
+# (``EVARNESS_SPIKE_GMAIL_PASSWORD``). Loaded at import, it would repopulate ``os.environ``
 # right after the strip above and make tests machine-dependent. Neutralize it session-wide,
 # BEFORE any test module imports a module that calls it, so ``from dotenv import load_dotenv``
 # binds to this no-op. Tests set what they need explicitly (pytest env / ``monkeypatch``).
@@ -164,21 +164,21 @@ except ImportError:
 # The concrete risk is not theoretical: with ``TELEGRAM_BOT_TOKEN`` and
 # ``TELEGRAM_CHAT_ID`` both present, the only thing standing between a
 # runtime-building test and a live long-poll against the developer's real bot is
-# the default of ``IRIS_CHANNEL_GATEWAY_TELEGRAM_ENABLED``. One test that flips
+# the default of ``EVARNESS_CHANNEL_GATEWAY_TELEGRAM_ENABLED``. One test that flips
 # that flag and builds a runtime would start polling the real bot, steal the
 # long-poll from a running channel_gateway (Telegram allows one ``getUpdates``
 # consumer per token) and answer the developer's real messages. Several tests
 # already open with ``monkeypatch.delenv("TELEGRAM_BOT_TOKEN")`` — defending by
 # hand against exactly this. Do it once, here, for everyone.
 #
-# ``IRIS_AUTH_SECRET`` is deliberately NOT in this list: the suite requires it and
+# ``EVARNESS_AUTH_SECRET`` is deliberately NOT in this list: the suite requires it and
 # it is set to a documented dummy above.
 for _live_secret in (
     # Channel credentials — these drive real outbound messages.
     "TELEGRAM_BOT_TOKEN",
     "TELEGRAM_CHAT_ID",
     # Mailbox credentials from the email spikes.
-    "IRIS_SPIKE_GMAIL_PASSWORD",
+    "EVARNESS_SPIKE_GMAIL_PASSWORD",
     # Provider keys — a stray real call is billable and makes results
     # machine-dependent. Tests that want a provider set a fake key themselves.
     "ANTHROPIC_API_KEY",
@@ -190,15 +190,15 @@ for _live_secret in (
 ):
     os.environ.pop(_live_secret, None)
 
-# Prevent ~/.iris/providers.json from bleeding into tests.
+# Prevent ~/.evarness/providers.json from bleeding into tests.
 # Set to empty string so _load_global_provider_override returns None.
-os.environ.setdefault("IRIS_PROVIDERS_CONFIG", "")
+os.environ.setdefault("EVARNESS_PROVIDERS_CONFIG", "")
 
 # Which profile the suite runs as. `default` is core-only as of M6.1b (OSS plan M6,
 # decision 10) and the domains mount under `personal-assistant`; the suite exercises the
 # assembled product, so it asks for that one. It must be set HERE, before any import:
-# `iris_harness.main` registers the profile's plugin CLI commands at import time, so a
-# test that sets it later gets an `iris email` group that was never built.
+# `evarness.main` registers the profile's plugin CLI commands at import time, so a
+# test that sets it later gets an `evarness email` group that was never built.
 #
 # The public tree (release 1) ships the email slice and its `email` profile, not
 # `personal-assistant` (OSS plan R1/R2): there the assembled product is `email`. Asking
@@ -209,17 +209,17 @@ os.environ.setdefault("IRIS_PROVIDERS_CONFIG", "")
 # (`profile._installed_plugins`).
 _PROFILES = Path(__file__).resolve().parents[1] / "config" / "profiles"
 os.environ.setdefault(
-    "IRIS_PROFILE",
+    "EVARNESS_PROFILE",
     next(
         (p for p in ("personal-assistant", "email") if (_PROFILES / f"{p}.yaml").is_file()),
         "default",
     ),
 )
 
-# CRITICAL test isolation — set BEFORE any iris module is imported, because
-# IRIS_HOME (identity tree) and the data dir are resolved at import / build time.
+# CRITICAL test isolation — set BEFORE any evarness module is imported, because
+# EVARNESS_HOME (identity tree) and the data dir are resolved at import / build time.
 # Relocating both to throwaway temp dirs guarantees the suite can never read or
-# corrupt the developer's REAL ~/.iris profile (USER.md / SOUL.md) or data
+# corrupt the developer's REAL ~/.evarness profile (USER.md / SOUL.md) or data
 # stores. This closes a real incident where a runtime-building test wrote bogus
 # auto-detected facts into the real USER.md. Tests that need a specific data dir
 # still override via the ``data_dir`` arg to ``build_runtime``.
@@ -232,7 +232,10 @@ os.environ.setdefault(
 # `needs_root` under the full gate while passing alone. A dir is only replaced when
 # its name says this file made it, so an explicitly exported location is honoured.
 _XDIST_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
-for _var, _prefix in (("IRIS_HOME", "iris-test-home-"), ("IRIS_DATA_DIR", "iris-test-data-")):
+for _var, _prefix in (
+    ("EVARNESS_HOME", "evarness-test-home-"),
+    ("EVARNESS_DATA_DIR", "evarness-test-data-"),
+):
     if _var not in os.environ:
         os.environ[_var] = tempfile.mkdtemp(prefix=_prefix)
     elif _XDIST_WORKER and Path(os.environ[_var]).name.startswith(_prefix):
@@ -243,9 +246,9 @@ for _var, _prefix in (("IRIS_HOME", "iris-test-home-"), ("IRIS_DATA_DIR", "iris-
 def _isolate_llm_and_embeddings(monkeypatch, request):
     """Default: tests never spawn the Ollama warmup thread, never load embeddings.
 
-    The biggest incident trigger was ``IrisRuntime._warm_models`` firing real
+    The biggest incident trigger was ``EvarnessRuntime._warm_models`` firing real
     Ollama requests in a daemon thread on every ``build_runtime`` call.
-    ``IRIS_DISABLE_WARMUP=1`` short-circuits that. ``IRIS_TEST_NULL_EMBEDDINGS=1``
+    ``EVARNESS_DISABLE_WARMUP=1`` short-circuits that. ``EVARNESS_TEST_NULL_EMBEDDINGS=1``
     skips the ~80 MB ChromaDB embedding model.
 
     Opt out per-test:
@@ -253,10 +256,10 @@ def _isolate_llm_and_embeddings(monkeypatch, request):
       * ``@pytest.mark.real_embeddings`` — load ChromaDB and embeddings
     """
     if "real_llm" not in request.keywords:
-        monkeypatch.setenv("IRIS_DISABLE_WARMUP", "1")
-        monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
+        monkeypatch.setenv("EVARNESS_DISABLE_WARMUP", "1")
+        monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
     if "real_embeddings" not in request.keywords:
-        monkeypatch.setenv("IRIS_TEST_NULL_EMBEDDINGS", "1")
+        monkeypatch.setenv("EVARNESS_TEST_NULL_EMBEDDINGS", "1")
 
 
 @pytest.fixture(autouse=True)
@@ -272,7 +275,7 @@ def _reset_llm_circuit_breaker():
     module, so it surfaces when the module set changes and looks like the change
     caused it. It does not; the leak did.
     """
-    from iris_harness.llm.arbiter import reset_ollama_breaker
+    from evarness.llm.arbiter import reset_ollama_breaker
 
     reset_ollama_breaker()
     yield
@@ -280,7 +283,7 @@ def _reset_llm_circuit_breaker():
 
 
 #: Where the vault keeps its master key in a keyring (``kernel/governance/vault/keys.py``).
-VAULT_KEYRING_ENTRY = ("iris-vault", "master-key")
+VAULT_KEYRING_ENTRY = ("evarness-vault", "master-key")
 
 
 @pytest.fixture(autouse=True)
@@ -302,7 +305,7 @@ def _fresh_keyring():
         return
     from cryptography.fernet import Fernet
 
-    from iris_harness.kernel.governance.audit import digest as audit_digest
+    from evarness.kernel.governance.audit import digest as audit_digest
 
     backend = _TestKeyring()
     backend.entries[VAULT_KEYRING_ENTRY] = Fernet.generate_key().decode("utf-8")
@@ -316,10 +319,10 @@ def _fresh_keyring():
 @pytest.fixture
 def no_vault_master_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """No vault master key anywhere: not in the env, not in the keyring, nothing cached."""
-    from iris_harness.kernel.governance.audit import digest as audit_digest
-    from iris_harness.kernel.governance.vault import keys as vault_keys
+    from evarness.kernel.governance.audit import digest as audit_digest
+    from evarness.kernel.governance.vault import keys as vault_keys
 
-    monkeypatch.delenv("IRIS_VAULT_MASTER_KEY", raising=False)
+    monkeypatch.delenv("EVARNESS_VAULT_MASTER_KEY", raising=False)
     monkeypatch.setattr(vault_keys, "keyring", None)
     audit_digest._reset_for_tests()
 
@@ -330,12 +333,12 @@ def _restore_os_environ():
 
     Some runtime code writes flags straight into ``os.environ`` rather than reading
     them — ``agent_settings_store.apply_overrides_to_env`` / ``set_toggle`` seed
-    ``IRIS_*`` toggles into the process env so persisted edits take effect. Those are
+    ``EVARNESS_*`` toggles into the process env so persisted edits take effect. Those are
     direct writes, which ``monkeypatch`` cannot undo. Without this, a settings/toggle
-    test leaks a flag (e.g. ``IRIS_CALENDAR_AUTO_APPROVE_INVITES``) into every later
+    test leaks a flag (e.g. ``EVARNESS_CALENDAR_AUTO_APPROVE_INVITES``) into every later
     test and makes pass/fail depend on run order. Snapshotting and restoring keeps each
     test's env changes local to that test — the complement to the session-level
-    ``IRIS_*`` strip at the top of this file.
+    ``EVARNESS_*`` strip at the top of this file.
     """
     saved = os.environ.copy()
     try:
@@ -354,7 +357,7 @@ def owner_identity_seam() -> Iterator[Any]:
     and every named source the process had (the composition root's, a plugin's) are
     restored and the cached corpus dropped.
     """
-    from iris_harness.kernel.governance import identity_redaction as seam
+    from evarness.kernel.governance import identity_redaction as seam
 
     saved = (seam._provider, seam._documents_fingerprint, dict(seam._sources))
     seam.clear_identity_text_provider()
@@ -393,14 +396,14 @@ def test_vocabulary(monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     ``tests/fixtures/test_vocabulary`` is a plugin directory that ships only an
     ``ontology:`` fragment (fact keys ``bank``, ``broker``, ``insurer``, ``credit_card``,
     ``currency`` under ``tv:``). It is installed through the seam every plugin's
-    vocabulary uses, ``iris_harness.memory.ontology.vocabulary_fragments()``, which reads
+    vocabulary uses, ``evarness.memory.ontology.vocabulary_fragments()``, which reads
     the plugin directories ``installed_plugin_dirs()`` returns. The built-in plugins stay;
-    entry-point and ``$IRIS_HOME`` plugins (the domain plugins, where they are installed)
+    entry-point and ``$EVARNESS_HOME`` plugins (the domain plugins, where they are installed)
     are left out, so a memory test proves the same thing whichever domains the tree
     carries. Use it with ``pytest.mark.usefixtures("test_vocabulary")``.
     """
-    from iris_harness.foundation import plugin_dirs
-    from iris_harness.memory import fact_keys, ontology
+    from evarness.foundation import plugin_dirs
+    from evarness.memory import fact_keys, ontology
 
     def _installed() -> list[tuple[str, Path]]:
         return [*plugin_dirs._builtin_dirs(), ("test_vocabulary", TEST_VOCABULARY_DIR)]
@@ -419,13 +422,13 @@ def _minilm_on_disk_or_skip(request: pytest.FixtureRequest) -> None:
 
     The semantic routers embed with chromadb's ONNX copy of the model. The suite never
     downloads it (the network guard below refuses the fetch, and ``DefaultEmbedder``
-    does not try under ``IRIS_TEST_NULL_EMBEDDINGS``), so these tests run where the
-    model is already on disk -- a machine that has run IRIS once -- and skip, saying
+    does not try under ``EVARNESS_TEST_NULL_EMBEDDINGS``), so these tests run where the
+    model is already on disk -- a machine that has run Evarness once -- and skip, saying
     why, on a fresh clone. Everything else in the suite runs either way.
     """
     if request.node.get_closest_marker("minilm") is None:
         return
-    from iris_harness.kernel.governance.evaluator.embeddings import (
+    from evarness.kernel.governance.evaluator.embeddings import (
         default_model_on_disk,
         default_model_path,
     )
@@ -433,7 +436,7 @@ def _minilm_on_disk_or_skip(request: pytest.FixtureRequest) -> None:
     if not default_model_on_disk():
         pytest.skip(
             f"needs the all-MiniLM-L6-v2 ONNX model at {default_model_path()} (the suite "
-            "never downloads it; running IRIS once, or chromadb's DefaultEmbeddingFunction, "
+            "never downloads it; running Evarness once, or chromadb's DefaultEmbeddingFunction, "
             "fetches it)"
         )
 
@@ -442,16 +445,16 @@ def _minilm_on_disk_or_skip(request: pytest.FixtureRequest) -> None:
 # Network guard: no test talks to a real model server or leaves the machine.
 #
 # A test that reaches a live Ollama / LM Studio / llama-server, or the developer's
-# running IRIS stack, gets a real, slow, machine-dependent answer — it passes on the developer's box with a model loaded
-# and fails (or hangs on a timeout) everywhere else, and it is not testing IRIS
+# running Evarness stack, gets a real, slow, machine-dependent answer — it passes on the developer's box with a model loaded
+# and fails (or hangs on a timeout) everywhere else, and it is not testing Evarness
 # code at all. The same goes for any non-loopback host. So every TCP ``connect``
 # in the test process is checked:
 #
 #   * loopback (127.0.0.0/8, ::1, ``localhost``) on any port EXCEPT the model
-#     and IRIS service ports below — allowed. That is how in-process uvicorn servers, fake HTTP
+#     and Evarness service ports below — allowed. That is how in-process uvicorn servers, fake HTTP
 #     servers and anything else a test starts on an ephemeral port are reached.
 #     (TestClient/ASGI transports open no socket at all.)
-#   * loopback on a model or IRIS service port, or ANY non-loopback address —
+#   * loopback on a model or Evarness service port, or ANY non-loopback address —
 #     refused.
 #   * Unix sockets and UDP — not checked (a UDP ``connect`` sends nothing, and
 #     DNS lookups are not connections; the guard is about traffic to servers).
@@ -467,11 +470,11 @@ def _minilm_on_disk_or_skip(request: pytest.FixtureRequest) -> None:
 #
 # Cost: one Python-level check per TCP connect; nothing on any other call.
 # --------------------------------------------------------------------------------
-# Ollama, LM Studio, llama-server. 8090 is also the IRIS evaluator's port — a live
+# Ollama, LM Studio, llama-server. 8090 is also the Evarness evaluator's port — a live
 # service either way.
 MODEL_SERVER_PORTS = frozenset({11434, 1234, 8090})
-# The IRIS services a developer keeps running: Governor, IRIS API, channel gateway.
-IRIS_SERVICE_PORTS = frozenset({8080, 8003, 8006})
+# The Evarness services a developer keeps running: Governor, Evarness API, channel gateway.
+EVARNESS_SERVICE_PORTS = frozenset({8080, 8003, 8006})
 
 
 class RealNetworkBlocked(ConnectionRefusedError):
@@ -516,8 +519,8 @@ def _blocked_reason(sock: socket.socket, address: Any) -> str | None:
     if _is_loopback(host):
         if port in MODEL_SERVER_PORTS:
             return f"model server port {host}:{port}"
-        if port in IRIS_SERVICE_PORTS:
-            return f"IRIS service port {host}:{port}"
+        if port in EVARNESS_SERVICE_PORTS:
+            return f"Evarness service port {host}:{port}"
         return None
     return f"non-loopback host {host}:{port}"
 
@@ -688,21 +691,21 @@ def offline_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     ``pytestmark = pytest.mark.usefixtures("offline_llm")``). A test that passes
     its own ``model_factory`` or stubs a caller keeps its own stub.
     """
-    from iris_harness.llm import client
+    from evarness.llm import client
 
     monkeypatch.setattr(client, "_default_model_factory", lambda **_kw: _OfflineChatModel())
 
 
 @pytest.fixture()
 def offline_services(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Health snapshots see every IRIS service and Ollama as unreachable.
+    """Health snapshots see every Evarness service and Ollama as unreachable.
 
     ``refresh()`` builds the snapshot with the real HTTP prober, which would ask
     the developer's running stack (Governor, API, gateway, evaluator, Ollama).
     """
     import functools
 
-    from iris_harness.services.health import checks, service
+    from evarness.services.health import checks, service
 
     monkeypatch.setattr(
         service,
@@ -717,7 +720,7 @@ def offline_ollama_inventory(monkeypatch: pytest.MonkeyPatch) -> None:
 
     Reached by ``/runtime/inventory``, ``/api/chat-status`` and the ``/info`` command.
     """
-    from iris_harness.services.system import inventory
+    from evarness.services.system import inventory
 
     def _no_ollama(_url: str) -> dict[str, object]:
         raise ConnectionRefusedError("offline_ollama_inventory: no Ollama in tests")
@@ -737,7 +740,7 @@ def cli_api(monkeypatch: pytest.MonkeyPatch) -> Any:
     """
     import httpx
 
-    from iris_harness.cli import api_client
+    from evarness.cli import api_client
 
     real = api_client.harness_api_client
 
@@ -761,7 +764,7 @@ def offline_web_fetch(monkeypatch: pytest.MonkeyPatch) -> Any:
     only be patched after ``skill_registry.discover()``. Its ``_http_get``
     returning ``None`` is the skill's own "request failed" path.
     """
-    from iris_harness.runtime.handlers.skill_brief import _build_tool_index
+    from evarness.runtime.handlers.skill_brief import _build_tool_index
 
     def stub(runtime: Any) -> None:
         index = _build_tool_index(runtime.skill_registry)
@@ -779,7 +782,7 @@ def _restore_process_state():
     (``foundation/process_state.py``): plugin API routes, mail providers, health checks,
     the process bus's subscribers, the identity-redaction seams...
 
-    ``iris_harness.testing.harness`` does this for its own runs, but a test that calls
+    ``evarness.testing.harness`` does this for its own runs, but a test that calls
     ``build_runtime`` or a plugin's ``setup`` directly does not, and what it mounted
     stayed for every later test in the worker: a default-profile runtime (which prefers
     ``email`` when the email plugins are installed) left the email routes registered,
@@ -787,7 +790,7 @@ def _restore_process_state():
     class as ``_restore_os_environ``; higher-scoped fixtures run first, so what they
     register is part of the snapshot and survives.
     """
-    from iris_harness.foundation.process_state import (
+    from evarness.foundation.process_state import (
         restore_process_state,
         snapshot_process_state,
     )
@@ -801,7 +804,7 @@ def _restore_process_state():
 def _no_chat_turn_in_progress():  # a pytest generator fixture
     """Each test starts with no chat turn marked (foundation/activity.py): a chat test
     that just ended would otherwise make the next test's background sweep yield."""
-    from iris_harness.foundation import activity
+    from evarness.foundation import activity
 
     activity._reset_for_tests()
     yield

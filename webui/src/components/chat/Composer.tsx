@@ -136,7 +136,7 @@ export function Composer({
           // wrong and too long: it wrapped to a second line the 36px textarea
           // could not show, clipping 6px of it.
           placeholder={
-            isPhone ? "Message IRIS…" : "Message IRIS…  (Enter to send · Shift+Enter for a new line)"
+            isPhone ? "Message Evarness…" : "Message Evarness…  (Enter to send · Shift+Enter for a new line)"
           }
           className="max-h-40 min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5 text-sm text-fg placeholder:text-fg-subtle focus:outline-none"
         />

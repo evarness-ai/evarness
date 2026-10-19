@@ -1,8 +1,8 @@
-# SearXNG — privacy-first meta-search backend for the IRIS research engine.
+# SearXNG — privacy-first meta-search backend for the Evarness research engine.
 #
 # One command:   docker compose -f deploy/searxng/docker-compose.yml up -d
-# Then point IRIS at it:   export IRIS_SEARXNG_URL=http://localhost:8888
-# (restart the IRIS API so the research engine picks SearXNG as the primary provider).
+# Then point Evarness at it:   export EVARNESS_SEARXNG_URL=http://localhost:8888
+# (restart the Evarness API so the research engine picks SearXNG as the primary provider).
 #
 # Local-only by default: bound to 127.0.0.1, no inbound auth. Do not expose publicly
 # without putting it behind a reverse proxy + auth.
@@ -10,7 +10,7 @@
 services:
   searxng:
     image: searxng/searxng:latest
-    container_name: iris-searxng
+    container_name: evarness-searxng
     ports:
       - "127.0.0.1:8888:8080"
     volumes:

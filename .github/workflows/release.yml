@@ -12,7 +12,7 @@ name: release
 #
 # A manual run (workflow_dispatch) is the dry run (issue #25): the same build, published
 # to TestPyPI instead -- trusted publishing again, through the `testpypi` environment --
-# then installed from TestPyPI on a fresh runner, where `iris doctor` and `iris email
+# then installed from TestPyPI on a fresh runner, where `evarness doctor` and `evarness email
 # demo` must pass (scripts/ci_quickstart.sh, the quickstart check's own script). No PyPI
 # upload and no GitHub release on that path. TestPyPI refuses a second upload of a
 # version, so the run stamps `<pyproject version>.dev<run number>` into its build only
@@ -63,7 +63,7 @@ jobs:
         run: |
           version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["tool"]["poetry"]["version"])')
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "Building iris-harness ${version}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Building evarness ${version}" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22" # the Dockerfile's webui stage
@@ -72,7 +72,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run build
-      # Into the package: pyproject's `include` ships src/iris_harness/server/iris_api/
+      # Into the package: pyproject's `include` ships src/evarness/server/harness_api/
       # webui_dist/ in the sdist and the wheel (R6), where static_ui serves it from.
       - name: Bundle the web console into the package
         run: python scripts/bundle_webui.py
@@ -82,7 +82,7 @@ jobs:
       - name: Build sdist and wheel
         run: uv build --sdist --wheel --out-dir dist
       # R6: "Wheel bundles webui/dist". Checked, not assumed: a wheel without the console
-      # installs an `iris` whose API serves no UI. The path is the one static_ui reads
+      # installs an `evarness` whose API serves no UI. The path is the one static_ui reads
       # (PACKAGED_WEBUI_DIST), and the shell's hashed assets must ship beside it.
       - name: The wheel carries the web console
         run: |
@@ -90,7 +90,7 @@ jobs:
           import glob, sys, zipfile
           wheel = glob.glob("dist/*.whl")[0]
           names = set(zipfile.ZipFile(wheel).namelist())
-          dist = "iris_harness/server/iris_api/webui_dist/"
+          dist = "evarness/server/harness_api/webui_dist/"
           if dist + "index.html" not in names:
               sys.exit(f"{wheel} has no {dist}index.html: R6 is not met")
           if not any(n.startswith(dist + "assets/") for n in names):
@@ -111,7 +111,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/p/iris-harness
+      url: https://pypi.org/p/evarness
     permissions:
       id-token: write # trusted publishing: the OIDC token is the only credential
     steps:
@@ -156,7 +156,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/iris-harness
+      url: https://test.pypi.org/p/evarness
     permissions:
       id-token: write # trusted publishing: the OIDC token is the only credential
     steps:
@@ -168,8 +168,8 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
 
-  # Issue #25's "done when": the TestPyPI release installs and runs `iris doctor`. Only
-  # iris-harness comes from TestPyPI (fetched alone, with no dependencies, and checked
+  # Issue #25's "done when": the TestPyPI release installs and runs `evarness doctor`. Only
+  # evarness comes from TestPyPI (fetched alone, with no dependencies, and checked
   # byte for byte against the file this run built); its dependencies come from PyPI, as a
   # user's do. Resolving them across both indexes would let any squatted name on TestPyPI
   # (where anyone can upload anything) win the resolution.
@@ -200,10 +200,10 @@ jobs:
           for attempt in 1 2 3 4 5 6 7 8 9 10; do
             if python -m pip download --quiet --no-deps --only-binary :all: \
                 --index-url https://test.pypi.org/simple/ \
-                --dest testpypi/ "iris-harness==${VERSION}"; then
+                --dest testpypi/ "evarness==${VERSION}"; then
               break
             fi
-            [[ $attempt -lt 10 ]] || { echo "::error::iris-harness ${VERSION} is not on TestPyPI"; exit 1; }
+            [[ $attempt -lt 10 ]] || { echo "::error::evarness ${VERSION} is not on TestPyPI"; exit 1; }
             echo "not on the index yet (attempt ${attempt}); retrying in 30 s"
             sleep 30
           done
@@ -217,7 +217,7 @@ jobs:
               sys.exit(f"{fetched} from TestPyPI is not the wheel this run built")
           print(f"{fetched}: the wheel this run built (sha256 {digest(built)})")
           PY
-      - name: Install, iris doctor, iris email demo
+      - name: Install, evarness doctor, evarness email demo
         run: |
           wheel=$(ls testpypi/*.whl)
-          IRIS_QUICKSTART_WHEEL="$wheel" bash scripts/ci_quickstart.sh
+          EVARNESS_QUICKSTART_WHEEL="$wheel" bash scripts/ci_quickstart.sh

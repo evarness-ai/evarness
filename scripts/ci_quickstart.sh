@@ -6,35 +6,35 @@
 #   1. `uv tool install "<tree>[email]"` into a throwaway tool dir with a COLD package
 #      cache, timed: R19's target is under 60 s. Over the budget fails the check (the owner's
 #      call: the target is a promise to users), and the number lands in the job summary.
-#   2. `iris doctor --json`: it must run from the install and give a verdict that is not
+#   2. `evarness doctor --json`: it must run from the install and give a verdict that is not
 #      "not ready" (the model server is a closed port and there is no OS keyring, so a
 #      CI runner is "demo only"; the vault key is a throwaway, as a user's first
-#      `iris doctor --fix` would create).
-#   3. `iris email demo` in its own home: exit 0, the "What IRIS just did" summary, no
+#      `evarness doctor --fix` would create).
+#   3. `evarness email demo` in its own home: exit 0, the "What Evarness just did" summary, no
 #      network connection attempted, and the labels step done.
 #   4. The getting-started pages of the docs site (R7), block by block, in the same shell
 #      (scripts/getting_started.py): every block a page does not mark install or skip
 #      must exit with a code the page allows.
 #
 # Usage:  scripts/ci_quickstart.sh [<tree>]          (default: the repository root)
-# Env:    IRIS_QUICKSTART_WHEEL       a built wheel to install instead of the tree (its
+# Env:    EVARNESS_QUICKSTART_WHEEL       a built wheel to install instead of the tree (its
 #                                      [email] extra; the docs still come from <tree>):
 #                                      release.yml's TestPyPI check passes the wheel it
 #                                      downloaded from TestPyPI
-#         IRIS_QUICKSTART_PYTHON      Python for the tool env (default 3.12)
-#         IRIS_QUICKSTART_BUDGET_S    the install budget in seconds (default 60)
-#         IRIS_QUICKSTART_WARM_CACHE=1  reuse uv's cache (local iteration only: the
+#         EVARNESS_QUICKSTART_PYTHON      Python for the tool env (default 3.12)
+#         EVARNESS_QUICKSTART_BUDGET_S    the install budget in seconds (default 60)
+#         EVARNESS_QUICKSTART_WARM_CACHE=1  reuse uv's cache (local iteration only: the
 #                                      number is then not the cold-install number)
 # Requires: uv, python3. Bash 3.2 compatible.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TREE="$(cd "${1:-$ROOT}" && pwd)"
-PY_VERSION="${IRIS_QUICKSTART_PYTHON:-3.12}"
-BUDGET="${IRIS_QUICKSTART_BUDGET_S:-60}"
+PY_VERSION="${EVARNESS_QUICKSTART_PYTHON:-3.12}"
+BUDGET="${EVARNESS_QUICKSTART_BUDGET_S:-60}"
 command -v uv >/dev/null || { echo "ci_quickstart: uv is required" >&2; exit 2; }
 
-WORK="$(mktemp -d "${TMPDIR:-/tmp}/iris-quickstart.XXXXXX")"
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/evarness-quickstart.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/home" "$WORK/tools" "$WORK/bin"
 summary() { # a line for the GitHub job summary, when there is one
@@ -45,12 +45,12 @@ now() { python3 -c 'import time; print(f"{time.time():.3f}")'; }
 
 # 1. The install, timed.
 CACHE_ARGS=()
-[[ "${IRIS_QUICKSTART_WARM_CACHE:-0}" == "1" ]] || CACHE_ARGS=(--cache-dir "$WORK/uv-cache")
-if [[ -n "${IRIS_QUICKSTART_WHEEL:-}" ]]; then
-  [[ -f "$IRIS_QUICKSTART_WHEEL" ]] || { echo "ci_quickstart: no wheel at $IRIS_QUICKSTART_WHEEL" >&2; exit 2; }
-  WHEEL_URL="$(python3 -c 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$IRIS_QUICKSTART_WHEEL")"
-  SPEC="iris-harness[email] @ ${WHEEL_URL}"
-  WHAT="$(basename "$IRIS_QUICKSTART_WHEEL")[email]"
+[[ "${EVARNESS_QUICKSTART_WARM_CACHE:-0}" == "1" ]] || CACHE_ARGS=(--cache-dir "$WORK/uv-cache")
+if [[ -n "${EVARNESS_QUICKSTART_WHEEL:-}" ]]; then
+  [[ -f "$EVARNESS_QUICKSTART_WHEEL" ]] || { echo "ci_quickstart: no wheel at $EVARNESS_QUICKSTART_WHEEL" >&2; exit 2; }
+  WHEEL_URL="$(python3 -c 'import pathlib, sys; print(pathlib.Path(sys.argv[1]).resolve().as_uri())' "$EVARNESS_QUICKSTART_WHEEL")"
+  SPEC="evarness[email] @ ${WHEEL_URL}"
+  WHAT="$(basename "$EVARNESS_QUICKSTART_WHEEL")[email]"
 else
   SPEC="${TREE}[email]"
   WHAT="<tree>[email]"
@@ -77,18 +77,18 @@ user() {
     LANG="${LANG:-C.UTF-8}" \
     COLUMNS=200 \
     TMPDIR="$WORK" \
-    IRIS_HOME="$WORK/home/.iris" \
+    EVARNESS_HOME="$WORK/home/.evarness" \
     OLLAMA_BASE_URL="http://127.0.0.1:9" \
     PYTHON_KEYRING_BACKEND="keyring.backends.fail.Keyring" \
-    IRIS_VAULT_MASTER_KEY="$KEY" \
+    EVARNESS_VAULT_MASTER_KEY="$KEY" \
     "$@"
 }
-KEY="$("$WORK/tools/iris-harness/bin/python" -c \
+KEY="$("$WORK/tools/evarness/bin/python" -c \
   'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
 
-# 2. iris doctor.
+# 2. evarness doctor.
 set +e
-user iris doctor --json > "$WORK/doctor.json" 2> "$WORK/doctor.err"
+user evarness doctor --json > "$WORK/doctor.json" 2> "$WORK/doctor.err"
 DOCTOR_RC=$?
 set -e
 python3 - "$WORK/doctor.json" "$DOCTOR_RC" <<'PY'
@@ -99,31 +99,31 @@ path, rc = sys.argv[1], int(sys.argv[2])
 try:
     report = json.load(open(path, encoding="utf-8"))
 except ValueError:
-    sys.exit(f"quickstart: iris doctor printed no JSON report (exit {rc})")
+    sys.exit(f"quickstart: evarness doctor printed no JSON report (exit {rc})")
 for check in report["checks"]:
     print(f"  {check['status']:<4} {check['name']:<16} {check['detail']}")
 verdict = report["verdict"]
-print(f"quickstart: iris doctor verdict {verdict!r} (exit {rc})")
+print(f"quickstart: evarness doctor verdict {verdict!r} (exit {rc})")
 if rc != report["exit_code"]:
     sys.exit(f"quickstart: exit code {rc} does not match the report's {report['exit_code']}")
 if verdict == "not_ready":
     sys.exit("quickstart: the doctor says this install cannot even run the demo")
 PY
-summary "- \`iris doctor\`: exit ${DOCTOR_RC} ($(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['verdict'])" "$WORK/doctor.json"))"
+summary "- \`evarness doctor\`: exit ${DOCTOR_RC} ($(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['verdict'])" "$WORK/doctor.json"))"
 
-# 3. iris email demo, offline on the scripted model.
+# 3. evarness email demo, offline on the scripted model.
 set +e
-user iris email demo --home "$WORK/demo" > "$WORK/demo.out" 2>&1
+user evarness email demo --home "$WORK/demo" > "$WORK/demo.out" 2>&1
 DEMO_RC=$?
 set -e
 cat "$WORK/demo.out"
-[[ $DEMO_RC -eq 0 ]] || { echo "quickstart: iris email demo exited $DEMO_RC" >&2; exit 1; }
-for expected in "What IRIS just did" "Network connections attempted: 0" \
+[[ $DEMO_RC -eq 0 ]] || { echo "quickstart: evarness email demo exited $DEMO_RC" >&2; exit 1; }
+for expected in "What Evarness just did" "Network connections attempted: 0" \
   "Labels (setup step 6): labelled"; do
   grep -qF "$expected" "$WORK/demo.out" ||
     { echo "quickstart: the demo's output lacks: $expected" >&2; exit 1; }
 done
-summary "- \`iris email demo\`: OK (offline, scripted model, 0 network connections)"
+summary "- \`evarness email demo\`: OK (offline, scripted model, 0 network connections)"
 
 # 4. The getting-started pages (R7: every one is exercised by CI), as the docs site shows
 #    them: every fenced shell block, in page order, in the same fresh user's shell. The

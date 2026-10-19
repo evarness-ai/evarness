@@ -1,7 +1,7 @@
 # Episodic Memory
 
 _Compact long-term memory map. Keep entries short; detailed knowledge belongs
-in `data/wiki/`. IRIS indexes the sections below for `memory_search`._
+in `data/wiki/`. Evarness indexes the sections below for `memory_search`._
 
 ## Long-Term Patterns
 

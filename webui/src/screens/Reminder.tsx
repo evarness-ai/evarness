@@ -175,7 +175,7 @@ export function ReminderScreen() {
     undo.mutate(
       { id: reopenId, undo: { kind: "done", source: "sheet" } },
       {
-        onSuccess: () => toast.success("Reopened — IRIS will remind you about this bill again."),
+        onSuccess: () => toast.success("Reopened — Evarness will remind you about this bill again."),
         onError: (err) => {
           const msg = err instanceof Error ? err.message : "could not reopen the bill";
           setFailure(msg);
@@ -204,7 +204,7 @@ export function ReminderScreen() {
   return (
     <div className="mx-auto w-full max-w-md">
       <article className="rounded-2xl border border-border bg-surface p-5" aria-live="polite">
-        <p className="text-xs text-fg-subtle">{bill ? "IRIS · Bill" : "IRIS · Reminder"}</p>
+        <p className="text-xs text-fg-subtle">{bill ? "Evarness · Bill" : "Evarness · Reminder"}</p>
         <h2 className="mt-1 break-words text-xl font-semibold text-fg">
           {bill ? billTitle(bill) : `⏰ ${reminder.text}`}
         </h2>

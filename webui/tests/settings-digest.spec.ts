@@ -1,6 +1,6 @@
 /* Settings → Digest (loop-proof plan PR 2, prototype v4 signed off 2026-09-25).
  *
- * The server is faked against the contract iris_api serves: GET /digest/config returns
+ * The server is faked against the contract harness_api serves: GET /digest/config returns
  * the fields in effect, the file's values and every section the digest knows; PATCH
  * takes any of the fields (the tab sends `sections` and `sections_off` together).
  * The fake keeps state, so a change shows the way it would against the real API.
@@ -88,7 +88,7 @@ test("the digest tab shows when, where and what, and where the settings came fro
   await page.goto("/settings#digest");
 
   await expect(page.getByLabel("Delivery time")).toHaveValue("07:00");
-  await expect(page.getByText("America/Chicago (IRIS_TZ)")).toBeVisible();
+  await expect(page.getByText("America/Chicago (EVARNESS_TZ)")).toBeVisible();
   await expect(page.getByLabel("Digest channel")).toHaveValue("all");
   await expect(page.getByRole("switch", { name: "Bills due" })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByText("Preferred, never strict", { exact: false })).toBeVisible();

@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Set up and start IRIS on Windows: IRIS in Docker Desktop, the models on Ollama for Windows.
+    Set up and start Evarness on Windows: Evarness in Docker Desktop, the models on Ollama for Windows.
 
 .DESCRIPTION
     Runs every step a first install needs, and is safe to run again (it then just starts
-    IRIS on what the checkout holds now):
+    Evarness on what the checkout holds now):
 
       1. Docker Desktop: installed and running (offers to install it with winget).
       2. Ollama for Windows: installed and running (offers to install it with winget).
@@ -15,11 +15,11 @@
          (OLLAMA_IGPU_ENABLE=1 for your user) and restarts Ollama. Then says what runs the
          models.
       4. .env (git-ignored): the API secret and the vault master key, created once and never
-         replaced, and this machine's RAM, so `iris doctor` sizes the model set for the
+         replaced, and this machine's RAM, so `evarness doctor` sizes the model set for the
          machine the models run on rather than the container.
-      5. IRIS: builds the image from this checkout and starts the Governor and the IRIS API
+      5. Evarness: builds the image from this checkout and starts the Governor and the Evarness API
          against Ollama for Windows (docker-compose.hostllm.yml).
-      6. Models: `iris doctor --fix` picks the model set for this machine
+      6. Models: `evarness doctor --fix` picks the model set for this machine
          (config/doctor.yaml), points the tiers at it and pulls its models.
       7. A first answer, to show it works end to end.
 
@@ -29,13 +29,13 @@
     Answer yes to every question (installs, the GPU setting, Ollama restarts).
 
 .PARAMETER Stop
-    Stop IRIS (docker compose down; the data volume stays) and exit.
+    Stop Evarness (docker compose down; the data volume stays) and exit.
 
 .PARAMETER ModelSet
     Use this model set from config/doctor.yaml instead of the one the machine fits.
 
 .PARAMETER SkipModels
-    Do not run `iris doctor --fix` (no model set change, no downloads).
+    Do not run `evarness doctor --fix` (no model set change, no downloads).
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File .\setup-windows.ps1
@@ -56,7 +56,7 @@ $OllamaApi = "http://127.0.0.1:11434"
 $OllamaApp = Join-Path $env:LOCALAPPDATA "Programs\Ollama\ollama app.exe"
 $OllamaLog = Join-Path $env:LOCALAPPDATA "Ollama\server.log"
 $DockerApp = Join-Path $env:ProgramFiles "Docker\Docker\Docker Desktop.exe"
-$IrisApi = "http://127.0.0.1:8003"
+$EvarnessApi = "http://127.0.0.1:8003"
 
 function Step([string]$Text) { Write-Host ""; Write-Host "==> $Text" -ForegroundColor Cyan }
 function Info([string]$Text) { Write-Host "    $Text" }
@@ -92,13 +92,13 @@ function Wait-Until([scriptblock]$Condition, [int]$Seconds, [string]$What) {
     return $false
 }
 
-# The IRIS API container's health ("healthy", "starting", ...), or "" before it exists. Looked
+# The Evarness API container's health ("healthy", "starting", ...), or "" before it exists. Looked
 # up through Compose: the container's name follows the checkout's folder name.
 function Get-ApiHealth {
     $saved = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        $id = (& docker @ComposeFiles ps -q iris-api 2>$null | Select-Object -First 1)
+        $id = (& docker @ComposeFiles ps -q evarness-api 2>$null | Select-Object -First 1)
         if (-not $id) { return "" }
         return [string](& docker inspect -f "{{.State.Health.Status}}" $id 2>$null)
     } finally { $ErrorActionPreference = $saved }
@@ -150,7 +150,7 @@ function New-RandomBytes([int]$Count) {
 }
 
 if ($Stop) {
-    Step "Stopping IRIS"
+    Step "Stopping Evarness"
     Invoke-Compose down
     Info "Stopped. The data volume stays; run .\setup-windows.ps1 to start again."
     exit 0
@@ -160,7 +160,7 @@ if ($Stop) {
 Step "Docker Desktop"
 if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
     if (-not (Confirm-Step "Docker Desktop is not installed. Install it with winget?")) {
-        Fail "IRIS runs in Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/"
+        Fail "Evarness runs in Docker Desktop: https://docs.docker.com/desktop/setup/install/windows-install/"
     }
     winget install --id Docker.DockerDesktop -e --accept-source-agreements --accept-package-agreements
     Info "Docker Desktop is installed. Start it once (it may ask you to sign out and in), then run this script again."
@@ -231,64 +231,64 @@ if ($onGpu.Count -gt 0) {
 Step ".env (git-ignored)"
 $envLines = @()
 if (Test-Path -LiteralPath ".env") { $envLines = @(Get-Content -LiteralPath ".env") }
-if (-not (Get-EnvValue $envLines "IRIS_AUTH_SECRET")) {
-    $envLines = Set-EnvLine $envLines "IRIS_AUTH_SECRET" (-join ((New-RandomBytes 32) | ForEach-Object { $_.ToString("x2") }))
-    Info "Created IRIS_AUTH_SECRET: the bearer token every API call carries."
+if (-not (Get-EnvValue $envLines "EVARNESS_AUTH_SECRET")) {
+    $envLines = Set-EnvLine $envLines "EVARNESS_AUTH_SECRET" (-join ((New-RandomBytes 32) | ForEach-Object { $_.ToString("x2") }))
+    Info "Created EVARNESS_AUTH_SECRET: the bearer token every API call carries."
 }
-if (-not (Get-EnvValue $envLines "IRIS_VAULT_MASTER_KEY")) {
+if (-not (Get-EnvValue $envLines "EVARNESS_VAULT_MASTER_KEY")) {
     # A Fernet key: 32 random bytes, URL-safe base64. The vault encrypts secrets under it, so
     # an existing one is never replaced.
     $fernet = [Convert]::ToBase64String((New-RandomBytes 32)).Replace("+", "-").Replace("/", "_")
-    $envLines = Set-EnvLine $envLines "IRIS_VAULT_MASTER_KEY" $fernet
-    Info "Created IRIS_VAULT_MASTER_KEY: governed tool calls need it (a container has no OS keyring)."
+    $envLines = Set-EnvLine $envLines "EVARNESS_VAULT_MASTER_KEY" $fernet
+    Info "Created EVARNESS_VAULT_MASTER_KEY: governed tool calls need it (a container has no OS keyring)."
 }
-$envLines = Set-EnvLine $envLines "IRIS_MODEL_HOST_RAM_GB" "$ramGb"
+$envLines = Set-EnvLine $envLines "EVARNESS_MODEL_HOST_RAM_GB" "$ramGb"
 # ASCII: Windows PowerShell's > and Out-File write UTF-16, which Compose cannot read.
 Set-Content -LiteralPath ".env" -Value $envLines -Encoding ascii
-Info "IRIS_MODEL_HOST_RAM_GB=$ramGb (the model set is sized for this machine)"
+Info "EVARNESS_MODEL_HOST_RAM_GB=$ramGb (the model set is sized for this machine)"
 
-# -- 5. IRIS -------------------------------------------------------------------------------
-Step "Building and starting IRIS (the first build takes a few minutes)"
-# --force-recreate: both services share the iris:latest tag, and Compose otherwise keeps a
+# -- 5. Evarness -------------------------------------------------------------------------------
+Step "Building and starting Evarness (the first build takes a few minutes)"
+# --force-recreate: both services share the evarness:latest tag, and Compose otherwise keeps a
 # container on the image it was created from after a rebuild; ./config is mounted from the
 # checkout, so old code would read new config.
-Invoke-Compose up -d --build --force-recreate --no-deps governor iris-api
-$healthy = Wait-Until { (Get-ApiHealth) -eq "healthy" } 300 "the IRIS API reporting healthy"
+Invoke-Compose up -d --build --force-recreate --no-deps governor evarness-api
+$healthy = Wait-Until { (Get-ApiHealth) -eq "healthy" } 300 "the Evarness API reporting healthy"
 if (-not $healthy) {
-    & docker @ComposeFiles logs --tail 40 iris-api
-    Fail "The IRIS API did not become healthy; its last log lines are above"
+    & docker @ComposeFiles logs --tail 40 evarness-api
+    Fail "The Evarness API did not become healthy; its last log lines are above"
 }
-Info "The Governor and the IRIS API are up."
+Info "The Governor and the Evarness API are up."
 
 # -- 6. Models -----------------------------------------------------------------------------
 if (-not $SkipModels) {
-    Step "Model set and models (iris doctor --fix; the first download is several GB)"
-    $doctor = @("exec", "-T", "iris-api", "iris", "doctor", "--fix", "--yes")
+    Step "Model set and models (evarness doctor --fix; the first download is several GB)"
+    $doctor = @("exec", "-T", "evarness-api", "evarness", "doctor", "--fix", "--yes")
     if ($ModelSet) { $doctor += @("--model-set", $ModelSet) }
     & docker @ComposeFiles @doctor
-    if ($LASTEXITCODE -ne 0) { Warn "iris doctor reports something still missing (above); IRIS may not answer yet" }
+    if ($LASTEXITCODE -ne 0) { Warn "evarness doctor reports something still missing (above); Evarness may not answer yet" }
     # The tiers the set points at are read at startup.
-    Invoke-Compose restart iris-api
-    Wait-Until { (Get-ApiHealth) -eq "healthy" } 180 "the IRIS API reporting healthy" | Out-Null
+    Invoke-Compose restart evarness-api
+    Wait-Until { (Get-ApiHealth) -eq "healthy" } 180 "the Evarness API reporting healthy" | Out-Null
 }
 
 # -- 7. A first answer ---------------------------------------------------------------------
 Step "A first answer"
-$secret = Get-EnvValue @(Get-Content -LiteralPath ".env") "IRIS_AUTH_SECRET"
+$secret = Get-EnvValue @(Get-Content -LiteralPath ".env") "EVARNESS_AUTH_SECRET"
 $started = Get-Date
 try {
-    $reply = Invoke-RestMethod -Method Post "$IrisApi/chat" -Headers @{ authorization = "Bearer $secret" } `
+    $reply = Invoke-RestMethod -Method Post "$EvarnessApi/chat" -Headers @{ authorization = "Bearer $secret" } `
         -ContentType "application/json" -Body '{"message": "hi, how are you?", "session_id": "setup-check"}' -TimeoutSec 600
     $seconds = [math]::Round(((Get-Date) - $started).TotalSeconds)
     Info "You: hi, how are you?"
-    Info "IRIS: $($reply.response)"
+    Info "Evarness: $($reply.response)"
     Info "($seconds s, model $($reply.metadata.model))"
 } catch {
     Warn "No answer yet: $($_.Exception.Message)"
-    Info "Run 'docker compose exec iris-api iris doctor' to see what is missing."
+    Info "Run 'docker compose exec evarness-api evarness doctor' to see what is missing."
 }
 
 Step "Done"
-Info "Console:  $IrisApi/   (API calls carry IRIS_AUTH_SECRET from .env as a bearer token)"
+Info "Console:  $EvarnessApi/   (API calls carry EVARNESS_AUTH_SECRET from .env as a bearer token)"
 Info "Stop:     .\setup-windows.ps1 -Stop"
 Info "Start:    .\setup-windows.ps1   (again after a git pull: it rebuilds from the checkout)"

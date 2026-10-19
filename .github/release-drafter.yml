@@ -35,6 +35,6 @@ template: |
 
   $CHANGES
 
-  Install or upgrade: `uv tool install --upgrade "iris-harness[email]"` (or pipx).
+  Install or upgrade: `uv tool install --upgrade "evarness[email]"` (or pipx).
 
   **Full changelog**: https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION

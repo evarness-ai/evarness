@@ -7,7 +7,7 @@
  * So both collapse into one bell in the header. The count is health alerts
  * plus outstanding items, because from the owner's side a revoked credential
  * and an unpaid bill are the same question — what wants me? The sheet keeps
- * them apart, alerts first, since only one of those can be IRIS failing.
+ * them apart, alerts first, since only one of those can be Evarness failing.
  *
  * Desktop keeps the banner and the panel: there is room, and a wide screen
  * reads a row faster than it reads a tap.
@@ -82,7 +82,7 @@ export function AttentionBell() {
 
   if (count === 0) return null;
 
-  // Red only when IRIS is actually failing. An unpaid bill in red would teach
+  // Red only when Evarness is actually failing. An unpaid bill in red would teach
   // the owner to ignore red, and then a revoked credential reads as routine.
   const urgent = alerts > 0;
   const shown = rows.slice(0, 6);

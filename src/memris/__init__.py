@@ -2,7 +2,7 @@
 
 memris knows no vocabulary. Every class, relation and attribute comes from the YAML it
 is given; the engine only interprets it (ADR-0115, decision 2). It imports nothing from
-the IRIS harness and calls no model, so another project can use it on its own
+the Evarness harness and calls no model, so another project can use it on its own
 (decision 10).
 
     from memris import MemoryGraph, SQLiteGraphStore, load_or_raise

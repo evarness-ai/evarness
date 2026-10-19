@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from iris_harness.sdk import PluginAPI
+from evarness.sdk import PluginAPI
 
 HANDLER = "opening_hours"
 HOURS_FILE = Path(__file__).with_name("hours.yaml")

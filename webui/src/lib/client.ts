@@ -1,8 +1,8 @@
 import { apiFetch } from './http';
 import type { Trace } from './types';
 
-// Data source for the trace and session screens: the live IRIS API
-// (GET /api/traces, /api/traces/:id, /api/sessions — served by src/iris_harness/server/iris_api
+// Data source for the trace and session screens: the live Evarness API
+// (GET /api/traces, /api/traces/:id, /api/sessions — served by src/evarness/server/harness_api
 // from session logs, via the Vite /api proxy). There is no canned fallback: an API that
 // cannot be reached (or answers 401 — lib/http.ts routes that to /pair) is an error the
 // React Query hook surfaces, and the screen shows the "API unavailable" notice. A live
@@ -44,7 +44,7 @@ export interface SlashCommandSummary {
 
 export interface ChatStatus {
   session_id: string;
-  iris_version: string;
+  evarness_version: string;
   provider: string;
   provider_label: string;
   model: string;

@@ -5,12 +5,12 @@
  * suite, no visual snapshots.
  *
  * The app under test is the built `dist` served by `vite preview`, not the dev
- * server: preview is what the server image ships (iris_api serves the same
+ * server: preview is what the server image ships (harness_api serves the same
  * bundle), and it needs no backend because tests/fixtures.ts answers every data
  * call. */
 import { defineConfig, devices } from "@playwright/test";
 
-const PORT = Number(process.env.IRIS_SMOKE_PORT ?? 4180);
+const PORT = Number(process.env.EVARNESS_SMOKE_PORT ?? 4180);
 
 export default defineConfig({
   testDir: "./tests",

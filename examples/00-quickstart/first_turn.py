@@ -1,6 +1,6 @@
 """Your first governed turn, from Python: ``python examples/00-quickstart/first_turn.py``.
 
-``harness()`` builds the same IRIS the ``iris`` command runs -- routing, the governed
+``harness()`` builds the same Evarness the ``evarness`` command runs -- routing, the governed
 loop, the curator, the audit ledger -- in a throwaway home, on a scripted model, with
 the network refused. One question goes through the whole pipeline; the script prints
 the answer and the audit rows the turn wrote.
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from iris_harness.testing import TurnAuditRow, TurnResult, harness
+from evarness.testing import TurnAuditRow, TurnResult, harness
 
 QUESTION = "What can you help me with?"
 ANSWER = "I can sort your email, keep your to-dos and answer from your own documents."
@@ -39,7 +39,7 @@ def first_turn() -> tuple[TurnResult, list[TurnAuditRow], list[str]]:
 def main() -> None:
     result, rows, gaps = first_turn()
     print(f"You:  {QUESTION}")
-    print(f"IRIS: {result.text}")
+    print(f"Evarness: {result.text}")
     print(f"      (intent {result.intent}, agent {result.agent})")
     print(f"\n{len(rows)} audit rows for this turn:")
     for row in rows:

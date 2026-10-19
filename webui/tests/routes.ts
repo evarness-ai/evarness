@@ -3,7 +3,7 @@
  * The console draws its sidebar, phone bar and More page from GET /api/v1/webui/nav
  * (OSS plan R17). The two JSON files beside this one are that endpoint's output for
  * real profiles, written by the Python suite
- * (tests/unit/iris_harness/runtime/test_plugin_host/test_nav.py), which fails when
+ * (tests/unit/evarness/runtime/test_plugin_host/test_nav.py), which fails when
  * config/webui/nav.yaml or a plugin manifest changes without regenerating them. The
  * fixtures serve them to the app, and `nav parity` in viewport.spec.ts counts the
  * links the running app renders, so the three can never disagree quietly.

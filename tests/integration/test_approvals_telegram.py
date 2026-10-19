@@ -1,4 +1,4 @@
-"""Approving from Telegram, end to end: the message IRIS sends carries buttons, and
+"""Approving from Telegram, end to end: the message Evarness sends carries buttons, and
 tapping them answers the approval (story 12.gov-4.8; ADR-0118 step 4 follow-up).
 
 The message comes from the real ``TelegramApprovalChannel``; the taps go through the
@@ -13,14 +13,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from iris_harness.kernel.governance.approvals import ApprovalCard, ApprovalItem, ApprovalQueue
-from iris_harness.services.channels.approval_commands import (
+from evarness.kernel.governance.approvals import ApprovalCard, ApprovalItem, ApprovalQueue
+from evarness.services.channels.approval_commands import (
     LocalApprovalBackend,
     handle_approval_command,
 )
-from iris_harness.services.channels.approval_delivery import TelegramApprovalChannel
-from iris_harness.services.channels.connectors.telegram_poller import TelegramPoller
-from iris_harness.services.channels.models import ChannelMessage, DeliveryReceipt, DeliveryStatus
+from evarness.services.channels.approval_delivery import TelegramApprovalChannel
+from evarness.services.channels.connectors.telegram_poller import TelegramPoller
+from evarness.services.channels.models import ChannelMessage, DeliveryReceipt, DeliveryStatus
 
 
 class _Connector:

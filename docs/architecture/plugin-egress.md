@@ -50,7 +50,7 @@ the process (see "What this does not prove").
    the caller policy (`runtime/tool_access.py`, `kernel/governance/caller_policy.py`).
    Config, not code: no plugin name is hard-coded in the kernel.
 
-2. **A governed HTTP client** (`iris_harness.sdk.http`). A plugin gets one from
+2. **A governed HTTP client** (`evarness.sdk.http`). A plugin gets one from
    `api.http` (bound to its own name by the harness) or, in a declarative plugin's function, from `current_http()` (bound to the
    tool being run). Each request:
    - is held to the call it is made inside: the harness stamps the running tool's plugin, run,
@@ -78,14 +78,14 @@ the process (see "What this does not prove").
    (`tool_plugin`), the tool (`tool_name`), the caller, the run id and session, and on
    the outcome row status, bytes sent and received, duration and an exception class on
    failure. **Never** a path, query, header, body or secret. A `log_egress` line is also
-   written, so `iris.egress` stays one trail.
+   written, so `evarness.egress` stays one trail.
 
    The harness stamps the call's run, step, tool, caller and classification around the
    tool invocation (`EgressScope`, a `ContextVar` set in `GovernedToolRunner` for both
    tool calls and capability provider calls), so the rows join the turn's other rows on
    `chat` and `chat_stream` alike: both run the one tool runner.
 
-   Tests: `iris_harness.testing.fake_http(...)` replaces only the transport, so the
+   Tests: `evarness.testing.fake_http(...)` replaces only the transport, so the
    policy, the hooks and the rows run exactly as in production. This replaces each
    plugin's own `make_setup(transport)` (GAP-4). `no_network()` still refuses real
    sockets.
@@ -158,7 +158,7 @@ between body chunks (`timeout` seconds, default 10, at most 60; `None`, zero, ne
 mean the default; this is a total, where httpx's own timeout is per operation), and the
 decoded body is read up to 10 MiB by default (a manifest may set `egress.max_response_bytes`:
 lowering it is always allowed, the harness ceiling is 64 MiB and a manifest above it does not
-load, so the plugin does not mount; a cap other than the default is shown by `iris plugins`
+load, so the plugin does not mount; a cap other than the default is shown by `evarness plugins`
 and recorded as `cap` on every `pre_egress` row). Either limit ends the
 request with a `post_egress` row (`error: EgressDenied`, `aborted: max_bytes | deadline`,
 `bytes_in` = the decoded bytes actually read) and an `EgressDenied` with a fixed message.
@@ -183,7 +183,7 @@ gets the same identity, through the same path:
 
 | Field | On the row (top level of the payload, `GET /governance/audit`, the CLI `call` column) | Where it comes from |
 |---|---|---|
-| `call_id` | the request's own id: a 26-character ULID, shared by its `pre_egress` and `post_egress` rows (and every hook that fired for them) | minted by the governed client with `iris_harness.foundation.ids.new_ulid`, the runner's minter; there is no argument to pass one; carried in the hook context's **metadata** and written by `kernel._audit`, never read from the payload |
+| `call_id` | the request's own id: a 26-character ULID, shared by its `pre_egress` and `post_egress` rows (and every hook that fired for them) | minted by the governed client with `evarness.foundation.ids.new_ulid`, the runner's minter; there is no argument to pass one; carried in the hook context's **metadata** and written by `kernel._audit`, never read from the payload |
 | `parent_call_id` | the calling tool's (or capability call's) runner-minted `call_id`, i.e. the id on that call's own `pre_tool_use` / `post_tool_use` rows. Absent for a request made outside a governed call | read by the client from the harness's call scope (`EgressScope.tool_call_id`, set around the tool or provider invocation by the runner), carried as metadata `parent_call_id`, stamped by `kernel._audit` |
 | `attempt`, `replay_of` | inside the nested `egress` value: a repeat of the same method, host and port inside one governed call is attempt 2, 3, ... and `replay_of` names the first request's `call_id` | the client |
 
@@ -220,7 +220,7 @@ that path. What is and is not covered:
   the body.
 - Not covered: text the plugin itself puts into a prompt of its own, shows to the owner, or
   stores, before or without returning it. A plugin that does this should pass the body
-  through `iris_harness.sdk.content.wrap_external_content(body, source=...)` first. The
+  through `evarness.sdk.content.wrap_external_content(body, source=...)` first. The
   governed client does not do it for the plugin, because the same body may be JSON the
   plugin parses; wrapping is a decision about prose.
 - The client never wraps or redacts a response (it does cap its size, below); `fake_http`
@@ -244,19 +244,19 @@ mount). First-party plugins that import raw libraries today are on an explicit, 
 shrinking list (below), so a *new* raw import in a first-party plugin fails this repo's
 `tests/` instead of passing silently. That is not an exemption: it is a visible debt.
 
-**First-party network use today** (verified in source; `tests/unit/iris_harness/test_testing/
+**First-party network use today** (verified in source; `tests/unit/evarness/test_testing/
 test_network_imports.py` pins the files):
 
 | Plugin | What it connects to | In this change |
 |---|---|---|
-| `research` | `api.tavily.com`, `api.exa.ai`, `api.search.brave.com` and every page it fetches: through `api.http` (issue #172), under `egress: {open_web: true}`, with a ledger row per request and per redirect hop. Still raw: SearXNG (the operator's own, usually loopback, server, which the governed client refuses by design), `duckduckgo.com` (the `ddgs` library), Crawl4AI (its own browser; its first URL is address-checked in `extract.py`, which keeps `socket`), and with the opt-in `IRIS_RESEARCH_CACHE=redis` the operator's own Redis over TCP (`redis`, `cache.py`: the operator's infrastructure, outside governed egress) | three files on the debt list |
+| `research` | `api.tavily.com`, `api.exa.ai`, `api.search.brave.com` and every page it fetches: through `api.http` (issue #172), under `egress: {open_web: true}`, with a ledger row per request and per redirect hop. Still raw: SearXNG (the operator's own, usually loopback, server, which the governed client refuses by design), `duckduckgo.com` (the `ddgs` library), Crawl4AI (its own browser; its first URL is address-checked in `extract.py`, which keeps `socket`), and with the opt-in `EVARNESS_RESEARCH_CACHE=redis` the operator's own Redis over TCP (`redis`, `cache.py`: the operator's infrastructure, outside governed egress) | three files on the debt list |
 | `gmail` | `gmail.googleapis.com`, `www.googleapis.com`, `oauth2.googleapis.com`, `accounts.google.com` (Google API client, OAuth) | the four hosts declared (`data: personal`); three files on the debt list |
 | `imap` | the owner's IMAP server over TCP (`imaplib`, `ssl`) | not an HTTP host, so nothing to declare; one file on the debt list |
 | `email_workflows` | job-posting fetch (`httpx`), discovery (`requests`), a demo that guards sockets | three files on the debt list; no declaration yet |
 | `telegram_channel`, `web_push_channel` | `api.telegram.org`, browser push endpoints, through `services/channels` | the plugin files import nothing raw, so the lint is silent; no declaration yet |
 
 Migrating each onto the governed client is separate work (their SSRF checks, DNS handling,
-OAuth transports and streaming need care); declaring their hosts now makes `iris plugins
+OAuth transports and streaming need care); declaring their hosts now makes `evarness plugins
 show` truthful and gives the debt list a name per file.
 
 **Stable-tier additions** (each is a public name a plugin or its CI needs):

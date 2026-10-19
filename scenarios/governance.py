@@ -1,7 +1,7 @@
 """Governance adversarial scenarios — deliberate policy violations.
 
 Fires crafted contexts through the real ``kernel_from_env()`` kernel
-(requires ``IRIS_GOVERNANCE_ENABLED=1``; the runner sets it) and checks the
+(requires ``EVARNESS_GOVERNANCE_ENABLED=1``; the runner sets it) and checks the
 data-classification × tier policy matrix from the egress gate:
 
     secret   → max tier_1 (deny above, severity critical)
@@ -76,7 +76,7 @@ CASES: list[dict[str, Any]] = [
 
 def _fire_matrix_case(kernel: Any, case: dict[str, Any]) -> tuple[str, str | None]:
     """PRE_CLASSIFY then PRE_LLM_CALL, mirroring the production client flow."""
-    from iris_harness.governance import HookContext, HookPoint
+    from evarness.governance import HookContext, HookPoint
 
     run_id = f"scenario-{uuid.uuid4()}"
     classify_ctx = HookContext(
@@ -101,7 +101,7 @@ def _fire_matrix_case(kernel: Any, case: dict[str, Any]) -> tuple[str, str | Non
 
 def _fail_closed_case(kernel: Any) -> str:
     """PRE_LLM_CALL at tier_3 with NO classification — must deny."""
-    from iris_harness.governance import HookContext, HookPoint
+    from evarness.governance import HookContext, HookPoint
 
     ctx = HookContext(
         hook_point=HookPoint.PRE_LLM_CALL,
@@ -117,8 +117,8 @@ def _fail_closed_case(kernel: Any) -> str:
 
 def _end_to_end_client_block() -> tuple[bool, str]:
     """Secret prompt through a real tier-3 client: must raise pre-model."""
-    from iris_harness.llm.client import CodingLLMClient, CodingLLMInvocationError
-    from iris_harness.llm.tier_router import TierRouter
+    from evarness.llm.client import CodingLLMClient, CodingLLMInvocationError
+    from evarness.llm.tier_router import TierRouter
 
     router = TierRouter.load_from_yaml(REPO_ROOT / "config" / "llm_tiers.yaml")
     client = CodingLLMClient(router.get_llm_config("skill_writing"))  # tier3
@@ -133,7 +133,7 @@ def _end_to_end_client_block() -> tuple[bool, str]:
 
 
 def run() -> list[ScenarioRecord]:
-    from iris_harness.governance import kernel_from_env
+    from evarness.governance import kernel_from_env
 
     kernel = kernel_from_env()
     if kernel is None:
@@ -142,7 +142,7 @@ def run() -> list[ScenarioRecord]:
                 scenario="governance",
                 case_id="kernel-missing",
                 verdict="fail",
-                expected="kernel from IRIS_GOVERNANCE_ENABLED=1",
+                expected="kernel from EVARNESS_GOVERNANCE_ENABLED=1",
                 actual="kernel_from_env() returned None",
                 latency_ms=0.0,
             )

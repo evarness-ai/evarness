@@ -7,15 +7,15 @@ taxonomy. Hybrid kNN-then-LLM per ADR-0021. Used by:
   auto-classifies new mail as the sweep heartbeat lands it.
 - The harness on demand when the user asks "what category is this?" or
   "triage my inbox."
-- The `iris email triage` CLI for manual triggering and validation.
+- The `evarness email triage` CLI for manual triggering and validation.
 
 ## Prerequisites
 
-1. `iris auth gmail login --user <address>` — Gmail account registered.
-2. `iris email bootstrap-categories --account <slug>` — produces the
+1. `evarness auth gmail login --user <address>` — Gmail account registered.
+2. `evarness email bootstrap-categories --account <slug>` — produces the
    per-account `proposals.jsonl` the classifier reads for centroids.
-3. `iris email accept-categories --account <slug>` — persists the
-   accepted (root, branch, leaf) paths into `data/iris.db.categories`.
+3. `evarness email accept-categories --account <slug>` — persists the
+   accepted (root, branch, leaf) paths into `data/evarness.db.categories`.
 4. Tier-3-local llama-server running on `localhost:8090` —
    `bash scripts/serve_tier3_local.sh`. Tracks 1H retires this
    dependency by wiring `tier_router.get_llm_config("classify")`.
@@ -41,7 +41,7 @@ taxonomy. Hybrid kNN-then-LLM per ADR-0021. Used by:
 ## What's NOT here
 
 - Re-classifying already-classified emails. Once written, the
-  `classified_category` row sticks. A future `iris email
+  `classified_category` row sticks. A future `evarness email
   recategorize` CLI handles user corrections (Track 1J).
 - Wiki ingestion of classified mail. Lives in Track 1K via the
   `email.classified` event.

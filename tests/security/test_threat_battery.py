@@ -2,7 +2,7 @@
 
 Unit coverage validates the battery harness math + corpus integrity against a
 deterministic reference scorer (no model weights). The live battery against the
-real models is opt-in (``IRIS_THREAT_BATTERY_LIVE``) and gates the flip from
+real models is opt-in (``EVARNESS_THREAT_BATTERY_LIVE``) and gates the flip from
 ``mode: shadow`` to ``mode: enforce``.
 """
 
@@ -13,12 +13,12 @@ from pathlib import Path
 
 import pytest
 
-from iris_harness.kernel.governance.threat.battery import (
+from evarness.kernel.governance.threat.battery import (
     BatteryReport,
     load_corpus,
     run_battery,
 )
-from iris_harness.kernel.governance.threat.types import ThreatSurface, ThreatVerdict
+from evarness.kernel.governance.threat.types import ThreatSurface, ThreatVerdict
 
 CORPUS_PATH = Path(__file__).resolve().parent / "corpus" / "red_team_corpus.yaml"
 
@@ -161,11 +161,11 @@ def test_report_summary_is_readable() -> None:
 
 
 @pytest.mark.skipif(
-    os.getenv("IRIS_THREAT_BATTERY_LIVE", "").strip().lower() not in {"1", "true", "yes", "on"},
-    reason="live battery requires the real guard models; set IRIS_THREAT_BATTERY_LIVE=1",
+    os.getenv("EVARNESS_THREAT_BATTERY_LIVE", "").strip().lower() not in {"1", "true", "yes", "on"},
+    reason="live battery requires the real guard models; set EVARNESS_THREAT_BATTERY_LIVE=1",
 )
 async def test_live_battery_against_real_detector() -> None:  # pragma: no cover - opt-in
-    from iris_harness.kernel.governance.threat import ThreatDetectionConfig, build_threat_detector
+    from evarness.kernel.governance.threat import ThreatDetectionConfig, build_threat_detector
 
     config = ThreatDetectionConfig.from_yaml(
         Path("config") / "governance" / "threat-detection.yaml"

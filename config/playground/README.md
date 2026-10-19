@@ -1,20 +1,20 @@
 # Playground scenarios
 
-YAML test cases for the IRIS harness. Each scenario sends a message through the
+YAML test cases for the Evarness harness. Each scenario sends a message through the
 real runtime under a declared set of flags and asserts on the outcome — which
 intent it routed to, which intercept answered, what tools fired, and whether the
-guardrails held. The engine lives in `src/iris_harness/playground/`; surfaces are
-`iris playground`, the `/playground` API, and the web Playground screen.
+guardrails held. The engine lives in `src/evarness/playground/`; surfaces are
+`evarness playground`, the `/playground` API, and the web Playground screen.
 
 ## Why this exists
 
 - **Regression net for refactors.** Snapshot a suite's outcomes before a change
-  (`iris playground run <suite> -b before.json`), then `diff` after
-  (`iris playground diff <suite> -b before.json`). It flags exactly the turns
+  (`evarness playground run <suite> -b before.json`), then `diff` after
+  (`evarness playground diff <suite> -b before.json`). It flags exactly the turns
   whose behavior moved — the safety belt for the bootstrap decomposition.
 - **Living documentation.** A scenario is a readable statement of how the
   harness is supposed to behave ("insurance dues must not web-search").
-- **Adopter test bench.** Anyone extending IRIS writes a YAML case, no Python.
+- **Adopter test bench.** Anyone extending Evarness writes a YAML case, no Python.
 
 ## Files
 
@@ -28,7 +28,7 @@ guardrails held. The engine lives in `src/iris_harness/playground/`; surfaces ar
   local stores (finance/dues/portfolio/brief). Copy, seed data, run locally.
 
 Playground runtimes are built with a write-safety floor
-(`IRIS_DISABLE_EXTERNAL_WRITES=1`, `IRIS_CALENDAR_APPLE_WRITE=0`), so scenarios
+(`EVARNESS_DISABLE_EXTERNAL_WRITES=1`, `EVARNESS_CALENDAR_APPLE_WRITE=0`), so scenarios
 never write into the real Apple/Google calendar; a suite that wants live
 write-back opts back in via its `env` block. One caveat remains: the dev
 `.env` still fills any flag a suite leaves unset, so a suite that A/B-tests a
@@ -39,7 +39,7 @@ flag must force it explicitly. See
 
 ```yaml
 name: my-suite
-env: { IRIS_SOME_FLAG: "1" }        # build-time flags for the whole suite
+env: { EVARNESS_SOME_FLAG: "1" }        # build-time flags for the whole suite
 scenarios:
   - name: a-case
     message: "what the user types"

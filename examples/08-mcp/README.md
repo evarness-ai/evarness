@@ -1,7 +1,7 @@
 # 08 · MCP, both ways
 
-The Model Context Protocol lets an AI client call tools a server exposes. IRIS can be
-the server (Claude Desktop, an IDE or another agent calls IRIS's tools) and, on the
+The Model Context Protocol lets an AI client call tools a server exposes. Evarness can be
+the server (Claude Desktop, an IDE or another agent calls Evarness's tools) and, on the
 other side, the client of external MCP servers -- behind an allowlist and signatures.
 
 | File | What it is |
@@ -9,7 +9,7 @@ other side, the client of external MCP servers -- behind an allowlist and signat
 | `mcp_client.py` | A minimal MCP stdio client (standard library only). |
 | `weather_server.py` | A stand-in external MCP server with one tool, `forecast`. |
 | `mcp-servers.yaml` | The allowlist entry for it: enabled, stdio command, which persona may call which tool. |
-| `test_mcp.py` | Both halves, offline, every `iris` command in a temporary home. |
+| `test_mcp.py` | Both halves, offline, every `evarness` command in a temporary home. |
 
 ## Run it
 
@@ -19,9 +19,9 @@ pytest examples/08-mcp -q
 
 Expected output: `8 passed` in about 32 s (16 s with `--no-cov`).
 
-### Serve: IRIS's tools to an MCP client
+### Serve: Evarness's tools to an MCP client
 
-First the owner lists the client, in `$IRIS_HOME/mcp-serve.yaml` (the shipped
+First the owner lists the client, in `$EVARNESS_HOME/mcp-serve.yaml` (the shipped
 `config/governance/mcp-serve.yaml` lists only `stdio`):
 
 ```yaml
@@ -33,11 +33,11 @@ clients:
 then
 
 ```bash
-iris mcp serve --client example --tool system_health --tool trash_email --skill system-status
+evarness mcp serve --client example --tool system_health --tool trash_email --skill system-status
 ```
 
 serves tools over stdio (newline-delimited JSON-RPC). Point any MCP client at that
-command -- for Claude Desktop, an `mcpServers` entry with `"command": "iris"` and those
+command -- for Claude Desktop, an `mcpServers` entry with `"command": "evarness"` and those
 `"args"`. What is served:
 
 - **the registered tools** -- the ones plugins register with `api.register_tool`, each
@@ -62,7 +62,7 @@ audit row cannot be keyed).
 
 Where a result may go: a result labelled `personal` reaches only a client the owner
 declared `local: true`; a `secret` one reaches no client, local or not (a local client
-is still a program IRIS does not govern). One connection is one label: once a result
+is still a program Evarness does not govern). One connection is one label: once a result
 carried personal data, every later result of the session is withheld from a client
 that is not local.
 
@@ -80,17 +80,17 @@ listed, and `mcp_signing` checks that the entry was signed by a key in the trust
 so an edited command (a swapped binary, a new argument) no longer runs as trusted:
 
 ```bash
-iris mcp keygen --id me                  # Ed25519 key; public half into the trust store
-iris mcp sign weather --key me           # signature + signer written into mcp-servers.yaml
-iris mcp verify                          # verdict per server; non-zero exit if any fails
+evarness mcp keygen --id me                  # Ed25519 key; public half into the trust store
+evarness mcp sign weather --key me           # signature + signer written into mcp-servers.yaml
+evarness mcp verify                          # verdict per server; non-zero exit if any fails
 ```
 
 Three more commands manage what those produced:
 
 ```bash
-iris mcp list                            # servers with their verdicts, and the trust store's keys
-iris mcp revoke me                       # distrust a key: what it signed is refused (or --signature <sig>)
-iris mcp remove weather                  # delete the entry; its key stays trusted (--revoke-signature)
+evarness mcp list                            # servers with their verdicts, and the trust store's keys
+evarness mcp revoke me                       # distrust a key: what it signed is refused (or --signature <sig>)
+evarness mcp remove weather                  # delete the entry; its key stays trusted (--revoke-signature)
 ```
 
 `revoke` keeps the key listed as revoked, so the revocation is on record. `remove` says when
@@ -110,14 +110,14 @@ checks `weather_server.py` answers a real MCP client.
   not in release 1; no stable API mounts an external server's tools into the governed
   loop, and a `trust: mcp` plugin manifest is recognised but not loaded yet. The
   example therefore stops at the allowlist and the signature: what an owner configures
-  before IRIS may consume a server.
+  before Evarness may consume a server.
 - The server config lives under `config/coding-agent/mcp-servers.yaml`
-  (`IRIS_MCP_SERVERS_CONFIG_PATH` overrides it), for the same reason.
-- **A stdio server starts with a small environment, not IRIS's.** It gets `PATH`, `HOME`,
+  (`EVARNESS_MCP_SERVERS_CONFIG_PATH` overrides it), for the same reason.
+- **A stdio server starts with a small environment, not Evarness's.** It gets `PATH`, `HOME`,
   `USER`, `LOGNAME`, `LANG`, `LC_*`, `TERM`, `TMPDIR` and `TZ`, the variables its entry lists
-  under `inherit_env`, and its own `env:`. Everything else stays behind: every `IRIS_*`
-  setting, `IRIS_VAULT_MASTER_KEY`, and any key or token in your shell. `inherit_env` takes
-  plain variable names and refuses `IRIS_*`; put a value under `env:` if a server needs
+  under `inherit_env`, and its own `env:`. Everything else stays behind: every `EVARNESS_*`
+  setting, `EVARNESS_VAULT_MASTER_KEY`, and any key or token in your shell. `inherit_env` takes
+  plain variable names and refuses `EVARNESS_*`; put a value under `env:` if a server needs
   one. This is not an operating-system boundary: a server runs as you and can still read
   files you can read.
 
@@ -125,7 +125,7 @@ checks `weather_server.py` answers a real MCP client.
   hashes the script and `python -m pkg` hashes the `.py` files of a local `pkg/`. A launcher
   that fetches its code when it starts is bound by pinning the release in the args:
   `npx pkg@1.2.3`, `uvx pkg==1.2.3`, `pipx run pkg==1.2.3`, `docker run image@sha256:<digest>`
-  (a tag or `latest` moves, so it does not count). `iris mcp sign` refuses an entry that does
+  (a tag or `latest` moves, so it does not count). `evarness mcp sign` refuses an entry that does
   neither, and `verify` and the launch gate read a signed one as `invalid`. A module installed
   elsewhere (`python -m somepackage` from site-packages) cannot be hashed; run it from a
   script file. The pin fixes which release runs; it does not vouch for that release.
@@ -134,7 +134,7 @@ checks `weather_server.py` answers a real MCP client.
 
 Show that the signature covers the arguments, not only the program. In
 `test_a_signed_server_verifies_and_a_changed_one_does_not`, instead of pointing the
-entry at `other.py`, add an argument to it. `iris mcp sign` rewrites the file, so match
+entry at `other.py`, add an argument to it. `evarness mcp sign` rewrites the file, so match
 the list item as it writes it:
 
 ```python
@@ -146,7 +146,7 @@ the list item as it writes it:
     )
 ```
 
-The test still passes: `iris mcp verify` rejects the entry ("signature does not match
+The test still passes: `evarness mcp verify` rejects the entry ("signature does not match
 server spec (config or binary changed)"). The same holds for a changed list of `env` names
 or of `inherit_env` names; the values under `env:` are not signed unless the entry lists the
 name under `pinned_env` (for a non-secret value such as an upstream URL; a name that reads

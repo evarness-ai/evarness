@@ -40,14 +40,14 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 # Every governed root: the harness, and — when present in the private tree — the domains
-# (src/iris_personal since M6.1b) and the coding agent (src/iris_code since M6.1a). Their
+# (src/evarness_personal since M6.1b) and the coding agent (src/iris_code since M6.1a). Their
 # LLM calls are governed too, and a root left out of this list is a scan that silently
 # covers less, which is the failure mode M6.1a's skip-count rule was written for.
 SRC_ROOTS = [
     root
     for root in (
-        PROJECT_ROOT / "src" / "iris_harness",
-        PROJECT_ROOT / "src" / "iris_personal",
+        PROJECT_ROOT / "src" / "evarness",
+        PROJECT_ROOT / "src" / "evarness_personal",
         PROJECT_ROOT / "src" / "iris_code",
     )
     if root.is_dir()
@@ -69,13 +69,13 @@ def _module_source(dotted: str) -> Path:
     return Path(spec.origin)
 
 
-AGENTIC_CORE_PATH = _module_source("iris_harness.agent.agentic_core")
-TOOL_RUNNER_PATH = _module_source("iris_harness.agent.tool_runner")
-LLM_CLIENT_PATH = _module_source("iris_harness.llm.client")
-INTENT_ROUTER_PATH = _module_source("iris_harness.agent.intent_router")
-TASK_PLANNER_PATH = _module_source("iris_harness.agent.task_planner")
-ENTITY_EXTRACTOR_PATH = _module_source("iris_harness.memory.knowledge.entity_extractor")
-COMPACTOR_PATH = PROJECT_ROOT / "src" / "iris_harness" / "memory" / "compactor.py"
+AGENTIC_CORE_PATH = _module_source("evarness.agent.agentic_core")
+TOOL_RUNNER_PATH = _module_source("evarness.agent.tool_runner")
+LLM_CLIENT_PATH = _module_source("evarness.llm.client")
+INTENT_ROUTER_PATH = _module_source("evarness.agent.intent_router")
+TASK_PLANNER_PATH = _module_source("evarness.agent.task_planner")
+ENTITY_EXTRACTOR_PATH = _module_source("evarness.memory.knowledge.entity_extractor")
+COMPACTOR_PATH = PROJECT_ROOT / "src" / "evarness" / "memory" / "compactor.py"
 
 GOVERNED_DIRECT_LLM_CALLS = frozenset(
     {
@@ -86,78 +86,78 @@ GOVERNED_DIRECT_LLM_CALLS = frozenset(
         "src/iris_code/execution_engine.py:PipelineExecutionEngine._invoke_llm:"
         "self.coding_agent.llm_client.invoke",
         "src/iris_code/persona_invoke.py:_default_llm_executor._invoke:client.invoke",
-        "src/iris_harness/agent/agentic_core.py:AgenticCore._loop:self._llm",
-        "src/iris_harness/agent/agentic_core.py:AgenticCore.run_stream:self._llm",
+        "src/evarness/agent/agentic_core.py:AgenticCore._loop:self._llm",
+        "src/evarness/agent/agentic_core.py:AgenticCore.run_stream:self._llm",
         # De-dup forced-synthesis pass; fires _governance_pre_llm before self._llm.
-        "src/iris_harness/agent/agentic_core.py:AgenticCore._force_final_synthesis:self._llm",
-        "src/iris_harness/agent/intent_router.py:LLMClassifier._invoke_with_governance:self._llm",
-        "src/iris_harness/agent/task_planner.py:TaskPlanner._invoke_with_governance:self._llm",
-        "src/iris_harness/memory/knowledge/entity_extractor.py:EntityExtractor._invoke_with_governance:self._llm",
-        "src/iris_harness/memory/compactor.py:ConversationCompactor._invoke_with_governance:self._llm",
-        "src/iris_harness/memory/fact_extractor.py:extract_facts_with_llm:client.invoke",
+        "src/evarness/agent/agentic_core.py:AgenticCore._force_final_synthesis:self._llm",
+        "src/evarness/agent/intent_router.py:LLMClassifier._invoke_with_governance:self._llm",
+        "src/evarness/agent/task_planner.py:TaskPlanner._invoke_with_governance:self._llm",
+        "src/evarness/memory/knowledge/entity_extractor.py:EntityExtractor._invoke_with_governance:self._llm",
+        "src/evarness/memory/compactor.py:ConversationCompactor._invoke_with_governance:self._llm",
+        "src/evarness/memory/fact_extractor.py:extract_facts_with_llm:client.invoke",
         # The governed prompt call the four wrappers above are handed in production (the
         # rolling session summary's, via bootstrap._tier_llm): CodingLLMClient built
         # without governance_handled_upstream, so invoke -> invoke_turn fires
         # _governance_pre_llm at the tier the call goes to. The wrappers fire nothing of
         # their own around it -- they did, under a hardcoded tier_1, twice per call.
-        "src/iris_harness/llm/client.py:GovernedPromptCall.__call__:client.invoke",
+        "src/evarness/llm/client.py:GovernedPromptCall.__call__:client.invoke",
         # Governed internally: CodingLLMClient.invoke -> invoke_turn fires
         # _governance_pre_llm (kernel defaults to kernel_from_env()).
         # Moved from bootstrap.py to the routine-authoring mixin (Phase 2 slice 5), then
         # the mixin became the RoutineAuthoring collaborator (OSS plan M5.7 track C
         # slice 10); same governed CodingLLMClient.invoke path, just relocated.
-        "src/iris_harness/runtime/routine_authoring.py:"
+        "src/evarness/runtime/routine_authoring.py:"
         "RoutineAuthoring.routine_authoring_llm_caller.call:client.invoke",
-        "src/iris_harness/runtime/judges.py:build_curator_faithfulness_client:client.invoke",
+        "src/evarness/runtime/judges.py:build_curator_faithfulness_client:client.invoke",
         # exp-007 leak-judge: same governed path as the faithfulness judge
         # (CodingLLMClient.invoke -> invoke_turn fires _governance_pre_llm).
-        "src/iris_harness/runtime/judges.py:build_curator_leak_client:client.invoke",
+        "src/evarness/runtime/judges.py:build_curator_leak_client:client.invoke",
         # Phase 5 grounding judge: same governed path as the faithfulness judge
         # (CodingLLMClient.invoke -> invoke_turn fires _governance_pre_llm).
-        "src/iris_harness/runtime/judges.py:build_curator_grounding_client:client.invoke",
+        "src/evarness/runtime/judges.py:build_curator_grounding_client:client.invoke",
         # ADR-0068 escalation judge (shadow, L2): same governed path as the other
         # curator judges (CodingLLMClient.invoke -> invoke_turn fires governance).
-        "src/iris_harness/runtime/judges.py:build_curator_escalation_client:client.invoke",
+        "src/evarness/runtime/judges.py:build_curator_escalation_client:client.invoke",
         # §9.2 governance judge (post-run safety review): governed CodingLLMClient.invoke
         # (governance_agent_type="chat"; no governance_handled_upstream, so PRE_LLM fires
         # on the trace). Built on the SAME routing intent as the run it reviews, so a
-        # Mac-only run is judged Mac-only; opt-in via IRIS_GOVERNANCE_JUDGE_ENABLED.
-        "src/iris_harness/runtime/governance_judge.py:"
+        # Mac-only run is judged Mac-only; opt-in via EVARNESS_GOVERNANCE_JUDGE_ENABLED.
+        "src/evarness/runtime/governance_judge.py:"
         "build_governance_judge.invoke_for._invoke:client.invoke",
         # §4.2 user-correction outcome judge: governed CodingLLMClient.invoke
         # (governance_agent_type="chat"), opt-in + pre-filtered, off by default.
-        "src/iris_harness/runtime/turn_capture.py:_build_correction_detector.detect:client.invoke",
+        "src/evarness/runtime/turn_capture.py:_build_correction_detector.detect:client.invoke",
         # Crystallizer skill synthesizer: governed CodingLLMClient.invoke
-        # (governance_agent_type="chat"), opt-in via IRIS_SKILL_SYNTHESIS, off by default.
-        "src/iris_harness/runtime/learning_builders.py:_build_skill_synthesizer:client.invoke",
+        # (governance_agent_type="chat"), opt-in via EVARNESS_SKILL_SYNTHESIS, off by default.
+        "src/evarness/runtime/learning_builders.py:_build_skill_synthesizer:client.invoke",
         # Hybrid file-op parse fallback (move/delete by type): governed
         # CodingLLMClient.invoke (fires _governance_pre_llm via invoke_turn) on a LOCAL
-        # tier, gated by IRIS_FILEOP_LLM_PARSE. Extracts structured params only; the
+        # tier, gated by EVARNESS_FILEOP_LLM_PARSE. Extracts structured params only; the
         # grounded file action stays deterministic (propose -> approve -> governed move).
-        # Moved out of IrisRuntime with the filemanager plugin (OSS plan M2.4); same
+        # Moved out of EvarnessRuntime with the filemanager plugin (OSS plan M2.4); same
         # call, same governance path, new home.
-        "src/iris_personal/plugins/file_organizer/handlers.py:FileManagerHandlers._llm_parse_file_op:client.invoke",
+        "src/evarness_personal/plugins/file_organizer/handlers.py:FileManagerHandlers._llm_parse_file_op:client.invoke",
         # ADR-0069 #4 learning analyst (slice 2): governed CodingLLMClient.invoke
         # (governance_agent_type="chat") on a LOCAL tier, opt-in via
-        # IRIS_LEARNING_ANALYST, off by default. Interprets internal telemetry only.
+        # EVARNESS_LEARNING_ANALYST, off by default. Interprets internal telemetry only.
         # This and the miners' builder below moved out of bootstrap with the learning
         # controls (OSS plan M5.7 track C slice 9); same call, same governance path.
-        "src/iris_harness/runtime/learning_controls.py:_build_learning_analyst.invoke:client.invoke",
+        "src/evarness/runtime/learning_controls.py:_build_learning_analyst.invoke:client.invoke",
         # Digital-twin miners (behavior miner L1 + intention rollup L3): both build their
         # governed CodingLLMClient.invoke (governance_agent_type="chat") on a LOCAL tier via
-        # the shared _build_learning_invoke (ADR-0080). Opt-in via IRIS_BEHAVIOR_MINER /
-        # IRIS_INTENTION_ROLLUP, off by default; personal transcript/activity stays on-box;
+        # the shared _build_learning_invoke (ADR-0080). Opt-in via EVARNESS_BEHAVIOR_MINER /
+        # EVARNESS_INTENTION_ROLLUP, off by default; personal transcript/activity stays on-box;
         # both are propose-only. Preview (preview_*) reuses the same governed client.
-        "src/iris_harness/runtime/learning_controls.py:_build_learning_invoke.invoke:client.invoke",
-        "src/iris_harness/runtime/client_config.py:_llm_router_from_config.invoke:client.invoke",
-        "src/iris_harness/plugins_builtin/code_exec/handler.py:"
+        "src/evarness/runtime/learning_controls.py:_build_learning_invoke.invoke:client.invoke",
+        "src/evarness/runtime/client_config.py:_llm_router_from_config.invoke:client.invoke",
+        "src/evarness/plugins_builtin/code_exec/handler.py:"
         "_make_code_exec_handler._run_loop_gen:client.invoke_stream",
-        "src/iris_harness/runtime/handlers/general_invoke.py:"
+        "src/evarness/runtime/handlers/general_invoke.py:"
         "make_general_invoke._invoke_with_tools_native:client.invoke_turn",
-        "src/iris_harness/runtime/handlers/general_invoke.py:"
+        "src/evarness/runtime/handlers/general_invoke.py:"
         "make_general_invoke._invoke_with_tools_react:client.invoke_turn",
-        "src/iris_harness/runtime/handlers/general.py:_make_general_handler.stream_handler:client.invoke_stream",
-        "src/iris_harness/runtime/handlers/react.py:_make_react_handler._llm_call:client.invoke",
+        "src/evarness/runtime/handlers/general.py:_make_general_handler.stream_handler:client.invoke_stream",
+        "src/evarness/runtime/handlers/react.py:_make_react_handler._llm_call:client.invoke",
         # (The email agent's own ReAct loop, `make_email_react_handler._llm`, is gone:
         # email turns run on _make_react_handler's loop above, which the plugin claims
         # with api.register_loop_intent -- core/SDK boundary plan, email slice step 5.)
@@ -165,22 +165,22 @@ GOVERNED_DIRECT_LLM_CALLS = frozenset(
         # plan). CodingLLMClient built without governance_handled_upstream, so
         # invoke -> invoke_turn fires _governance_pre_llm per call. Summarises only
         # the already-assembled grounded digest/plan (no new facts).
-        "src/iris_harness/llm/narrate.py:make_narrative_llm_call._call:client.invoke",
+        "src/evarness/llm/narrate.py:make_narrative_llm_call._call:client.invoke",
         # Finance F2 statement extraction. Tier-3 LOCAL only (ADR-0002/0033):
         # CodingLLMClient is built without governance_handled_upstream, so its
         # invoke -> invoke_turn fires _governance_pre_llm per call. Statement
         # content never reaches a cloud model.
-        "src/iris_personal/plugins/finance_workflows/extract.py:Tier3LocalExtractor.extract:client.invoke",
+        "src/evarness_personal/plugins/finance_workflows/extract.py:Tier3LocalExtractor.extract:client.invoke",
         # RAG R3 document Q&A synthesis (ADR-0049). Same pattern: CodingLLMClient
         # built without governance_handled_upstream, so invoke fires governance
         # per call. Summarises only retrieved local-document passages; the
         # answer is grounded in the user's own files (no cloud, no outside data).
-        "src/iris_harness/services/rag/qa.py:default_llm_call._call:client.invoke",
+        "src/evarness/services/rag/qa.py:default_llm_call._call:client.invoke",
         # The email judge (issue #31, owner decision B): one governed
         # CodingLLMClient.invoke_json per email (governance_agent_type="chat", no
         # governance_handled_upstream), so each attempt's invoke_turn fires
         # _governance_pre_llm. It replaced a raw POST to Ollama that fired no hooks.
-        "src/iris_personal/plugins/email_workflows/judge.py:make_tier_llm.call:llm_client.invoke_json",
+        "src/evarness_personal/plugins/email_workflows/judge.py:make_tier_llm.call:llm_client.invoke_json",
     }
 )
 
@@ -195,11 +195,11 @@ EXPECTED_CALL_COUNTS: dict[str, int] = {
     # Each of the four `_invoke_with_governance` wrappers calls `self._llm` twice: the
     # governed path, and the direct one for when the kernel is absent or the callable is a
     # GovernedPromptCall (whose client fires the hooks at the tier it goes to).
-    "src/iris_harness/agent/intent_router.py:LLMClassifier._invoke_with_governance:self._llm": 2,
-    "src/iris_harness/agent/task_planner.py:TaskPlanner._invoke_with_governance:self._llm": 2,
-    "src/iris_harness/memory/knowledge/entity_extractor.py:"
+    "src/evarness/agent/intent_router.py:LLMClassifier._invoke_with_governance:self._llm": 2,
+    "src/evarness/agent/task_planner.py:TaskPlanner._invoke_with_governance:self._llm": 2,
+    "src/evarness/memory/knowledge/entity_extractor.py:"
     "EntityExtractor._invoke_with_governance:self._llm": 2,
-    "src/iris_harness/memory/compactor.py:"
+    "src/evarness/memory/compactor.py:"
     "ConversationCompactor._invoke_with_governance:self._llm": 2,
 }
 
@@ -334,7 +334,7 @@ def test_every_tool_call_goes_through_the_governed_runner() -> None:
     ), "the loop must reach tools through the governed runner"
 
 
-PLUGIN_REGISTRY_PATH = _module_source("iris_harness.runtime.plugin_host.registry")
+PLUGIN_REGISTRY_PATH = _module_source("evarness.runtime.plugin_host.registry")
 
 
 def _function(tree: ast.Module, class_name: str, name: str) -> ast.AST:
@@ -575,17 +575,17 @@ def test_no_new_direct_tool_calls_without_pre_tool_use() -> None:
     # Counts, not just names: one of these methods growing a second `tool.call` is
     # exactly the change that must not pass unreviewed.
     baseline = {
-        "src/iris_harness/agent/tool_runner.py:GovernedToolRunner.execute:tool.call": 1,
+        "src/evarness/agent/tool_runner.py:GovernedToolRunner.execute:tool.call": 1,
         # KNOWN BYPASSES, not reviewed as safe: surfaced when this check stopped keying on
         # the literal `tool.call` (2026-09-30), listed so they stay visible, not so they
         # pass. Each should move to the governed runner (a BoundTools) and leave this list.
         # The general lane's two (research and any plugin tool) left it: they run through
         # GovernedToolRunner now (runtime/handlers/general_tools.py `_run_plugin_tool`).
-        "src/iris_personal/plugins/finance_workflows/handlers.py:"
+        "src/evarness_personal/plugins/finance_workflows/handlers.py:"
         "FinanceHandlers._handle_statement_email_details_turn:search.call": 1,
     }
     # As for the LLM baseline above: an entry whose file is not in the tree (the public
-    # export carries no src/iris_personal) is absent, not stale. Where the file exists
+    # export carries no src/evarness_personal) is absent, not stale. Where the file exists
     # its count must match exactly.
     present = {
         label: count

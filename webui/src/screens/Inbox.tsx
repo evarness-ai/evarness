@@ -153,8 +153,8 @@ export function InboxScreen() {
         </span>
       </div>
       <p className="mb-3 text-sm text-fg-muted">
-        Every email IRIS sorted, newest first. Change one and its Gmail label moves, and
-        IRIS judges mail like it from that sender the same way next time.
+        Every email Evarness sorted, newest first. Change one and its Gmail label moves, and
+        Evarness judges mail like it from that sender the same way next time.
       </p>
       <div className="mb-4 flex flex-wrap gap-2" aria-label="Filter by bucket">
         {[{ key: "", name: "All" }, ...buckets].map((b) => {

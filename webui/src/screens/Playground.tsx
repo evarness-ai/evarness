@@ -4,7 +4,7 @@
  * but not registered, or vice-versa) — observability for the framework itself.
  *
  * Running a suite drives chat, so it is write-gated: the Run buttons are
- * disabled unless IRIS_WEBUI_ALLOW_WRITES=1 (same posture as other actions). */
+ * disabled unless EVARNESS_WEBUI_ALLOW_WRITES=1 (same posture as other actions). */
 import { useState } from "react";
 import { Tag } from "@/components/Tag";
 import { Button } from "@/components/ui/button";
@@ -201,7 +201,7 @@ export function PlaygroundScreen() {
       {!writesEnabled && (
         <div className="mb-4">
           <Notice>
-            Running a suite drives chat, so it is write-gated. Set IRIS_WEBUI_ALLOW_WRITES=1 to
+            Running a suite drives chat, so it is write-gated. Set EVARNESS_WEBUI_ALLOW_WRITES=1 to
             enable the Run buttons. Listing suites and drift stay read-only.
           </Notice>
         </div>

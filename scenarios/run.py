@@ -9,7 +9,7 @@ Usage (from repo root):
     poetry run python -m scenarios.run all                # everything above
 
 Results append to docs/testing-program/results/<scenario>/<stamp>.jsonl.
-Governance scenarios force IRIS_GOVERNANCE_ENABLED=1 — they are meaningless
+Governance scenarios force EVARNESS_GOVERNANCE_ENABLED=1 — they are meaningless
 without the kernel.
 """
 
@@ -129,7 +129,7 @@ def _run_finance_body_read(stamp: str) -> list[ScenarioRecord]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="IRIS scenario harness")
+    parser = argparse.ArgumentParser(description="Evarness scenario harness")
     parser.add_argument(
         "scenario",
         choices=[
@@ -149,7 +149,7 @@ def main() -> int:
 
     # Governance must be live for scenario runs — the harness measures the
     # governed system, never the legacy ungoverned path.
-    os.environ.setdefault("IRIS_GOVERNANCE_ENABLED", "1")
+    os.environ.setdefault("EVARNESS_GOVERNANCE_ENABLED", "1")
 
     stamp = run_stamp()
     failures = 0

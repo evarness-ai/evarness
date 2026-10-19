@@ -56,7 +56,7 @@ function ActivityRow({ a }: { a: Activity }) {
       ) : null}
       {a.undo_ref && a.status === "completed" && (
         <p className="mt-1 font-mono text-[11px] text-fg-subtle">
-          undo: iris files organize undo {a.undo_ref}
+          undo: evarness files organize undo {a.undo_ref}
         </p>
       )}
     </div>

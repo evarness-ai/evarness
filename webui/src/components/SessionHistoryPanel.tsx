@@ -83,7 +83,7 @@ export function SessionHistoryPanel({
         )}
         {isError && (
           <div className="p-3 text-center text-xs text-danger">
-            API unavailable — start it with <code>iris serve</code>.
+            API unavailable — start it with <code>evarness serve</code>.
           </div>
         )}
         {!isLoading && !isError && sessions.length === 0 && (

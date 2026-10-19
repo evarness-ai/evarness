@@ -495,7 +495,7 @@ test("the bell counts alerts and outstanding items together", async ({ page }) =
   expect(counted).toBeGreaterThan(1);
 
   await bell.click();
-  // The alert sorts first: only one of these can be IRIS itself failing.
+  // The alert sorts first: only one of these can be Evarness itself failing.
   const first = page.locator("body > div.fixed.bottom-0 li").first();
   await expect(first).toContainText("google_calendar");
 });
@@ -518,7 +518,7 @@ test("a destructive tool shows its approval gate and its undo", async ({ page })
   const detail = {
     ...(fixtureFor("/plugins") as { plugins: Record<string, unknown>[] }).plugins[0],
     name: "mailbox",
-    directory: "/Users/owner/Library/Application Support/iris/plugins/mailbox",
+    directory: "/Users/owner/Library/Application Support/evarness/plugins/mailbox",
     manifest: {
       entrypoint: "plugin:setup",
       cli: null,
@@ -621,7 +621,7 @@ test.describe("a destructive approval", () => {
           { role: "user", text: card.asked, ts: "2026-09-21T19:00:00Z" },
           {
             role: "assistant",
-            text: "Trash 3 emails: this needs your approval, so nothing has changed yet. [Review it in Activity](/actions), or answer with `iris approvals` or on Telegram.",
+            text: "Trash 3 emails: this needs your approval, so nothing has changed yet. [Review it in Activity](/actions), or answer with `evarness approvals` or on Telegram.",
             ts: "2026-09-21T19:00:05Z",
           },
         ];
@@ -673,7 +673,7 @@ test.describe("a destructive approval", () => {
     await page.getByRole("button", { name: "Trash 3 emails" }).click();
     await expect(page.getByRole("heading", { name: "Trash 3 emails?" })).toBeVisible();
     await expect(
-      page.getByText("IRIS will run exactly the call on the card and nothing else."),
+      page.getByText("Evarness will run exactly the call on the card and nothing else."),
     ).toBeVisible();
   });
 });

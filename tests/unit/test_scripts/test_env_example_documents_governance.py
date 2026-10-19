@@ -1,4 +1,4 @@
-"""Every ``IRIS_GOVERNANCE_*`` the source reads must appear in ``.env.example``.
+"""Every ``EVARNESS_GOVERNANCE_*`` the source reads must appear in ``.env.example``.
 
 The drift this stops: the source read 29 governance variables and the example file
 documented 12. Seventeen knobs on the safety layer existed with nothing pointing at
@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import re
 
-from iris_harness.foundation.paths import repo_root
+from evarness.foundation.paths import repo_root
 
-_VAR = re.compile(r"IRIS_GOVERNANCE_[A-Z0-9_]+")
+_VAR = re.compile(r"EVARNESS_GOVERNANCE_[A-Z0-9_]+")
 
 
 def _read_governance_vars() -> set[str]:
@@ -61,4 +61,4 @@ def test_the_scan_is_not_vacuous() -> None:
     documented = _documented_governance_vars()
     assert len(read) > 20, f"only {len(read)} variables found under src/ — scan looks broken"
     assert len(documented) > 20, f"only {len(documented)} found in .env.example"
-    assert "IRIS_GOVERNANCE_ENABLED" in read and "IRIS_GOVERNANCE_ENABLED" in documented
+    assert "EVARNESS_GOVERNANCE_ENABLED" in read and "EVARNESS_GOVERNANCE_ENABLED" in documented

@@ -11,7 +11,7 @@
 default_priority: 500
 providers:
   searxng:
-    priority: 100   # IRIS_SEARXNG_URL: self-hosted, no key -- the privacy-first primary
+    priority: 100   # EVARNESS_SEARXNG_URL: self-hosted, no key -- the privacy-first primary
   tavily:
     priority: 200   # TAVILY_API_KEY
   exa:

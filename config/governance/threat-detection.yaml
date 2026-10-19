@@ -46,7 +46,7 @@ output:
   log_only: [hate, defamation, specialized_advice, elections, intellectual_property]
 
 # The user turn screened for the same hazards, at PRE_TURN, before anything answers it —
-# deterministic handlers included. OPT-IN: installed only when IRIS_GOVERNANCE_INPUT_SAFETY
+# deterministic handlers included. OPT-IN: installed only when EVARNESS_GOVERNANCE_INPUT_SAFETY
 # is truthy. Reuses the output guard's model; enforce/log_only default to the output lists
 # above (self_harm is enforced). Follows `mode:` — shadow logs and audits, never blocks.
 # A slow or missing model lets the turn through.
@@ -57,4 +57,4 @@ input_safety:
 # and writes a `guard unavailable` ledger row. There is no `fail_mode` key: one was parsed
 # for a long time and read by nothing, so a "closed" here promised what never happened.
 # The deterministic floor under the retrieved-content guard
-# (IRIS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR, on by default) does not depend on this file.
+# (EVARNESS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR, on by default) does not depend on this file.

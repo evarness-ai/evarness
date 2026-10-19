@@ -1,4 +1,4 @@
-# IRIS - Byte-compiled / optimized / DLL files
+# Evarness - Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -168,7 +168,7 @@ data/calendar_ics/
 # FileManager allowed-roots config + trash (paths to the user's private files)
 data/filemanager.json
 data/filemanager_trash/
-# FileManager custody store — files IRIS holds on behalf of agents, never commit
+# FileManager custody store — files Evarness holds on behalf of agents, never commit
 data/filemanager/
 
 # Local-only compose override (audit host) — not part of the committed stack
@@ -185,7 +185,7 @@ web/coverage/
 web/.benchmarks/
 # The web console build the release wheel carries (OSS plan R6): scripts/bundle_webui.py
 # copies webui/dist here at release time and pyproject's `include` ships it.
-src/iris_harness/server/iris_api/webui_dist/
+src/evarness/server/harness_api/webui_dist/
 
 
 # mypy

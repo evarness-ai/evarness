@@ -183,7 +183,7 @@ def test_pypi_publishing_is_trusted_publishing() -> None:
 
 
 def test_a_manual_run_publishes_to_testpypi_and_installs_from_it() -> None:
-    """Issue #25: a TestPyPI release installs and runs `iris doctor`."""
+    """Issue #25: a TestPyPI release installs and runs `evarness doctor`."""
     jobs = _load(WORKFLOWS / "release.yml")["jobs"]
     dispatch = "github.event_name == 'workflow_dispatch'"
 
@@ -223,10 +223,10 @@ def test_a_manual_run_publishes_to_testpypi_and_installs_from_it() -> None:
     script = fetch["run"]
     assert "--index-url https://test.pypi.org/simple/" in script
     assert "--no-deps" in script
-    assert '"iris-harness==${VERSION}"' in script
+    assert '"evarness==${VERSION}"' in script
     assert "is not the wheel this run built" in script
-    run = steps["Install, iris doctor, iris email demo"]["run"]
-    assert 'IRIS_QUICKSTART_WHEEL="$wheel" bash scripts/ci_quickstart.sh' in run
+    run = steps["Install, evarness doctor, evarness email demo"]["run"]
+    assert 'EVARNESS_QUICKSTART_WHEEL="$wheel" bash scripts/ci_quickstart.sh' in run
 
 
 def test_dependabot_covers_python_actions_and_the_web_console() -> None:

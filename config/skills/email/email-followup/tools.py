@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from iris_harness.sdk.tasks import TaskStore
-from iris_personal.email.store import EmailStore
-from iris_personal.plugins.email_workflows.discovery import LlamaServerClient
-from iris_personal.plugins.email_workflows.followup import (
+from evarness.sdk.tasks import TaskStore
+from evarness_personal.email.store import EmailStore
+from evarness_personal.plugins.email_workflows.discovery import LlamaServerClient
+from evarness_personal.plugins.email_workflows.followup import (
     DEFAULT_CONFIDENCE_THRESHOLD,
     FollowupDetector,
     detect_and_persist,
@@ -58,7 +58,7 @@ class DetectFollowupsTool(BaseTool):
     args_schema: type[BaseModel] = DetectFollowupsInput
 
     def _run(self, account_id: str, limit: int = _DEFAULT_LIMIT) -> str:
-        from iris_harness.sdk.learning import SurfaceFeedbackStore
+        from evarness.sdk.learning import SurfaceFeedbackStore
 
         estore = EmailStore(db_path=Path("data/email.db"))
         estore.ensure_schema()

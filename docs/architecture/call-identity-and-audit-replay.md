@@ -27,12 +27,12 @@ Legend for "silent drop": can a write be lost with only a log line.
 
 | Store (file) | Written by | Identifier columns today | Unique / not unique | Silent drop? | Retention | Read by |
 |---|---|---|---|---|---|---|
-| governance `audit_log` (`<gov dir>/audit.db`, `~/.local/share/iris/audit.db`) | `GovernanceKernel._audit` (one row per hook firing, ~10-14 rows per tool call), approvals queue, response curator, evaluator judge, `react.py` synthesis fallback, governance_judge, plugins via stable `sdk.audit.AuditLog.record` [READ] | `id` INTEGER AUTOINCREMENT (global per DB), `run_id` TEXT, `step_id` INT null; `session_id`, `trace_id`, `caller`, `tool_name`, `approval_id`, `side_effect_id` only inside `payload_json` | `id` unique, global, gap-free while nothing is deleted [RUN: ids 1..82 contiguous]. run_id not unique per anything (see sec 2). No call id. | YES: `kernel._audit` catches everything, `logger.warning`, proceeds [RUN]. Curator/judge/router sites also swallow [READ]. Kernel built with `audit_log=None` skips persistence silently (hand-built kernels) [READ]. `IRIS_GOVERNANCE_ENABLED` off = no kernel, tool runner runs ungoverned [READ]. | 30 days hot (`iris audit compact`, manual CLI) then Parquet [READ] | audit view, `GET /governance/audit`, CLI, trace builder, proof bundle, harness `audit_rows`/`audit_gaps` |
-| side-effect ledger (`side_effects.db`) | `PreToolUseLedgerHook` (write-ahead, high-risk only), `PostToolUseLedgerHook` (settle, or insert for other non-read when `..._ALL`) | `side_effect_id` PK = `run:step:tool_call_id` (call id `-` when absent), `run_id`, `step_id` | Unique per key. NOT unique when call id omitted/reused. Row is mutated (pending -> completed/error), so history of transitions is not kept | YES: `INSERT OR IGNORE`; post-hook write failure is warn-and-allow; pre-hook failure fails closed (good) [READ+RUN] | none (never pruned) | `iris run resume`, post hook |
+| governance `audit_log` (`<gov dir>/audit.db`, `~/.local/share/evarness/audit.db`) | `GovernanceKernel._audit` (one row per hook firing, ~10-14 rows per tool call), approvals queue, response curator, evaluator judge, `react.py` synthesis fallback, governance_judge, plugins via stable `sdk.audit.AuditLog.record` [READ] | `id` INTEGER AUTOINCREMENT (global per DB), `run_id` TEXT, `step_id` INT null; `session_id`, `trace_id`, `caller`, `tool_name`, `approval_id`, `side_effect_id` only inside `payload_json` | `id` unique, global, gap-free while nothing is deleted [RUN: ids 1..82 contiguous]. run_id not unique per anything (see sec 2). No call id. | YES: `kernel._audit` catches everything, `logger.warning`, proceeds [RUN]. Curator/judge/router sites also swallow [READ]. Kernel built with `audit_log=None` skips persistence silently (hand-built kernels) [READ]. `EVARNESS_GOVERNANCE_ENABLED` off = no kernel, tool runner runs ungoverned [READ]. | 30 days hot (`evarness audit compact`, manual CLI) then Parquet [READ] | audit view, `GET /governance/audit`, CLI, trace builder, proof bundle, harness `audit_rows`/`audit_gaps` |
+| side-effect ledger (`side_effects.db`) | `PreToolUseLedgerHook` (write-ahead, high-risk only), `PostToolUseLedgerHook` (settle, or insert for other non-read when `..._ALL`) | `side_effect_id` PK = `run:step:tool_call_id` (call id `-` when absent), `run_id`, `step_id` | Unique per key. NOT unique when call id omitted/reused. Row is mutated (pending -> completed/error), so history of transitions is not kept | YES: `INSERT OR IGNORE`; post-hook write failure is warn-and-allow; pre-hook failure fails closed (good) [READ+RUN] | none (never pruned) | `evarness run resume`, post hook |
 | router audit (`<data dir>/audit.db` table `router_decisions`) | `RouterAuditLogger.record` per turn (`route` stage) | `id` AUTOINCREMENT, `session_id`; no turn id, no run id | id unique | YES: sqlite error swallowed, warning [READ]. Append-only triggers | none | operators (sql) |
 | governor guard audit (same filename, other dir/table `governor_guard_audit`) | `GovernorAuditLogger.record_decision` from MCP bridge `_guard_mcp_action` and the governor service | `id` AUTOINCREMENT, `route`, `action`, `metadata_json`; NO run/session/call id | id unique | Raises `GovernorAuditError`, not caught by the bridge, so the MCP call fails (fail closed) [READ] | none | governor API |
-| session logs (`<IRIS_HOME>/logs/session-<id>.jsonl`) | `session_log._append_event`, `log_timeline_event`, `llm_call_scope` | `session_id`, `turn_id` (uuid4 hex per `turn_scope`), `agent_type`, `iteration` (None for tool events [RUN]); tool events carry `tool_call_id` | No event id, no sequence. File append only | YES: `logger.exception ... continuing`; no-op outside `session_scope` (approved code-caller call and held attempts leave nothing [RUN, p4]) | none | trace builder, memory, proof bundle observations |
-| Parquet archive (`audit/year=*/month=*/audit-<uuid>.parquet`) | `AuditCompactor` (write, fsync, then DELETE hot rows) | all audit columns EXCEPT `id` | rows have no id | n/a; delete happens after write, but nothing records which id range went where | forever | DuckDB `iris audit query` (UNION hot + cold, `id` NULL for cold) |
+| session logs (`<EVARNESS_HOME>/logs/session-<id>.jsonl`) | `session_log._append_event`, `log_timeline_event`, `llm_call_scope` | `session_id`, `turn_id` (uuid4 hex per `turn_scope`), `agent_type`, `iteration` (None for tool events [RUN]); tool events carry `tool_call_id` | No event id, no sequence. File append only | YES: `logger.exception ... continuing`; no-op outside `session_scope` (approved code-caller call and held attempts leave nothing [RUN, p4]) | none | trace builder, memory, proof bundle observations |
+| Parquet archive (`audit/year=*/month=*/audit-<uuid>.parquet`) | `AuditCompactor` (write, fsync, then DELETE hot rows) | all audit columns EXCEPT `id` | rows have no id | n/a; delete happens after write, but nothing records which id range went where | forever | DuckDB `evarness audit query` (UNION hot + cold, `id` NULL for cold) |
 | traces / telemetry (OTel, `trace_builder.py`) | spans around turn and stages; `trace_id` stamped into audit payload only when a span records [READ; RUN: absent in harness] | `trace_id`, span ids | n/a | best-effort by design | backend dependent | trace builder joins audit by session + time window |
 | learning.db `signals` | learning loop | `id`, `session_id`, `turn_id`, `trace_id`, `span_id` (the only store with turn + trace) | id unique | swallowed [READ] | long | learning screens |
 | memory.db `conversations` | session memory | int `id`, `session_id`; no turn id | id unique | n/a | long | memory |
@@ -41,7 +41,7 @@ Legend for "silent drop": can a write be lost with only a log line.
 | checkpoints (`checkpoints.db`) | agentic loop on halt | PK `(run_id, step_id)`, `session_id` | upsert: `ON CONFLICT DO UPDATE` overwrites silently by design | by design | 7 days TTL | resume |
 | continuations (`memory/state/continuations.py`) | confirmations | `continuation_id`, `run_id`/`step_id` nullable, session | unique | n/a | TTL | intercept dispatch |
 | vault (`vault_secrets`) | vault store | handle only; has no audit table. Handle resolution shows up only as `credential_broker` PRE rows (handles, never values) | n/a | follows audit_log | n/a | broker |
-| egress / ingress logs | `log_egress`, `log_ingress` (python loggers `iris.egress`/`iris.ingress`) | none (free text; ingress has `session=` only) | no records, just log lines on stdout/uvicorn log files | YES: `log_egress` swallows all exceptions; log level/handler dependent | whatever the process log policy is | humans, grep |
+| egress / ingress logs | `log_egress`, `log_ingress` (python loggers `evarness.egress`/`evarness.ingress`) | none (free text; ingress has `session=` only) | no records, just log lines on stdout/uvicorn log files | YES: `log_egress` swallows all exceptions; log level/handler dependent | whatever the process log policy is | humans, grep |
 | proof bundle (`audit/proof_bundle.py`) | export | row ids, ts, hook, decision; "observations" from session logs | closed schema (v1: unexpected keys fail verify) | n/a | n/a | auditors |
 
 Every place the kernel warns and proceeds when an audit/ledger write fails [READ unless noted]:
@@ -92,7 +92,7 @@ Table: which stores carry which (Y = column, P = only inside json payload, - = a
 |---|---|---|---|---|
 | ReAct loop -> `_execute_tool` -> `runner.execute` | loop run | iteration | runner `hex[:12]` | no (session, run, step only) |
 | general-lane plugin tool `_run_plugin_tool` | per-turn tool-loop uuid | None -> 0 | runner-minted | no |
-| general-lane builtin and skill tools (memory_search, wiki_search, local skills...) | per-turn tool-loop uuid | None -> 0 | runner-minted (since #155; they used to run with no PRE/POST_TOOL_USE and no audit row, under the model/provider id) | no. The lane serves only with `IRIS_AGENTIC_CORE_ENABLED` off or `shadow`, never by default |
+| general-lane builtin and skill tools (memory_search, wiki_search, local skills...) | per-turn tool-loop uuid | None -> 0 | runner-minted (since #155; they used to run with no PRE/POST_TOOL_USE and no audit row, under the model/provider id) | no. The lane serves only with `EVARNESS_AGENTIC_CORE_ENABLED` off or `shadow`, never by default |
 | `ToolService._run` (plugin `api.tools.call`, `core:<workflow>`, `call_for_client`) | fresh uuid per call | None | runner-minted | no: `caller=plugin:x` only [RUN: child run 3b349fd7 vs parent fb0273a3] |
 | approved code-caller call `_run_approved` | `row.run_id` (the original child run) | None -> 0 | NEW runner id; held attempt's id lost | approval_id in audit rows; no tool_call link [RUN p4] |
 | approved loop call `_settle_pending_approval` | same loop run | `start_iteration-1` (same step as the held attempt) | NEW id; held attempt's id lost | approval_id only [RUN] |
@@ -101,12 +101,12 @@ Table: which stores carry which (Y = column, P = only inside json payload, - = a
 | `mcp_serve` inbound (`call_for_client`) | fresh uuid per call | None | runner-minted | session `mcp-<12hex>` only; no turn scope |
 | Model calls (`CodingLLMClient`, router, planner, compactor, extractor) | fresh uuid per call, PRE_CLASSIFY + PRE_LLM_CALL share it | None (loop: iteration) | no id, and no settle record (there is no POST_LLM_CALL hook) | no |
 | PRE_TURN (`screen.py`) | `uuid4().hex` | None | - | session only |
-| `iris run resume` CLI | re-enters run via `resume_halted_run`; its own process/kernel | - | - | `side_effect_ledger.pending(run_id)` is read, "re_exec" only printed, retry is never recorded |
+| `evarness run resume` CLI | re-enters run via `resume_halted_run`; its own process/kernel | - | - | `side_effect_ledger.pending(run_id)` is read, "re_exec" only printed, retry is never recorded |
 | Telegram/web/CLI REPL | all converge on `chat_stream` in the API process (`turn_scope`), so one turn id site; channel_gateway ingress log lines carry no turn id | | | |
 | heartbeats/routines/ticks | outside `session_scope`: session None [READ, not run] | | | |
 
 Edges that exist but are not recorded: tool -> child call (plugin or capability), held attempt -> approved re-execution
-(only approval_id), crash -> resumed run (run id reused, new turn id, no "resumed_from"), retry (`iris run resume`
+(only approval_id), crash -> resumed run (run id reused, new turn id, no "resumed_from"), retry (`evarness run resume`
 re_exec, loop repeated-action guard), model call -> tool call (same step number only), turn -> turn (resume).
 
 ## 4. Proposed scheme
@@ -132,13 +132,13 @@ re_exec, loop repeated-action guard), model call -> tool call (same step number 
   is a re-execution of the same effect (see 4.3). Resume: first record of the resumed run carries `resumed_from_run`.
   Turn id must move to the kernel context (read `current_turn_id()` in `_audit`, as it already does for session_id).
 - URN rendering, derived, never stored as truth:
-  `urn:iris:session/<S>/turn/<T>/run/<R>/step/<N>/call/<C>` (+ `/attempt/<A>`). Parse is lossless from the columns.
+  `urn:evarness:session/<S>/turn/<T>/run/<R>/step/<N>/call/<C>` (+ `/attempt/<A>`). Parse is lossless from the columns.
 
 ### 4.2 Completeness (sequence, gap detection)
 Two facts decide the design: (a) [RUN] a failed insert leaves no id hole, so an AUTOINCREMENT or an in-transaction counter
 cannot reveal a lost write; (b) [RUN bench] a per-session counter allocated with `BEGIN IMMEDIATE` costs about the same as
 today single-process (630 vs 814 us/row) but collapses under 4 writer processes (3,268 vs 991 us/row per process; 1,188 vs
-3,651 rows/s total) on this laptop; and sessions are touched by several processes (API, CLI `iris approvals`/`iris run resume`).
+3,651 rows/s total) on this laptop; and sessions are touched by several processes (API, CLI `evarness approvals`/`evarness run resume`).
 Therefore: per-WRITER sequence, allocated in memory BEFORE the write attempt.
 - `writer_id` = ULID minted at process start (an "incarnation"); `writer_seq` = in-process monotonic counter (a lock + int),
   incremented for every record the process tries to write to ANY audit store (or one counter per store, recorded as `store`).
@@ -159,7 +159,7 @@ Therefore: per-WRITER sequence, allocated in memory BEFORE the write attempt.
 - Idempotency is explicit and separate: an optional `idempotency_key` (sha256 of tool + canonical args digest + approval_id or
   caller-supplied) stored on the call. Same key seen again:
   1. a stream item of the same call (same `call_id`): no new row (today's "capability stream items recorded once");
-  2. a deliberate re-execution (approved resume of a held call, `iris run resume` retry, loop retry): NEW call_id,
+  2. a deliberate re-execution (approved resume of a held call, `evarness run resume` retry, loop retry): NEW call_id,
      `attempt=n+1`, `replay_of=<first call_id>`, recorded as a replay; policy decides whether the effect runs (probe first);
   3. a duplicate delivery (same idempotency key AND same call_id arriving twice): second write is a `duplicate_of` record that
      points at the first and is counted, not dropped.
@@ -172,12 +172,12 @@ Tiered by effect (owner decision D3):
 - Effectful boundaries (write/destructive tools, cloud-tier model call, outbound egress): fail CLOSED when neither the DB nor
   the spool accepts the PRE record (extends what `PreToolUseLedgerHook` already does for high-risk calls).
 - Everything else: on DB failure append the record (already carrying its writer_id/seq and record_id) to a local spool file
-  `<IRIS_HOME>/governance/audit-spool.jsonl` (append + fsync, 0600, no argument text: same closed field set), keep going, and
-  surface a counter via `iris system status` and a `gap` record at the next success. A drainer replays spool lines into the DB
+  `<EVARNESS_HOME>/governance/audit-spool.jsonl` (append + fsync, 0600, no argument text: same closed field set), keep going, and
+  surface a counter via `evarness system status` and a `gap` record at the next success. A drainer replays spool lines into the DB
   idempotently by `record_id`. If the spool write also fails, the in-memory sequence still exposes the hole on the next write
   (reported as "unrecorded range, cause unknown").
 - Surfacing: `audit_log` gets a `kind=gap` row (`writer_id`, first/last missing seq, cause class only); the kernel's warning
-  also increments a process-level counter exposed on `/governance/audit` and `iris governance audit --gaps`.
+  also increments a process-level counter exposed on `/governance/audit` and `evarness governance audit --gaps`.
 
 ### 4.5 Stable tier additive
 - `TurnAuditRow` is a frozen dataclass; `tests/unit/test_stable_tier.py::test_the_turn_audit_row_fields_are_the_declared_ones`
@@ -190,7 +190,7 @@ Tiered by effect (owner decision D3):
 - `public_payload` (`PUBLIC_PAYLOAD_FIELDS`, #131) is a closed allowlist: add `turn_id`, `call_id`, `parent_call_id`, `attempt`
   to it (identifiers only) so the audit view/CLI/trace can show them. Same masking test pattern as #131.
 
-### 4.6 Migrations (existing user databases under `~/.local/share/iris`)
+### 4.6 Migrations (existing user databases under `~/.local/share/evarness`)
 All additive, nullable columns, idempotent `ALTER TABLE ADD COLUMN` guarded by `PRAGMA table_info` (the checkpoints store
 already does exactly this for `session_id`: precedent). Old rows keep NULL ids; replay labels them "pre-identity era" and does
 not claim completeness for them (honest boundary: a `migration` marker row records the first id/ts that carries identity).
@@ -221,7 +221,7 @@ not claim completeness for them (honest boundary: a `migration` marker row recor
 ## 5. Replay design
 
 ### 5.1 Command / API
-`iris audit replay --session S [--turn T | --run R] [--json]` and `GET /governance/replay?session=S` (read-only, owner auth,
+`evarness audit replay --session S [--turn T | --run R] [--json]` and `GET /governance/replay?session=S` (read-only, owner auth,
 identifiers and decisions only: same closed field set as `audit_view`, never argument/result text). Implementation lives in
 `kernel/governance/audit/replay.py` reading stores through their own readers (hot SQLite + Parquet cold + ledger + approvals
 + checkpoints + session log + router rows).
@@ -311,7 +311,7 @@ accepted under the stable-tier pin; D5 tamper evidence in scope or not; D6 old r
 backfill; D7 should general-lane builtin tools and `kernel=None` be brought under the runner or declared out of scope.
 
 Risks: `kernel/governance/` is CODEOWNER-reviewed on every stage (1, 3, 4 touch it); migrations run on users' live
-`~/.local/share/iris/*.db` shared by several processes (ALTER under WAL, concurrent first-open: guard with
+`~/.local/share/evarness/*.db` shared by several processes (ALTER under WAL, concurrent first-open: guard with
 `PRAGMA table_info` + tolerate "duplicate column" race, precedent `checkpoints`); a writer counter is process-local and must
 survive forks (`writer_id` re-minted post-fork) and thread safety (a lock); stable-tier names pinned by tests; audit payload
 whitelist must stay free of argument text; extra columns per row (about 14 rows per call) grow the DB, offset by `record_many`;
@@ -337,7 +337,7 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
 - Context limits (stated, tested): a `ContextVar` follows `await`, `asyncio.run` and `asyncio.to_thread`, not a bare
   `threading.Thread` or `loop.run_in_executor`; a governed call started there has no parent (the egress scope has the same
   limit). The lineage registry is bounded (8192 calls): an evicted lineage leaves the fields off a row, nothing is invented.
-- Not stamped: retries (`iris run resume` re-exec, the loop's repeated-action guard) until stage 4; calls that never reach
+- Not stamped: retries (`evarness run resume` re-exec, the loop's repeated-action guard) until stage 4; calls that never reach
   `GovernedToolRunner` get no call id, no parent and no turn link: since #155 that is only a run with governance switched
   off (`kernel=None`, the operator's explicit opt-out, with one startup warning when the legacy general lane then serves).
   The general lane's own tools now go through the runner like the loop's (D7, first half, closed).
@@ -350,7 +350,7 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   read followed by an `ALTER` in a deferred transaction fails with `database is locked` when another process commits in
   between, and the 5 s busy timeout does not help (`SQLITE_BUSY_SNAPSHOT`). Measured with 8 real interpreters opening
   one release-shaped file at the same instant: the deferred variant failed 37 of 40 rounds, `BEGIN IMMEDIATE` 0 of 40
-  (`tests/unit/iris_harness/kernel/test_governance/test_identity_migration.py` runs the real race per store and shows
+  (`tests/unit/evarness/kernel/test_governance/test_identity_migration.py` runs the real race per store and shows
   the naive variant failing).
 - `audit_log` gains `record_id` (minted by `AuditLog.record`, ULID, unique partial index), `session_id`, `turn_id`,
   `call_id`, `parent_call_id`, `attempt`, `replay_of`, `resumed_from_run`, filled from the same payload keys the kernel
@@ -362,7 +362,7 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   (`key='identity'`, `{schema, first_identity_row_id, migrated_at}`) in the same transaction; a fresh database writes none.
   Nothing is backfilled or rewritten.
 - `side_effect_ledger` gains `call_id, parent_call_id, attempt, replay_of, record_id` (the key stays
-  `<run>:<step>:<call_id>`, so `list_by_run`/`pending`/`iris run resume` are unchanged) and a new append-only
+  `<run>:<step>:<call_id>`, so `list_by_run`/`pending`/`evarness run resume` are unchanged) and a new append-only
   `side_effect_events` table (one row per pending/settled transition). `approval_queue` gains `step_id, turn_id`;
   `router_decisions` gains `record_id, turn_id`; `governor_guard_audit` gains `run_id, call_id, session_id, record_id`
   (the MCP bridge passes the run and the call id it minted). Router and governor migrations that fail are logged at error
@@ -392,7 +392,7 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   MCP tool is destructive; a capability write method carries `tool_effect` too), or at
   `PRE_LLM_CALL` toward `tier_3`. A spooled row counts as written. A kernel with no ledger is unchanged.
 * **Surfaces.** `audit/write_health.py` is the one source: System Health row (red when lost, yellow
-  while the spool waits), `iris system status`, `GET /governance/state` and `/governance/audit`
+  while the spool waits), `evarness system status`, `GET /governance/state` and `/governance/audit`
   (`write_health`), the Governance screen.
 * **Not yet (4b).** Compaction still dropped the identity columns from the archive and had no
   marker; it skipped the store's own rows so a `writer`/`gap` row was never archived unaccounted.
@@ -431,18 +431,18 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   job). A chunk that cannot be read, or whose rows are no longer all hot, is **moved** to
   `<archive>/.orphans/<compaction id>/year=../month=../` (reversible, never unlinked). A chunk of
   the older shape, a corrupt one, or any other file is never adopted, moved or removed:
-  `iris audit verify` reports it and leaves it.
+  `evarness audit verify` reports it and leaves it.
 * **The view.** `audit_all` holds every row, de-duplicated: hot first, then cold, keyed by
   `record_id`, or by `'id:' || id` for a pre-identity row (the hot `id` is unique, never reused,
   and kept in the chunk). A chunk of the older shape has neither and is not de-duplicated.
   `audit_archive` is `audit_all` minus the store's own rows (`kind` not NULL), the same default as
-  `AuditLog.query()`; `iris audit query|export --include-store-rows` (or
+  `AuditLog.query()`; `evarness audit query|export --include-store-rows` (or
   `AuditQueryEngine(include_store_rows=True)`) shows them. The hot read lists the columns the
-  file has, so a database an older release created still reads. `iris audit export` rows gain the
+  file has, so a database an older release created still reads. `evarness audit export` rows gain the
   new columns.
-* **Readers of the archive** (all listed, none missed): `AuditQueryEngine` (used by `iris audit
-  query`, `iris audit export` and `scripts/demo_governance_phase5_exit_criteria.py`) and
-  `iris audit verify` (markers against chunks). The governance API, the web audit routes, the
+* **Readers of the archive** (all listed, none missed): `AuditQueryEngine` (used by `evarness audit
+  query`, `evarness audit export` and `scripts/demo_governance_phase5_exit_criteria.py`) and
+  `evarness audit verify` (markers against chunks). The governance API, the web audit routes, the
   proof bundle and the trace builder read the hot ledger through `AuditLog`, which already hides
   the store's rows; none opens Parquet (`test_readers_of_the_archive_are_the_query_engine_only`).
 * **Known limit.** A spool line left after a crash between "drain applied" and "line removed"
@@ -485,7 +485,7 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   SQLite progress handler on every read connection, a statement that is scanning a large ledger. A cut read proves
   nothing missing, so gap detection is skipped and the result says `complete: false` (the API:
   `truncated: true`). Session ids are validated (they name a file in the session log directory).
-* **Surfaces.** `iris audit replay --session S [--turn T | --run R] [--json] [--no-archive]
+* **Surfaces.** `evarness audit replay --session S [--turn T | --run R] [--json] [--no-archive]
   [--max-seconds N] [--no-fail]` (exit 1 on gaps, 2 when cut short, 0 otherwise; notes never change
   it); `GET /governance/replay?session=S[&turn=T|&run=R]` capped at 2,000 rows and 5 s;
   `Harness.audit_gaps()` keeps its two R14 checks and adds the replay's gaps for the harness's
@@ -497,14 +497,14 @@ Payload-only: no schema change and no migration (the audit payload is schema-fre
   such event, so "audit row with no log event" would be a false gap.
 
 ## 7. Verified vs not verified
-Verified by running (current main fbfb7e8, scripted model, temp IRIS_HOME, throwaway vault key): the two scenarios and their
+Verified by running (current main fbfb7e8, scripted model, temp EVARNESS_HOME, throwaway vault key): the two scenarios and their
 dumps; ids contiguous; `tool_call_id` absent from audit payloads; held-attempt id absent; nested call fresh run; ledger collision
 silently dropped; audit write failure silently tolerated with no hole; `audit_gaps()` misses a deleted row; no session-log events
 for code-caller approved calls; the sequence-counter microbenchmark (single laptop, sqlite per-row connection, 1 and 4 processes;
 the "seq" variant writes fewer columns, so compare trends, not absolutes).
 Read only, NOT run: MCP bridge paths (`mcp-<server>` constant run, `tool_call_id=None`, only caller is the HTTP route);
 `mcp_serve`; capability call minting (`execute_call` family); general-lane builtin tools bypassing hooks and whether that lane is
-reachable by default; heartbeats/routines session scope; Telegram/gateway end to end; `iris run resume` CLI; `iris audit compact`
+reachable by default; heartbeats/routines session scope; Telegram/gateway end to end; `evarness run resume` CLI; `evarness audit compact`
 and the archive schema loss of `id` (not executed); cost limiter failure path; governor guard failure behaviour; multi-process
 migration races; real macOS Keychain never touched. Parquet/DuckDB reader union across schemas untested. The proposed design
 (sequence, spool, replay) is not implemented beyond the benchmark; the replay output in 5.5 is a design sketch.
@@ -539,7 +539,7 @@ history detectable by anyone who holds the chain key.
   Parquet schema and the marker would gain the two columns, and per writer `first_prev` and
   `last_mac`, so continuity can be checked across hot and cold.
 * **Key derivation.** HKDF-SHA256 from the vault master key with a NEW `info`
-  (`iris/audit-chain/v1`), the mechanism of `audit/digest.py`'s digest key, so the chain key is
+  (`evarness/audit-chain/v1`), the mechanism of `audit/digest.py`'s digest key, so the chain key is
   independent of the encryption key and the digest key. The key id (a short fingerprint) is recorded
   on `writer.start` as `chain_alg=hmac-sha256/v1/<key-id>`; after a master-key rotation old segments
   name their key.
@@ -547,7 +547,7 @@ history detectable by anyone who holds the chain key.
   `chain: <key-id>` or `chain: none`. A writer that declared a key and later stores a row with NULL
   macs has broken its chain (stripping it is detectable). A writer that declared `none` is reported
   as an **unchained writer**, never as intact.
-* **Verification.** `iris audit verify-chain [--session S | --writer W | --all]` and a library call
+* **Verification.** `evarness audit verify-chain [--session S | --writer W | --all]` and a library call
   re-read hot and cold and recompute. Findings: `chain_break` (content changed, row inserted),
   `chain_missing` (a row dropped from the middle), `chain_unchained_writer`, `chain_key_unavailable`.
   It would fold into the stage 5 replay as a proven gap class only when the key is present; replay
@@ -595,7 +595,7 @@ Cannot prove:
 
 The audit key resolves lazily, once per process (`audit/digest.py`), because a macOS Keychain prompt
 at process start hangs the process. Chaining every audit row would make processes that never
-governed a call (`iris approvals`, other CLIs that write audit rows) resolve it on their first
+governed a call (`evarness approvals`, other CLIs that write audit rows) resolve it on their first
 write. The options:
 
 * **(i) Use the key only if it is already resolvable without a prompt** (already resolved in this
@@ -603,7 +603,7 @@ write. The options:
   life. Never hangs; some writers are unchained, visible in `verify-chain` but not protected.
 * **(ii) Resolve the key at the first audit write in every process.** Full coverage; reintroduces the
   Keychain-prompt hang for CLI commands.
-* **(iii) A separate chain key in a `0600` file under `IRIS_HOME/governance`.** No prompt; readable
+* **(iii) A separate chain key in a `0600` file under `EVARNESS_HOME/governance`.** No prompt; readable
   by any process of the same user, weaker than the Keychain.
 
 **The owner's lean if it is ever built: (i).** The key is used only if it is already resolvable

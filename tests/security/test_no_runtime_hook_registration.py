@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from iris_harness.kernel.governance import (
+from evarness.kernel.governance import (
     GovernanceKernel,
     HookContext,
     HookDecision,

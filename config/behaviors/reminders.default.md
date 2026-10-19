@@ -1,6 +1,6 @@
 ---
 name: reminders
-description: How IRIS handles requests to remember, schedule, or follow up on something later.
+description: How Evarness handles requests to remember, schedule, or follow up on something later.
 match_intents: [calendar]
 match_keywords: [remind, reminder, reminders, follow up, follow-up, schedule, deadline, by sunday, by monday, by tuesday, by wednesday, by thursday, by friday, by saturday]
 ---
@@ -31,8 +31,8 @@ future session.
 
 ## What to avoid
 
-- Writing a reminder to any file (a markdown table, `~/.iris/reminders/`,
-  `~/.iris/sandbox/<random-hash>/`) — the reminder store is the only place a
+- Writing a reminder to any file (a markdown table, `~/.evarness/reminders/`,
+  `~/.evarness/sandbox/<random-hash>/`) — the reminder store is the only place a
   reminder lives, and only `add_reminder` / `create_reminder` write it.
 - Silently dropping the reminder into chat history with no persistence.
 - Long acknowledgement messages. The user wants the commitment captured,

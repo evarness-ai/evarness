@@ -1,0 +1,40 @@
+name: gmail
+version: 0.1.0
+description: >-
+  The Gmail provider: everything that talks to Gmail. Incremental and cold-start
+  fetch into the core email store, message bodies and attachments on demand, the
+  live attachment search, the installed-app OAuth flow and `evarness auth gmail`. It
+  registers as the mail provider for `gmail:` accounts through the core's
+  `email.providers` registry and reports the Gmail credential row to System
+  Health; it registers nothing of the six PluginAPI kinds, so `provides` is
+  empty. The record (`EmailStore`), the reads over it and the provider-agnostic
+  sweep heartbeat stay core.
+entrypoint: plugin:setup
+flavor: python
+trust: in-process
+party: first-party
+cli: cli:register
+provides: []
+# Issue #103: the hosts the Google API client and the OAuth flow connect to. `personal`:
+# mail and the account profile cross these. The Google client does its own transport, so
+# gmail_fetch.py, gmail_attachments.py and gmail_oauth.py stay on the first-party raw-network
+# list (issue #172, test_network_imports.py): the declaration documents the hosts, it does
+# not yet see these calls.
+egress:
+  hosts:
+    - host: gmail.googleapis.com
+      data: personal
+    - host: www.googleapis.com
+      data: personal
+    - host: oauth2.googleapis.com
+      data: personal
+    - host: accounts.google.com
+      data: personal
+# The Google API client the fetcher, the attachment reader and the OAuth flow import:
+# the `email` extra installs them. Without them the plugin does not mount, and an
+# unnamed run stays on the `default` profile (profiles/default.yaml).
+requires:
+  packages:
+    - google-api-python-client
+    - google-auth
+    - google-auth-oauthlib

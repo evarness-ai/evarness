@@ -1,0 +1,24 @@
+# The kinds `evarness plugin new --kind` generates (OSS plan R10). Each is the template tree
+# of that name beside this file, laid over `_common/` (a kind's file replaces the common
+# file at the same path). `summary` is the one line the CLI and the generated files use;
+# `distribution` is the Evarness distribution the plugin depends on -- the version range comes
+# from the stable tier (evarness/sdk/stable_tier.yaml); `dependencies` are any other
+# packages the template's code imports; `entry_point` is what the plugin's
+# `evarness.plugins` entry point names ({package} is the import package) -- by default
+# its `setup`, and the package itself for a declarative plugin, which has none.
+tool:
+  summary: one read-only tool on the governed ReAct loop
+  distribution: evarness
+channel:
+  summary: a delivery channel on the harness's gateway
+  distribution: evarness
+mail-provider:
+  summary: a mailbox the email sweep syncs, written against the mail-provider facade
+  distribution: evarness[email]
+research-provider:
+  summary: a web-search backend in the research tool's provider chain
+  distribution: evarness
+skill:
+  summary: a declarative plugin whose tools are declared in its manifest and bound to plain functions
+  distribution: evarness
+  entry_point: "{package}"

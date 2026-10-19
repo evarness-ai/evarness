@@ -100,7 +100,7 @@ function DocumentsList() {
   const onDelete = (d: RagDocument) =>
     setConfirm({
       title: "Delete document?",
-      description: `"${d.filename}" will be de-indexed. IRIS only removes the file from disk if it created it (uploads); files indexed in place are left untouched.`,
+      description: `"${d.filename}" will be de-indexed. Evarness only removes the file from disk if it created it (uploads); files indexed in place are left untouched.`,
       confirmLabel: "Delete",
       destructive: true,
       run: async () => {

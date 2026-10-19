@@ -1,4 +1,4 @@
-"""The noticeboard's tools, run through the governed runner of a real IRIS, offline.
+"""The noticeboard's tools, run through the governed runner of a real Evarness, offline.
 
 The model is scripted (``SCRIPT``): each rule matches what the loop sends and replies
 the way a model would -- an ``Action`` to call a tool, or a ``Final Answer``.
@@ -11,9 +11,9 @@ from typing import Any
 
 from noticeboard import Board, setup
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.sdk.approvals import ApprovalQueue
-from iris_harness.testing import harness, plugin
+from evarness.sdk import PluginAPI
+from evarness.sdk.approvals import ApprovalQueue
+from evarness.testing import harness, plugin
 
 MANIFEST = Path(__file__).with_name("manifest.yaml")
 

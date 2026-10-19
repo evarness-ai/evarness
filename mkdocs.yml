@@ -1,4 +1,4 @@
-# The IRIS docs site (OSS plan R7): MkDocs + Material, published to GitHub Pages.
+# The Evarness docs site (OSS plan R7): MkDocs + Material, published to GitHub Pages.
 #
 #   uvx --with-requirements docs/requirements.txt mkdocs serve           # preview
 #   uvx --with-requirements docs/requirements.txt mkdocs build --strict  # what CI runs
@@ -10,13 +10,13 @@
 # curated pages' links. The reference pages cli.md and environment-variables.md are
 # generated (scripts/gen_reference_docs.py); every getting-started page is run in CI
 # (scripts/ci_quickstart.sh, scripts/getting_started.py).
-site_name: IRIS
+site_name: Evarness
 site_description: The governed agent harness for small local models.
-site_url: https://evarness-ai.github.io/iris-harness/
-repo_url: https://github.com/evarness-ai/iris-harness
-repo_name: evarness-ai/iris-harness
+site_url: https://evarness-ai.github.io/evarness/
+repo_url: https://github.com/evarness-ai/evarness
+repo_name: evarness-ai/evarness
 edit_uri: edit/main/docs/
-copyright: IRIS is licensed under the Apache License 2.0.
+copyright: Evarness is licensed under the Apache License 2.0.
 
 docs_dir: docs
 exclude_docs: |

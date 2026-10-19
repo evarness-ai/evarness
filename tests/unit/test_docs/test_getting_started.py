@@ -3,7 +3,7 @@
 ``scripts/ci_quickstart.sh`` RUNS the pages' shell blocks on a fresh install
 (``scripts/getting_started.py run``). Blocks it cannot run (they need your mailbox, a
 browser, a model download) are annotated ``<!-- ci: skip ... -->``; this test is what
-still holds them to the code. Every ``iris ...`` line on every page, run or not, must
+still holds them to the code. Every ``evarness ...`` line on every page, run or not, must
 name a real command with options and arguments that parse, so a renamed command or a
 dropped flag fails here, in the plain suite, before a reader hits it.
 
@@ -45,8 +45,8 @@ gs = _runner()
 BLOCKS = gs.all_blocks(DOCS)
 
 
-def _iris_lines() -> list[tuple[str, list[str]]]:
-    return [(b.where, argv) for b in BLOCKS for argv in gs.iris_commands(b.body)]
+def _evarness_lines() -> list[tuple[str, list[str]]]:
+    return [(b.where, argv) for b in BLOCKS for argv in gs.evarness_commands(b.body)]
 
 
 def test_the_page_order_is_the_sites_nav_order() -> None:
@@ -88,7 +88,7 @@ def test_the_install_blocks_name_this_distribution_with_the_email_extra() -> Non
 
 
 def _resolve(root: click.Group, argv: list[str]) -> tuple[click.Command, click.Context, list[str]]:
-    ctx = click.Context(root, info_name="iris")
+    ctx = click.Context(root, info_name="evarness")
     cmd: Any = root
     rest = list(argv)
     while isinstance(cmd, click.Group) and rest and not rest[0].startswith("-"):
@@ -100,27 +100,27 @@ def _resolve(root: click.Group, argv: list[str]) -> tuple[click.Command, click.C
     return cmd, ctx, rest
 
 
-@pytest.mark.parametrize(("where", "argv"), _iris_lines(), ids=lambda v: str(v))
-def test_every_iris_command_on_the_pages_parses(where: str, argv: list[str]) -> None:
-    from iris_harness.main import app
+@pytest.mark.parametrize(("where", "argv"), _evarness_lines(), ids=lambda v: str(v))
+def test_every_evarness_command_on_the_pages_parses(where: str, argv: list[str]) -> None:
+    from evarness.main import app
 
     root = typer.main.get_command(app)
     assert isinstance(root, click.Group)
     cmd, ctx, rest = _resolve(root, argv)
-    if isinstance(cmd, click.Group):  # a bare `iris` or a group: its own options only
+    if isinstance(cmd, click.Group):  # a bare `evarness` or a group: its own options only
         cmd.parse_args(click.Context(cmd, info_name=ctx.info_name, parent=ctx.parent), rest)
         return
     try:
         cmd.make_context(ctx.info_name, rest, parent=ctx.parent)
     except click.ClickException as exc:
-        message = f"{where}: `iris {' '.join(argv)}`: {exc.format_message()}"
+        message = f"{where}: `evarness {' '.join(argv)}`: {exc.format_message()}"
         raise AssertionError(message) from exc
 
 
 def test_the_pages_use_the_stable_commands() -> None:
     """The hero path (R6) is the stable quickstart CLI, and the pages show all of it."""
-    from iris_harness.testing import stable_tier
+    from evarness.testing import stable_tier
 
-    shown = {tuple(argv) for _where, argv in _iris_lines()}
+    shown = {tuple(argv) for _where, argv in _evarness_lines()}
     for command in stable_tier().quickstart_cli:
         assert any(line[: len(command)] == tuple(command) for line in shown), command

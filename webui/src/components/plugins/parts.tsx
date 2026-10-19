@@ -8,7 +8,7 @@ import type { ConfigFile, PluginStatus, PluginSummary, PluginTool } from "@/lib/
 
 /** Shown when the API answers without plugin data: it predates the inventory. */
 export const STALE_API =
-  "The running IRIS API does not report plugins yet — restart it to load the plugin inventory.";
+  "The running Evarness API does not report plugins yet — restart it to load the plugin inventory.";
 
 const STATUS_TONE: Record<PluginStatus, "ok" | "warn" | "bad" | "info"> = {
   loaded: "ok",
@@ -22,7 +22,7 @@ export function PluginStatusTag({ status }: { status: PluginStatus }) {
   return <Tag kind={STATUS_TONE[status] ?? "info"}>{status}</Tag>;
 }
 
-/** "builtin:iris_harness.plugins_builtin.system" -> "builtin". */
+/** "builtin:evarness.plugins_builtin.system" -> "builtin". */
 export function sourceKind(source: string): string {
   return source.split(":", 1)[0];
 }

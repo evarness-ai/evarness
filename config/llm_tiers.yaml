@@ -35,7 +35,7 @@ providers:
   anthropic:
     runs: cloud
   # The scripted fake model (llm/fake.py): answers from a script, in-process, so it never
-  # leaves the machine. IRIS_LLM_PROVIDER=fake puts every tier on it (tests, the email
+  # leaves the machine. EVARNESS_LLM_PROVIDER=fake puts every tier on it (tests, the email
   # demo); nothing below uses it.
   fake:
     runs: local
@@ -123,7 +123,7 @@ tiers:
     #     instruct variant, better at prose / chat / prompt fidelity
     #     for identity questions. Same size, comparable VRAM footprint.
     #   2026-10-17 on an 8-16 GB host the `lite` model set (config/doctor.yaml,
-    #     applied by `iris doctor --fix` as a tier edit, not here) moves this tier
+    #     applied by `evarness doctor --fix` as a tier edit, not here) moves this tier
     #     to qwen3.5:4b-q4_K_M, the email judge's model, think off: 21/24 on the
     #     tier 2 suite over the demo mailbox against this model's 18/24, same
     #     latency (model-sets ADR, decision 7). qwen3:4b was rejected: it ignores
@@ -147,7 +147,7 @@ tiers:
       - weather
       - search
       - finance         # finance is now an agentic ReAct turn (finance_lookup + email tools); a tool-heavy loop needs the instruct model, not the tier-1 fallback
-      - planner         # ADR-0077 P4: when planner runs on the unified loop (IRIS_AGENTIC_CORE_P4), the tool-heavy turn needs the instruct model (the deterministic-lane narrator uses intent=general, unaffected)
+      - planner         # ADR-0077 P4: when planner runs on the unified loop (EVARNESS_AGENTIC_CORE_P4), the tool-heavy turn needs the instruct model (the deterministic-lane narrator uses intent=general, unaffected)
       - profile_query   # user identity / "what do you know about me" — Tier 1 priors override USER.md
       - action          # ADR-0103: imperative actions run on the instruct tier (reasoning). NB tool-call RELIABILITY is a separate problem — measured 25% (7B) / 0% (35B) for configure_brief; a bigger model does NOT fix "the model chose not to call the tool". The reliable fix is a deterministic intercept, not the tier.
 

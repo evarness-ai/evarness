@@ -1,4 +1,4 @@
-"""The morning note, fired in a real IRIS and delivered to a faked Telegram, offline.
+"""The morning note, fired in a real Evarness and delivered to a faked Telegram, offline.
 
 Telegram is faked at the HTTP transport, not replaced: the real ``TelegramConnector``
 builds and sends the Bot API request, and ``httpx.MockTransport`` answers it without a
@@ -14,10 +14,10 @@ from typing import Any
 import httpx
 from morning_note import NAME, setup
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.sdk.channels import TelegramConnector
-from iris_harness.sdk.types import HeartbeatStatus
-from iris_harness.testing import harness, plugin
+from evarness.sdk import PluginAPI
+from evarness.sdk.channels import TelegramConnector
+from evarness.sdk.types import HeartbeatStatus
+from evarness.testing import harness, plugin
 
 MANIFEST = Path(__file__).with_name("manifest.yaml")
 CHAT_ID = "1000001"  # a made-up chat

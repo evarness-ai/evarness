@@ -1,6 +1,6 @@
-# IRIS
+# Evarness
 
-IRIS is a governed agent harness for small local models. It runs an agent loop
+Evarness is a governed agent harness for small local models. It runs an agent loop
 (classify, plan, act with tools, curate the answer) on models that fit on a laptop,
 sends every model call and every tool call through a governance kernel you cannot
 unplug, and lets you answer a turn without a model at all when the answer can be
@@ -16,15 +16,15 @@ it, and leaves an audit row for every call.
 ## Three minutes, no credentials
 
 ```text
-uv tool install "iris-harness[email]"   # or: pipx install "iris-harness[email]"
-iris doctor                             # can IRIS run here, and what to fix
-iris email demo                         # a synthetic mailbox, a scripted model, no network
-iris email setup                        # then your own mailbox, step by step
+uv tool install "evarness[email]"   # or: pipx install "evarness[email]"
+evarness doctor                             # can Evarness run here, and what to fix
+evarness email demo                         # a synthetic mailbox, a scripted model, no network
+evarness email setup                        # then your own mailbox, step by step
 ```
 
 ## What you can build
 
-| Use case | What IRIS gives you |
+| Use case | What Evarness gives you |
 |---|---|
 | **A private email assistant** | Triage, a daily digest and labels on a local model. Personal data never reaches a cloud model; nothing changes in your mailbox until you approve it once per account. |
 | **Your own domain agent** | A plugin registers tools, deterministic handlers and an agent on the same governed loop the email assistant uses ([example](guides/examples.md)). |
@@ -36,7 +36,7 @@ iris email setup                        # then your own mailbox, step by step
 
 - **Determinism is a primitive.** When an action is grounded and parseable, parse it
   and call the function. On one measured action, a 7B model called the right tool 25%
-  of the time and a 35B model 0%; a deterministic handler did it 100% of the time. IRIS
+  of the time and a 35B model 0%; a deterministic handler did it 100% of the time. Evarness
   lets a plugin answer such turns with no model, and governs those answers like
   generated ones ([deterministic handlers](concepts/deterministic-handlers.md)).
 - **Governance is a passage, not a filter.** Data is classified before it moves;
@@ -59,6 +59,6 @@ iris email setup                        # then your own mailbox, step by step
   against the [stable API](reference/stable-api.md).
 - [Architecture](concepts/architecture.md) for how the pieces fit.
 
-IRIS is licensed under the Apache License 2.0, and it stays that way. It runs on
+Evarness is licensed under the Apache License 2.0, and it stays that way. It runs on
 macOS (Apple Silicon) and Linux; on Windows, use Docker Desktop or WSL2
 ([Windows](guides/windows.md)). It collects no telemetry.

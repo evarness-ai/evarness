@@ -1,14 +1,14 @@
 [tool.poetry]
-name = "iris-harness"
-version = "0.1.5"
-description = "IRIS - Intelligent Reasoning & Integration System: Privacy-first agentic AI assistant with local-first LLM orchestration"
-authors = ["IRIS Development Team"]
+name = "evarness"
+version = "0.2.0"
+description = "The governed agent harness for small local models. It proves what it did."
+authors = ["Evarness contributors"]
 readme = "README.md"
 license = "Apache-2.0"
-homepage = "https://github.com/evarness-ai/iris-harness"
-repository = "https://github.com/evarness-ai/iris-harness"
-documentation = "https://github.com/evarness-ai/iris-harness/blob/main/README.md"
-keywords = ["ai", "llm", "assistant", "privacy", "agentic", "langchain", "langgraph", "ollama", "local-first", "react-loop"]
+homepage = "https://github.com/evarness-ai/evarness"
+repository = "https://github.com/evarness-ai/evarness"
+documentation = "https://github.com/evarness-ai/evarness/blob/main/README.md"
+keywords = ["ai", "llm", "agent", "harness", "governance", "privacy", "ollama", "local-first", "mcp", "plugins"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
@@ -24,33 +24,37 @@ classifiers = [
     "Environment :: Web Environment",
 ]
 packages = [
-    { include = "iris_harness", from = "src" },
+    { include = "evarness", from = "src" },
     { include = "memris", from = "src" },  # the memory-graph engine, public (ADR-0115 decision 10)
-    # The repo's config/ tree, shipped as package data at iris_harness/_data/config/ so
+    # The repo's config/ tree, shipped as package data at evarness/_data/config/ so
     # a plain `pip install` has its defaults. Mapped, not copied: git holds one config/.
     # foundation/paths.py config_dir() finds it when there is no checkout to read.
-    { include = "config", to = "iris_harness/_data" },
+    { include = "config", to = "evarness/_data" },
     # The domains (M6.1b, decision 2). Public since release 1 for the email slice only
-    # (R2): the export cuts src/iris_personal to email/, connections/ and the email
+    # (R2): the export cuts src/evarness_personal to email/, connections/ and the email
     # plugins (scripts/oss_public_slice.txt), and this one entry packages what is there.
+    { include = "evarness_personal", from = "src" },
+    # The 0.1.x import names, as shims that resolve to the packages above with a
+    # deprecation warning (src/evarness/foundation/legacy.py). Removed in 0.3.0.
+    { include = "iris_harness", from = "src" },
     { include = "iris_personal", from = "src" },
 ]
 include = [
     # The domain plugins' manifests: the loader reads manifest.yaml beside the module
     # an entry point names, so a wheel without them loads plugins that register nothing.
-    { path = "src/iris_personal/plugins/**/*.yaml", format = ["sdist", "wheel"] },
-    { path = "src/iris_harness/plugins_builtin/**/*.yaml", format = ["sdist", "wheel"] },
+    { path = "src/evarness_personal/plugins/**/*.yaml", format = ["sdist", "wheel"] },
+    { path = "src/evarness/plugins_builtin/**/*.yaml", format = ["sdist", "wheel"] },
     # The web console's production build (OSS plan R6). Gitignored, so it ships only
     # when named here: the release workflow fills it (scripts/bundle_webui.py) before
     # the build, and static_ui.resolve_webui_dist() serves it from the installed package.
-    { path = "src/iris_harness/server/iris_api/webui_dist/**/*", format = ["sdist", "wheel"] },
+    { path = "src/evarness/server/harness_api/webui_dist/**/*", format = ["sdist", "wheel"] },
 ]
 # What the packaged config/ leaves out. Agent working notes never ship. The public-line
 # entries become live in the public pyproject only (scripts/oss_strip_private.sh): the
 # private domains' config, their skill packs, the coding agent's config and the
 # usage-derived skill proposals are private by purpose, so the public wheel carries none
 # of them even if the exported tree ever has the files. The private wheel keeps them,
-# because it ships iris_personal and iris_code, which read them. The email skill packs
+# because it ships evarness_personal and iris_code, which read them. The email skill packs
 # (config/skills/email) ship: they import only the email slice (R2).
 exclude = [
     "config/**/CLAUDE.md",
@@ -69,21 +73,21 @@ exclude = [
 ]
 
 [tool.poetry.urls]
-"Bug Tracker" = "https://github.com/evarness-ai/iris-harness/issues"
-"Changelog" = "https://github.com/evarness-ai/iris-harness/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/evarness-ai/evarness/issues"
+"Changelog" = "https://github.com/evarness-ai/evarness/blob/main/CHANGELOG.md"
 
 [tool.poetry.scripts]
-iris = "iris_harness.main:main"
+evarness = "evarness.main:main"
 
 # The domain plugins, discovered exactly as a third-party plugin is: by the
-# `iris_harness.plugins` entry-point group, with their manifest.yaml read from beside
+# `evarness.plugins` entry-point group, with their manifest.yaml read from beside
 # the module named here (OSS plan M6, decisions 2 and 10). The public tree ships the
 # email slice's three (R2) -- the email profile mounts them; `default` names none -- and
 # the fenced four stay private until release 2.
-[tool.poetry.plugins."iris_harness.plugins"]
-email_workflows = "iris_personal.plugins.email_workflows.plugin:setup"
-gmail = "iris_personal.plugins.gmail.plugin:setup"
-imap = "iris_personal.plugins.imap.plugin:setup"
+[tool.poetry.plugins."evarness.plugins"]
+email_workflows = "evarness_personal.plugins.email_workflows.plugin:setup"
+gmail = "evarness_personal.plugins.gmail.plugin:setup"
+imap = "evarness_personal.plugins.imap.plugin:setup"
 
 [tool.poetry.dependencies]
 # 3.13 supported since 2026-09-26: the core has no 3.12-only code; what held it back was
@@ -109,7 +113,7 @@ fastapi = ">=0.109,<1"
 # header, which let a crafted Host move a request onto an auth-exempt path
 # (PYSEC-2026-161). The code no longer trusts request.url for that either.
 starlette = ">=1.3.1,<2"
-uvicorn = ">=0.27,<1"  # runs every server (Dockerfile, compose, `iris serve`)
+uvicorn = ">=0.27,<1"  # runs every server (Dockerfile, compose, `evarness serve`)
 pyyaml = "^6.0"
 python-dotenv = "^1.2.1"
 numpy = ">=1.26"
@@ -144,7 +148,7 @@ pytesseract = "^0.3.13"
 opentelemetry-api = ">=1.20.0"
 opentelemetry-sdk = ">=1.20.0"
 opentelemetry-exporter-otlp = ">=1.20.0"
-# httpx client spans (IRIS_OTEL_HTTPX_ENABLED, default on). The contrib instrumentation
+# httpx client spans (EVARNESS_OTEL_HTTPX_ENABLED, default on). The contrib instrumentation
 # line is versioned 0.Nb and pins opentelemetry-instrumentation/semantic-conventions to
 # the same 0.Nb, which match one SDK 1.x release: 0.62b1 goes with SDK 1.41.1.
 opentelemetry-instrumentation-httpx = ">=0.62b1"
@@ -166,7 +170,7 @@ beautifulsoup4 = "^4.12"
 
 # The `email` extra's packages (OSS plan R2/R19): the Google API client the Gmail
 # plugin's fetcher, attachment reader and OAuth flow import. Public tree: optional, and
-# `iris-harness[email]` installs them. Private tree: main dependencies (in the block
+# `evarness[email]` installs them. Private tree: main dependencies (in the block
 # below), because the calendar plugin imports them too. One line cannot be both, and an
 # extra may not name a main dependency: Poetry then writes it into the wheel as
 # extra-only, so a plain install would lose it. Keep the versions in step with the
@@ -175,9 +179,9 @@ google-api-python-client = {version = "^2.0", optional = true}
 google-auth = {version = "^2.0", optional = true}
 google-auth-oauthlib = {version = "^1.0", optional = true}
 # scikit-learn: HDBSCAN, which email corpus discovery clusters with -- the `discover` step
-# of `iris email setup` and the demo (OSS plan R3/R4). It was never declared: it reached
+# of `evarness email setup` and the demo (OSS plan R3/R4). It was never declared: it reached
 # the private venv only through sentence-transformers (the `ml` extra), so a plain
-# `iris-harness[email]` install failed at discover (found by the export's strict pass).
+# `evarness[email]` install failed at discover (found by the export's strict pass).
 # The public `email` extra declares it. The private tree still gets it only through `ml`
 # (a main dependency here needs a private re-lock; see the release-1 export notes).
 scikit-learn = {version = ">=1.3", optional = true}
@@ -227,8 +231,8 @@ ignore = ["E501", "S101"]
 
 [tool.ruff.lint.isort]
 # Every source root under src/, named so grouping does not depend on ruff's detection
-# (0.1.x filed iris_harness with third-party; 0.16 detects it). memris: ADR-0115.
-known-first-party = ["iris_harness", "iris_personal", "iris_code", "memris"]
+# (0.1.x filed evarness with third-party; 0.16 detects it). memris: ADR-0115.
+known-first-party = ["evarness", "evarness_personal", "iris_code", "memris"]
 
 [tool.ruff.lint.per-file-ignores]
 # test fixtures use fake tokens (S105) and sha1 for deterministic IDs (S324) — not security-relevant
@@ -240,16 +244,16 @@ known-first-party = ["iris_harness", "iris_personal", "iris_code", "memris"]
 # entry points, and the harness's CLI package (raw --json output bypasses rich).
 "src/iris_code/cli.py" = ["T201"]
 "src/memris/**/__main__.py" = ["T201"]
-"src/iris_harness/cli/**" = ["T201"]
-# The `iris plugin new` templates are a third party's code once rendered: there
-# iris_harness is a third-party import and the plugin's own package is first-party, the
+"src/evarness/cli/**" = ["T201"]
+# The `evarness plugin new` templates are a third party's code once rendered: there
+# evarness is a third-party import and the plugin's own package is first-party, the
 # reverse of this repo, so their imports are grouped for the generated project (whose own
-# ruff config checks them -- tests/unit/iris_harness/test_cli/test_plugin_scaffold.py).
-"src/iris_harness/cli/templates/**" = ["I001"]
+# ruff config checks them -- tests/unit/evarness/test_cli/test_plugin_scaffold.py).
+"src/evarness/cli/templates/**" = ["I001"]
 # The deploy scripts are CLIs (stderr is their log) and the LLM proxy logs to its
 # container's stdout; both are touched only by the commit hook, not the src/ gate.
 # Standalone dev harness scripts insert src/ onto sys.path before importing
-# iris.* so they run without an editable install — imports must follow that setup.
+# evarness.* so they run without an editable install — imports must follow that setup.
 # They are CLIs too (T201: 29 of 32 print their report), checked only by the commit
 # hook, so editing one no longer trips over prints it has always had.
 "scripts/*" = ["E402", "T201"]
@@ -259,9 +263,9 @@ known-first-party = ["iris_harness", "iris_personal", "iris_code", "memris"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-# The `iris plugin new` templates: every kind has a `__tmpl_package`, which only becomes
+# The `evarness plugin new` templates: every kind has a `__tmpl_package`, which only becomes
 # a package when rendered. The rendered plugin is type-checked by its author's tooling.
-exclude = ["src/iris_harness/cli/templates/"]
+exclude = ["src/evarness/cli/templates/"]
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
@@ -384,60 +388,60 @@ markers = [
 
 # OSS plan release gates 1, 2 and 8 — checked by `poetry run lint-imports` in CI.
 [tool.importlinter]
-# The public tree has the email slice of iris_personal (R2), so its contracts below that
-# name iris_personal hold there too; the private domains' are fenced.
-root_packages = ["iris_harness", "memris", "iris_personal"]
+# The public tree has the email slice of evarness_personal (R2), so its contracts below that
+# name evarness_personal hold there too; the private domains' are fenced.
+root_packages = ["evarness", "memris", "evarness_personal"]
 
 [[tool.importlinter.contracts]]
 id = "memris-stands-alone"
-name = "memris imports nothing from IRIS, so another project can use it on its own (ADR-0115 decision 10)"
+name = "memris imports nothing from Evarness, so another project can use it on its own (ADR-0115 decision 10)"
 type = "forbidden"
 source_modules = ["memris"]
 forbidden_modules = [
-  "iris_harness",
-  "iris_personal",
+  "evarness",
+  "evarness_personal",
 ]
-# EMPTY, and it stays empty: an edge into IRIS is a design error, not burn-down.
+# EMPTY, and it stays empty: an edge into Evarness is a design error, not burn-down.
 ignore_imports = []
 
 
 [[tool.importlinter.contracts]]
 id = "plugins-use-the-public-api"
-name = "The reference plugins import iris_harness.sdk and nothing else from the core (gate 2)"
+name = "The reference plugins import evarness.sdk and nothing else from the core (gate 2)"
 type = "forbidden"
-source_modules = ["iris_harness.plugins_builtin"]
+source_modules = ["evarness.plugins_builtin"]
 # Direct imports only: the gate is about a plugin reaching past the SDK itself. The SDK
 # re-exports from below, and chains through it are its business, not the plugin's.
 allow_indirect_imports = true
-# Every core package EXCEPT `iris_harness.sdk` (M6.2 layer 8, decision 5). A forbidden
-# contract blocks only what it names, and it cannot say "all of iris_harness but the SDK"
+# Every core package EXCEPT `evarness.sdk` (M6.2 layer 8, decision 5). A forbidden
+# contract blocks only what it names, and it cannot say "all of evarness but the SDK"
 # (forbidding the root forbids its child, the SDK), so a new core package would be
 # silently allowed. tests/unit/test_import_contract_coverage.py closes that gap: it fails
-# until every top-level iris_harness package but the SDK is listed here.
+# until every top-level evarness package but the SDK is listed here.
 forbidden_modules = [
-  "iris_harness.main",
-  # M6.2 layer 10: the repo-root `services/` folder is `iris_harness/server/` -- the four
+  "evarness.main",
+  # M6.2 layer 10: the repo-root `services/` folder is `evarness/server/` -- the four
   # FastAPI apps ship in the wheel now, so nothing needs the repo on PYTHONPATH to import
   # them. They are listed ABOVE `cli` and `playground`, not beside them: the API serves
   # CLI-backed endpoints and runs playground scenarios, so `|` would claim an
   # independence that is not there.
-  "iris_harness.server",
-  "iris_harness.cli",
-  "iris_harness.playground",
+  "evarness.server",
+  "evarness.cli",
+  "evarness.playground",
   # Stable tier, but for a plugin's TESTS: plugin code selects the fake via sdk.llm.
-  "iris_harness.testing",
-  "iris_harness.runtime",
-  "iris_harness.agent",
-  "iris_harness.services",
-  "iris_harness.memory",
-  "iris_harness.tools",
-  "iris_harness.llm",
-  "iris_harness.kernel",
-  "iris_harness.memory.identity",
-  "iris_harness.foundation",
-  "iris_harness.server",
+  "evarness.testing",
+  "evarness.runtime",
+  "evarness.agent",
+  "evarness.services",
+  "evarness.memory",
+  "evarness.tools",
+  "evarness.llm",
+  "evarness.kernel",
+  "evarness.memory.identity",
+  "evarness.foundation",
+  "evarness.server",
   # Plugin-capabilities step 3c: a reference plugin reaches no domain, library or plugin.
-  "iris_personal",
+  "evarness_personal",
 ]
 # EMPTY. The burn-down that landed with this contract at layer 8 listed 22 imports --
 # each one a capability the reference plugins needed and the SDK did not publish. M6.3
@@ -465,52 +469,52 @@ type = "layers"
 #   - tools/skills/sandbox/mcp are consecutive until they share one tools/ package; llm
 #     is the sibling that neither imports nor is imported by them.
 layers = [
-  "iris_harness.main",
-  # M6.2 layer 10: the repo-root `services/` folder is `iris_harness/server/` -- the four
+  "evarness.main",
+  # M6.2 layer 10: the repo-root `services/` folder is `evarness/server/` -- the four
   # FastAPI apps ship in the wheel now, so nothing needs the repo on PYTHONPATH to import
   # them. They are listed ABOVE `cli` and `playground`, not beside them: the API serves
   # CLI-backed endpoints and runs playground scenarios, so `|` would claim an
   # independence that is not there.
-  "iris_harness.server",
-  "iris_harness.cli",
-  "iris_harness.playground",
-  "iris_harness.plugins_builtin",
+  "evarness.server",
+  "evarness.cli",
+  "evarness.playground",
+  "evarness.plugins_builtin",
   # R16: the testing half of the stable tier (the scripted fake model, `no_network`).
   # Above the SDK and everything under it, so it may grow a harness fixture later; a
   # plugin's tests import it, a plugin's code does not (the SDK-only contracts).
-  "iris_harness.testing",
-  # M6.2 layer 8: the author-facing half of the plugin seam is `iris_harness.sdk` --
+  "evarness.testing",
+  # M6.2 layer 8: the author-facing half of the plugin seam is `evarness.sdk` --
   # the facade a plugin imports, plus `types`, `logging` and the CLI seam. The host
   # half is `runtime/plugin_host/` (layer 7). The entry-point GROUP name stays
-  # "iris_harness.plugins" (decision 5): it is a string, not a module.
-  "iris_harness.sdk",
-  "iris_harness.runtime",
+  # "evarness.plugins" (decision 5): it is a string, not a module.
+  "evarness.sdk",
+  "evarness.runtime",
   # M6.2 layer 6: the five stages are one package, `agent/`. Decision 4 also sent the
   # SOUL/USER loader here; the readers said memory instead -- it is `memory/identity/`.
-  "iris_harness.agent",
+  "evarness.agent",
   # M6.2 layer 5: the eleven long-lived services are one package -- health, routines,
   # learning, notifications, system status, missions, activities, rag, tasks, channels
   # and heartbeats. Five rows became one; what imports what inside the package is the
   # package's own business, as in foundation and the kernel.
-  "iris_harness.services",
+  "evarness.services",
   # M6.2 layer 4 + M6.3: conversational memory, the wiki (`knowledge/`), workflow state
   # (`state/`, out of the kernel) and `identity/` (the SOUL/USER loader) are one package
   # -- everything remembered across turns (decision 4). The loader could only fold in
   # once the kernel's exfiltration guard stopped reading it directly and started asking
   # (`kernel/governance/identity_redaction.py`); it was read from both sides before.
-  "iris_harness.memory",
+  "evarness.memory",
   # M6.2 layer 3: tools + skills + sandbox + mcp are one package. `llm` is its sibling
   # -- neither imports the other, so they share one row.
-  "iris_harness.tools | iris_harness.llm",
+  "evarness.tools | evarness.llm",
   # M6.2 layer 2: governance + governor are one package, the kernel. Its vault holds the
   # credential and secret stores that were `identity/`'s (decision 4); the Drive OAuth
   # flow left with the domains.
-  "iris_harness.kernel",
+  "evarness.kernel",
   # M6.2 layer 1: persistence, observability, eventbus, data, paths -- and, since layer
   # 10, `auth.py`: the pure half of `service_common`, which the CLI and the evaluator
   # client read as well as the servers. The FastAPI middleware went up to `server/`
   # (decision 7).
-  "iris_harness.foundation",
+  "evarness.foundation",
 ]
 # EMPTY. Release gate 9 (M6.3) is an empty list here, and layer 7 is where it emptied:
 # the four remaining entries were all `runtime -> plugins`, and the plugin machinery the
@@ -520,49 +524,49 @@ ignore_imports = []
 # Public as well since release 1: the exported tree carries the email slice (R2), and
 # the core may no more import it there than here.
 [[tool.importlinter.contracts]]
-id = "core-does-not-import-iris-personal"
-name = "The harness never imports the domains' root, src/iris_personal (OSS plan M6, decision 2)"
+id = "core-does-not-import-evarness-personal"
+name = "The harness never imports the domains' root, src/evarness_personal (OSS plan M6, decision 2)"
 type = "forbidden"
-source_modules = ["iris_harness"]
-forbidden_modules = ["iris_personal"]
+source_modules = ["evarness"]
+forbidden_modules = ["evarness_personal"]
 # Empty, and it stays empty: the 45 edges this contract started with were all broken
 # BEFORE the move (M6.1b b1-b3), which is what made the move mechanical. A new entry
 # here means the core grew a dependency on a domain -- fix the code, not the list.
 ignore_imports = []
 
-# Public as well since release 1. In the exported tree iris_personal IS the email slice,
+# Public as well since release 1. In the exported tree evarness_personal IS the email slice,
 # so there this is the email contract R2 asks for: the public email slice imports
-# iris_harness.sdk and nothing else from the core, with an empty ignore list (every
+# evarness.sdk and nothing else from the core, with an empty ignore list (every
 # burn-down entry below names a private domain and is fenced out).
 [[tool.importlinter.contracts]]
 id = "domains-use-the-sdk"
-name = "The domains (src/iris_personal) import iris_harness.sdk and nothing else from the core (core/SDK boundary plan PR 3d, decision D2)"
+name = "The domains (src/evarness_personal) import evarness.sdk and nothing else from the core (core/SDK boundary plan PR 3d, decision D2)"
 type = "forbidden"
-source_modules = ["iris_personal"]
+source_modules = ["evarness_personal"]
 allow_indirect_imports = true
 # Every core package but the SDK, by name; tests/unit/test_import_contract_coverage.py
-# fails when a new top-level iris_harness package is missing here (see gate 2 above).
+# fails when a new top-level evarness package is missing here (see gate 2 above).
 forbidden_modules = [
-  "iris_harness.main",
-  "iris_harness.server",
-  "iris_harness.cli",
-  "iris_harness.playground",
-  "iris_harness.plugins_builtin",
+  "evarness.main",
+  "evarness.server",
+  "evarness.cli",
+  "evarness.playground",
+  "evarness.plugins_builtin",
   # A domain's tests may use the scripted fake; its code selects it through sdk.llm.
-  "iris_harness.testing",
-  "iris_harness.runtime",
-  "iris_harness.agent",
-  "iris_harness.services",
-  "iris_harness.memory",
-  "iris_harness.tools",
-  "iris_harness.llm",
-  "iris_harness.kernel",
-  "iris_harness.foundation",
+  "evarness.testing",
+  "evarness.runtime",
+  "evarness.agent",
+  "evarness.services",
+  "evarness.memory",
+  "evarness.tools",
+  "evarness.llm",
+  "evarness.kernel",
+  "evarness.foundation",
 ]
 # The burn-down list (75 edges on landing, exact importer -> imported pairs so a NEW
 # private importer of a listed module still fails). It only shrinks: each group names
 # the plan PR expected to remove it, and PR 7 empties it. Adding a line means a domain
-# reached past the SDK; publish what it needs in iris_harness.sdk instead.
+# reached past the SDK; publish what it needs in evarness.sdk instead.
 # config/skills/**/tools.py are not a package, so this contract cannot see them; the
 # plan's survey (an AST walk) still counts them.
 ignore_imports = [
@@ -575,17 +579,17 @@ ignore_imports = [
 #      either root (the reference plugins and the domain plugins).
 #   2. <domain>-imports-no-other-domain: a domain -- its library plus the plugins that
 #      register over it -- imports no other domain's library. A plugin may import its own
-#      library (iris_personal/plugins/__init__.py says so). The domains:
-#        email    = iris_personal.email + iris_personal.connections
+#      library (evarness_personal/plugins/__init__.py says so). The domains:
+#        email    = evarness_personal.email + evarness_personal.connections
 #                   + plugins.email_workflows + plugins.gmail + plugins.imap
-#        finance  = iris_personal.finance + plugins.finance_workflows
-#        files    = iris_personal.filemanager + plugins.file_organizer
-#        calendar = iris_personal.calendar + plugins.calendar
+#        finance  = evarness_personal.finance + plugins.finance_workflows
+#        files    = evarness_personal.filemanager + plugins.file_organizer
+#        calendar = evarness_personal.calendar + plugins.calendar
 #        planner  = plugins.planner (no library: it composes the others)
-#      iris_personal.connections (the Google reconnect routes) is part of the email slice
+#      evarness_personal.connections (the Google reconnect routes) is part of the email slice
 #      (R2): it reads email's account store, so calendar and file_organizer reach that
 #      store through it (debt below, retired via credentials.accounts).
-#      iris_personal.market (a keyless quote client) is a shared library no plugin owns,
+#      evarness_personal.market (a keyless quote client) is a shared library no plugin owns,
 #      so importing it reaches no other plugin.
 # Every ignore_imports entry is DEBT, not a permitted dependency: an exact importer ->
 # imported pair (a new importer of a listed module still fails) that names what retires
@@ -598,14 +602,14 @@ id = "plugins-are-independent"
 name = "No plugin imports another plugin's package (plugin-capabilities step 3c)"
 type = "independence"
 modules = [
-  "iris_harness.plugins_builtin.*",
-  "iris_personal.plugins.*",
+  "evarness.plugins_builtin.*",
+  "evarness_personal.plugins.*",
 ]
 ignore_imports = [
   # Debt to retire before release 1 via mail.read (step 4): the CLI runs without the
   # runtime, so it builds Gmail's provider itself to read bodies; it resolves the
   # capability instead.
-  "iris_personal.plugins.email_workflows.cli -> iris_personal.plugins.gmail.provider",
+  "evarness_personal.plugins.email_workflows.cli -> evarness_personal.plugins.gmail.provider",
 ]
 
 [[tool.importlinter.contracts]]
@@ -613,10 +617,10 @@ id = "libraries-import-no-plugin"
 name = "A domain library (the record) never imports a plugin (the workflows over it), directly or not"
 type = "forbidden"
 source_modules = [
-  "iris_personal.connections",
-  "iris_personal.email",
+  "evarness_personal.connections",
+  "evarness_personal.email",
 ]
-forbidden_modules = ["iris_personal.plugins", "iris_harness.plugins_builtin"]
+forbidden_modules = ["evarness_personal.plugins", "evarness.plugins_builtin"]
 # EMPTY, and it stays empty: a library that needs a plugin has its dependency backwards.
 ignore_imports = []
 
@@ -628,20 +632,20 @@ id = "email-imports-no-other-domain"
 name = "Email stands on its own: it imports no other domain, directly or not (finance depends on email, never the reverse)"
 type = "forbidden"
 source_modules = [
-  "iris_personal.connections",
-  "iris_personal.email",
-  "iris_personal.plugins.email_workflows",
-  "iris_personal.plugins.gmail",
-  "iris_personal.plugins.imap",
+  "evarness_personal.connections",
+  "evarness_personal.email",
+  "evarness_personal.plugins.email_workflows",
+  "evarness_personal.plugins.gmail",
+  "evarness_personal.plugins.imap",
 ]
 forbidden_modules = [
-  "iris_personal.calendar",
-  "iris_personal.filemanager",
-  "iris_personal.finance",
-  "iris_personal.plugins.calendar",
-  "iris_personal.plugins.file_organizer",
-  "iris_personal.plugins.finance_workflows",
-  "iris_personal.plugins.planner",
+  "evarness_personal.calendar",
+  "evarness_personal.filemanager",
+  "evarness_personal.finance",
+  "evarness_personal.plugins.calendar",
+  "evarness_personal.plugins.file_organizer",
+  "evarness_personal.plugins.finance_workflows",
+  "evarness_personal.plugins.planner",
 ]
 # EMPTY, and it stays empty. Indirect chains count too (no allow_indirect_imports), so
 # email cannot reach finance through a third module either.

@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from iris_harness.server.iris_api.static_ui import DEFAULT_WEBUI_DIST
+from evarness.server.harness_api.static_ui import DEFAULT_WEBUI_DIST
 
 ROOT = Path(__file__).resolve().parents[3]
 DOCKERFILE = ROOT / "Dockerfile"
@@ -73,7 +73,7 @@ def test_the_runtime_image_gets_the_build_where_the_api_looks_for_it() -> None:
     assert len(copies) == 1
     source, destination = copies[0].split()[2:]
     assert source.endswith("/dist")
-    # The default of IRIS_WEBUI_DIST: the deployment sets nothing and gets the UI.
+    # The default of EVARNESS_WEBUI_DIST: the deployment sets nothing and gets the UI.
     assert destination.rstrip("/") == DEFAULT_WEBUI_DIST == "/app/webui/dist"
 
 

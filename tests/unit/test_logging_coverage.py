@@ -16,23 +16,23 @@ import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve()
-while not (_ROOT / "src" / "iris_harness").is_dir():
+while not (_ROOT / "src" / "evarness").is_dir():
     if _ROOT == _ROOT.parent:
-        raise RuntimeError("could not locate repo root (src/iris_harness)")
+        raise RuntimeError("could not locate repo root (src/evarness)")
     _ROOT = _ROOT.parent
 
 # The chat request lifecycle: router -> governance -> tools -> response, + audit writers.
 GUARDED_MODULES = (
-    "src/iris_harness/agent/response_curator.py",
-    "src/iris_harness/agent/intent_router.py",
-    "src/iris_harness/agent/task_planner.py",
-    "src/iris_harness/agent/agentic_core.py",
-    "src/iris_harness/agent/agent_executor.py",
-    "src/iris_harness/kernel/governance/kernel.py",
-    "src/iris_harness/kernel/governance/audit/log.py",
-    "src/iris_harness/runtime/router_audit.py",
+    "src/evarness/agent/response_curator.py",
+    "src/evarness/agent/intent_router.py",
+    "src/evarness/agent/task_planner.py",
+    "src/evarness/agent/agentic_core.py",
+    "src/evarness/agent/agent_executor.py",
+    "src/evarness/kernel/governance/kernel.py",
+    "src/evarness/kernel/governance/audit/log.py",
+    "src/evarness/runtime/router_audit.py",
     "src/iris_code/llm_client.py",
-    "src/iris_harness/runtime/bootstrap.py",
+    "src/evarness/runtime/bootstrap.py",
 )
 
 _SIDE_EFFECT = re.compile(
@@ -90,7 +90,7 @@ def test_no_silent_swallow_of_side_effecting_op_in_chat_path() -> None:
         source_root = _ROOT / Path(module).parts[0] / Path(module).parts[1]
         if not source_root.is_dir():
             # A source root this tree does not carry (the public export ships
-            # src/iris_harness and src/memris only). Where the root exists, a missing
+            # src/evarness and src/memris only). Where the root exists, a missing
             # module is still a failure: that is a move the guard list did not follow.
             continue
         assert path.is_file(), f"guarded module missing: {module}"
@@ -140,16 +140,16 @@ def test_guard_ignores_logged_swallow_and_parse_only(tmp_path: Path) -> None:
 # Narrow handlers (``except AttributeError``, ``except OSError`` ...) are not checked.
 MEMORY_GUARDED_ROOTS = (
     "src/memris",
-    "src/iris_harness/memory",
-    "src/iris_harness/services/rag",
-    "src/iris_harness/runtime/session_memory.py",
+    "src/evarness/memory",
+    "src/evarness/services/rag",
+    "src/evarness/runtime/session_memory.py",
     # The agent's own memory, retrieval and action tools: a failure reaches the agent as
     # "X failed: ..." text, so without a log line operators never see it.
-    "src/iris_harness/runtime/react_tools.py",
+    "src/evarness/runtime/react_tools.py",
     # The email plugin's search paths (#668 follow-up). Not in the public tree; a path
     # this tree does not carry is skipped.
-    "src/iris_personal/email/semantic_index.py",
-    "src/iris_personal/email/agent_tools.py",
+    "src/evarness_personal/email/semantic_index.py",
+    "src/evarness_personal/email/agent_tools.py",
 )
 
 _BROAD = {"Exception", "BaseException"}

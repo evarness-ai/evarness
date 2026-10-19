@@ -23,7 +23,7 @@ from pathlib import Path
 import pytest
 
 import memris
-from iris_harness.foundation.env import os_child_env
+from evarness.foundation.env import os_child_env
 from memris.store import SQLiteGraphStore
 from memris.store import sqlite as store_module
 

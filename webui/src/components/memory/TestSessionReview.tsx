@@ -6,7 +6,7 @@
  * a real conversation's (`test_session_review` in retention.yaml); each is ticked by
  * default, and removing goes through the same preview-fed confirmation as the Map, so
  * every one lands in the Removed tab and can be restored. CLI twin:
- * `iris memory test-sessions --remove`. */
+ * `evarness memory test-sessions --remove`. */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { fmtDateTime } from "@/components/control/parts";

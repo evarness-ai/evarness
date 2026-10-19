@@ -1,5 +1,5 @@
 # The `licenses` check's policy (OSS plan R11, R19): every distribution a plain
-# `pip install iris-harness` puts in an environment must carry a license on this allow
+# `pip install evarness` puts in an environment must carry a license on this allow
 # list. scripts/check_licenses.py reads it; .github/public/workflows/ci.yml runs it on
 # the core install (no extras).
 #
@@ -40,11 +40,11 @@ licenses = [
 ]
 
 # Never in the install, whatever their license says. arize-phoenix is Elastic-2.0
-# (source-available, not OSI). IRIS bundled it as the `[phoenix]` extra until 2026-10-01;
+# (source-available, not OSI). Evarness bundled it as the `[phoenix]` extra until 2026-10-01;
 # it is gone now (ADR-0128: OTLP to the user's own backend) and this entry keeps it from
 # coming back as a dependency. Running Phoenix as your own trace backend is unaffected.
 [deny]
-arize-phoenix = "Elastic-2.0, not OSI: not a dependency of IRIS (ADR-0128)"
+arize-phoenix = "Elastic-2.0, not OSI: not a dependency of Evarness (ADR-0128)"
 
 # Free-text `License:` values and trove classifiers, mapped to SPDX ids. A value that is
 # neither an SPDX expression nor listed here falls through to the classifiers, then to

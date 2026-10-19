@@ -1,7 +1,7 @@
-# `iris mcp serve`: the MCP clients the owner serves IRIS's tools to
-# (src/iris_harness/runtime/mcp_serve.py; examples/08-mcp).
+# `evarness mcp serve`: the MCP clients the owner serves Evarness's tools to
+# (src/evarness/runtime/mcp_serve.py; examples/08-mcp).
 #
-# `iris mcp serve --client NAME` must name a client listed here; every call is governed
+# `evarness mcp serve --client NAME` must name a client listed here; every call is governed
 # and audited as `mcp:NAME`. The name is the owner's (it sits in the client's config the
 # owner writes); what a client says about itself decides nothing.
 #
@@ -10,7 +10,7 @@
 # local: false -- (the default) a result labelled personal is withheld from it.
 # A result labelled secret is withheld from every client, local or not.
 #
-# The owner's own list goes in $IRIS_HOME/mcp-serve.yaml (same shape); its entries win
+# The owner's own list goes in $EVARNESS_HOME/mcp-serve.yaml (same shape); its entries win
 # over these.
 clients:
   # The default when --client is not given: treated as not local.

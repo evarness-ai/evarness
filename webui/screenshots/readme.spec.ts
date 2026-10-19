@@ -9,8 +9,8 @@ const env = (name: string): string => {
   return value;
 };
 
-const OUT = env("IRIS_SHOTS_OUT");
-const TRACE_ID = env("IRIS_SHOTS_TRACE_ID");
+const OUT = env("EVARNESS_SHOTS_OUT");
+const TRACE_ID = env("EVARNESS_SHOTS_TRACE_ID");
 
 interface Screen {
   name: string;
@@ -53,13 +53,13 @@ test("README screenshots", async ({ page, context }) => {
   // Pair the browser as the Pair screen does: claim the one-time code. The server
   // answers with the HttpOnly device cookie, which this context keeps.
   const claim = await page.request.post("/api/v1/devices/pair/claim", {
-    data: { code: env("IRIS_SHOTS_PAIR_CODE"), name: "readme-screenshots", kind: "browser" },
+    data: { code: env("EVARNESS_SHOTS_PAIR_CODE"), name: "readme-screenshots", kind: "browser" },
   });
   expect(claim.ok(), await claim.text()).toBeTruthy();
 
   for (const theme of ["light", "dark"] as const) {
     // Init scripts run in the order added, so the last theme added wins.
-    await context.addInitScript((t) => localStorage.setItem("iris-theme", t), theme);
+    await context.addInitScript((t) => localStorage.setItem("evarness-theme", t), theme);
     await page.emulateMedia({ colorScheme: theme });
     for (const screen of SCREENS) {
       await page.setViewportSize({ width: 1280, height: screen.height ?? 800 });

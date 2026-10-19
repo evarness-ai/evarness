@@ -1,7 +1,7 @@
 /* Portfolio screen — investment holdings joined with live market prices.
  *
  * A thin renderer over GET /portfolio. Per-position valuation (live price, P&L,
- * asset class) is computed in iris_personal.finance.portfolio; this screen only filters
+ * asset class) is computed in evarness_personal.finance.portfolio; this screen only filters
  * (asset type / currency) and aggregates the displayed rows into KPI cards, an
  * allocation donut, and a value-share column. */
 import { useMemo, useState } from "react";

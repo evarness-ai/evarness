@@ -1,11 +1,11 @@
 name: sample-brief
 version: 0.1.0
 description: Reference brief skill demonstrating literal and tool slots end-to-end.
-author: iris
+author: evarness
 license: Apache-2.0
 kind: brief
 brief:
-  subject: "IRIS Sample Brief"
+  subject: "Evarness Sample Brief"
   recipient: "user"
   uses:
     - calendar-reminders

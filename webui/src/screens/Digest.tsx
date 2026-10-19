@@ -11,7 +11,7 @@
  * failed section (a warning strip), and the footer after a `---` rule. Older,
  * flat digests use `## Section` headings and render with the same styles.
  *
- * Two more things differ from chat's renderer: an `iris:not-useful/<sender>` link
+ * Two more things differ from chat's renderer: an `evarness:not-useful/<sender>` link
  * becomes a 👎 button (every other channel drops it), and ordinary https links
  * stay links. */
 import { useState, type ReactNode } from "react";

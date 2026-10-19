@@ -1,7 +1,7 @@
 /** The Memory screen's tabs: About you, Review, Conversations, Context, Housekeeping.
  * (Map lives in MemoryMap.tsx, Removed in removal.tsx.)
  *
- * Every action here has a CLI twin (`iris facts …`, `iris memory …`) and an API route
+ * Every action here has a CLI twin (`evarness facts …`, `evarness memory …`) and an API route
  * behind it — the screen is a client of the same surface, never the only way in. */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,7 +38,7 @@ export function WriteGate({ canWrite }: { canWrite: boolean }) {
   if (canWrite) return null;
   return (
     <p className="text-[11px] text-fg-subtle">
-      Read-only — set <code>IRIS_WEBUI_ALLOW_WRITES=1</code> to act from here, or use the
+      Read-only — set <code>EVARNESS_WEBUI_ALLOW_WRITES=1</code> to act from here, or use the
       CLI.
     </p>
   );
@@ -299,7 +299,7 @@ export function ReviewTab() {
               <h3 className="text-xs font-semibold text-fg">Look-alike names</h3>
               <p className="text-[10px] text-fg-subtle">
                 Kept apart until you decide. Unanswered, a pair merges once it turns up in
-                enough conversations — any merge can be undone (<code>iris memory unmerge</code>).
+                enough conversations — any merge can be undone (<code>evarness memory unmerge</code>).
               </p>
               {pairs.map((d) => (
                 <div key={d.id} className="rounded-lg border border-border bg-surface p-2 text-xs">

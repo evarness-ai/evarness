@@ -1,12 +1,12 @@
 # 06 · Testing your plugin
 
-How to test a plugin with `iris_harness.testing`, on a small `convert_units` tool. The
+How to test a plugin with `evarness.testing`, on a small `convert_units` tool. The
 test file is the example; read it top to bottom.
 
 | Layer | What the test does | Tools |
 |---|---|---|
-| 1. Logic | The conversion as plain functions, no IRIS. Fast, and where most of your cases belong. | plain pytest |
-| 2. In IRIS | A real governed IRIS in a throwaway home, the plugin mounted in-process, one chat turn on a scripted model: the tool is called, the answer comes from its result, both `chat` and `chat_stream`. An undeclared tool is refused and the plugin shows `degraded`. | `harness`, `plugin`, `Script` |
+| 1. Logic | The conversion as plain functions, no Evarness. Fast, and where most of your cases belong. | plain pytest |
+| 2. In Evarness | A real governed Evarness in a throwaway home, the plugin mounted in-process, one chat turn on a scripted model: the tool is called, the answer comes from its result, both `chat` and `chat_stream`. An undeclared tool is refused and the plugin shows `degraded`. | `harness`, `plugin`, `Script` |
 | 3. Guarantees | Every model call and every answer has its audit row; nothing reached the network; the plugin imports only the stable API; the conformance suite passes. | `audit_gaps`, `audit_rows`, `no_network`, `check_stable_imports`, `assert_conformant` |
 
 | File | What it is |
@@ -26,9 +26,9 @@ Expected output: `12 passed` in about 30 s (15 s with `--no-cov`).
 
 ## The pieces
 
-- **`harness(plugins=[...], fake_model=...)`** builds the same runtime `iris` runs --
+- **`harness(plugins=[...], fake_model=...)`** builds the same runtime `evarness` runs --
   routing, the governed loop, the curator, the audit ledger -- in a temporary
-  `IRIS_HOME`, with your `IRIS_*` settings and credentials out of the environment, a
+  `EVARNESS_HOME`, with your `EVARNESS_*` settings and credentials out of the environment, a
   throwaway vault key, a keyring that refuses every call and no network. On exit it puts
   back every piece of process-wide state the run touched.
 - **`plugin(setup, manifest=...)`** mounts your plugin without packaging it, through the
@@ -74,7 +74,7 @@ and a case to `test_convert`'s parameters in `test_unit_converter.py`:
         (1, "yd", "ft", 3.0),
 ```
 
-`13 passed`: the new unit is covered in milliseconds, with no IRIS built. Only what
+`13 passed`: the new unit is covered in milliseconds, with no Evarness built. Only what
 needs the harness (a turn, its tool call, its audit rows) belongs in layer 2.
 
 ## Next

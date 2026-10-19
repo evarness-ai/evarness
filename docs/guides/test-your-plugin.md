@@ -1,8 +1,8 @@
 # Test your plugin
 
-`iris_harness.testing` builds the same runtime `iris` runs (routing, the governed loop,
+`evarness.testing` builds the same runtime `evarness` runs (routing, the governed loop,
 the curator, the audit ledger) inside your test, on a scripted model, offline. A plugin
-test proves three things: the logic works, the plugin works inside a governed IRIS, and
+test proves three things: the logic works, the plugin works inside a governed Evarness, and
 the guarantees hold.
 
 ## A first test
@@ -10,7 +10,7 @@ the guarantees hold.
 ```python
 from pathlib import Path
 
-from iris_harness.testing import harness, plugin
+from evarness.testing import harness, plugin
 
 from my_plugin import setup
 
@@ -26,8 +26,8 @@ def test_my_plugin_answers() -> None:
         assert h.audit_gaps() == []       # every model call and answer audited, nothing lost
 ```
 
-- **`harness(plugins=[...], fake_model=...)`** runs in a throwaway `IRIS_HOME`, with your
-  own `IRIS_*` settings and credentials out of the environment, a throwaway vault master
+- **`harness(plugins=[...], fake_model=...)`** runs in a throwaway `EVARNESS_HOME`, with your
+  own `EVARNESS_*` settings and credentials out of the environment, a throwaway vault master
   key, a keyring that refuses every call, and no network. On exit it puts back every
   piece of process-wide state the run filled, so two harnesses in one process never see
   each other's plugins.
@@ -41,7 +41,7 @@ The fake model is data: rules matched in order against each model call's `system
 `user` text (regular expressions), answering with `content`, `json` or `tool_calls`. A
 named group in the match fills `{name}` in the reply. Leave out `default:` in a real
 test, so a call you did not script fails loudly; `h.model_calls()` lists which rule
-answered each call. The [testing example](https://github.com/evarness-ai/iris-harness/tree/main/examples/06-testing-your-plugin)
+answered each call. The [testing example](https://github.com/evarness-ai/evarness/tree/main/examples/06-testing-your-plugin)
 has a full `fake_model.yaml` that drives a tool call through the governed loop.
 
 ## What a turn gives you
@@ -80,7 +80,7 @@ A turn that stops for the owner's approval (a destructive tool, a write declared
 `approval: pinned`) leaves a pending approval; `h.respond_to_approval(approval_id,
 approve=True)` answers it as the owner would, the halted run resumes, and the approved
 call runs, governed again. The
-[governed-tool example](https://github.com/evarness-ai/iris-harness/tree/main/examples/02-governed-tool)
+[governed-tool example](https://github.com/evarness-ai/evarness/tree/main/examples/02-governed-tool)
 approves one call and rejects another.
 
 ## Outbound HTTP: `api.http` and `fake_http`
@@ -92,7 +92,7 @@ hooks and the ledger rows run as in production. An undeclared host raises `Egres
 `OSError`) and nothing is sent.
 
 ```python
-from iris_harness.testing import fake_http
+from evarness.testing import fake_http
 
 
 def test_forecast(h) -> None:  # h: your harness
@@ -110,7 +110,7 @@ library, so every call goes through the client.
 ```python
 from pathlib import Path
 
-from iris_harness.testing import check_network_imports, check_stable_imports, no_network
+from evarness.testing import check_network_imports, check_stable_imports, no_network
 
 
 def test_my_plugin_uses_only_the_stable_api() -> None:
@@ -133,7 +133,7 @@ A plugin that keeps a module-level registry or cache declares it once, at the bo
 its module, so the harness can restore it between tests:
 
 ```python
-from iris_harness.sdk.process_state import track_globals
+from evarness.sdk.process_state import track_globals
 
 _seen: dict[str, str] = {}
 

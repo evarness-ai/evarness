@@ -25,7 +25,7 @@ webui/node_modules/
 # this line `COPY . .` would carry a stale local build into the image.
 webui/dist/
 # The wheel's packaged copy of the build (scripts/bundle_webui.py), for the same reason.
-src/iris_harness/server/iris_api/webui_dist/
+src/evarness/server/harness_api/webui_dist/
 htmlcov/
 graphify-out/
 ~/

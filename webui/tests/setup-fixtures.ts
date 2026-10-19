@@ -14,7 +14,7 @@ export const STEP_TITLES: [string, string][] = [
   ["first_digest", "First digest"],
   ["review_queue", "Review queue"],
   ["enable_sweep", "Keep it current"],
-  ["summary", "What IRIS just did"],
+  ["summary", "What Evarness just did"],
 ];
 
 type Json = Record<string, unknown>;
@@ -129,7 +129,7 @@ export function setupAt(
             reason: "email setup (onboard-0123456789ab) has not reached 'Keep it current'",
             since: null,
           },
-    connect_command: `iris auth ${accountId.split(":")[0]} login --user ${accountId.split(":")[1] ?? ""}`,
+    connect_command: `evarness auth ${accountId.split(":")[0]} login --user ${accountId.split(":")[1] ?? ""}`,
     ...extra,
   };
 }
@@ -138,7 +138,7 @@ export function waitingAtApproval(accountId: string, approvalId = "appr-7f3c9e10
   return setupAt(accountId, "label_approval", {
     status: "waiting",
     waiting_kind: "decision",
-    waiting_for: `approve the label preview (approval ${approvalId}) to let IRIS change ${accountId}, or decline to keep it read-only`,
+    waiting_for: `approve the label preview (approval ${approvalId}) to let Evarness change ${accountId}, or decline to keep it read-only`,
     approval_id: approvalId,
   });
 }
@@ -161,13 +161,13 @@ export function waitingOnActivity(
 
 export function labelPreview(accountId: string, approvalId = "appr-7f3c9e10"): Json {
   const groups = [
-    { bucket: "bill", label: "IRIS/Bill", count: 40, samples: ["Your statement is ready", "Invoice 2026-09"] },
-    { bucket: "needs_reply", label: "IRIS/Needs reply", count: 30, samples: ["Can you confirm Tuesday?"] },
-    { bucket: "fyi", label: "IRIS/FYI", count: 98, samples: [] },
+    { bucket: "bill", label: "Evarness/Bill", count: 40, samples: ["Your statement is ready", "Invoice 2026-09"] },
+    { bucket: "needs_reply", label: "Evarness/Needs reply", count: 30, samples: ["Can you confirm Tuesday?"] },
+    { bucket: "fyi", label: "Evarness/FYI", count: 98, samples: [] },
   ];
   const notes = [
-    "IRIS never archives, never marks read and never deletes on its own.",
-    `Take it back any time: iris email writes revoke --account ${accountId}`,
+    "Evarness never archives, never marks read and never deletes on its own.",
+    `Take it back any time: evarness email writes revoke --account ${accountId}`,
   ];
   return {
     account_id: accountId,
@@ -185,8 +185,8 @@ export function labelPreview(accountId: string, approvalId = "appr-7f3c9e10"): J
 }
 
 export const CONNECT_HINTS = [
-  { provider: "gmail", command: "iris auth gmail login --user you@example.com" },
-  { provider: "imap", command: "iris auth imap login --user you@example.com" },
+  { provider: "gmail", command: "evarness auth gmail login --user you@example.com" },
+  { provider: "imap", command: "evarness auth imap login --user you@example.com" },
 ];
 
 export function overview(setups: SetupFixture[], accounts: string[] = [], demo: string | null = null): Json {

@@ -1,6 +1,6 @@
 # The proof bundle (format version 1)
 
-R14 asks IRIS to ship a proof for email onboarding that a CI job can verify offline. The
+R14 asks Evarness to ship a proof for email onboarding that a CI job can verify offline. The
 proof bundle is that proof: the audit ledger's evidence for three invariants, as one
 versioned JSON document, and a verifier that needs nothing but the document. It has no
 Evarness dependency; it is the format an Evarness integration (or any CI) reads.
@@ -53,11 +53,11 @@ verifier passed now fails, which is the point.
 ## Commands
 
 ```bash
-iris governance proof-bundle export --out bundle.json \
+evarness governance proof-bundle export --out bundle.json \
     [--since ISO] [--until ISO] [--run RUN_ID ...] [--subject TEXT] \
     [--db AUDIT_DB] [--session-logs DIR] [--observations observed.json]
-iris governance proof-bundle verify bundle.json    # exit 0 verified, 1 a violation, 2 unreadable
-iris governance proof-bundle check [--days 7] [--json]   # export + verify in memory, per invariant
+evarness governance proof-bundle verify bundle.json    # exit 0 verified, 1 a violation, 2 unreadable
+evarness governance proof-bundle check [--days 7] [--json]   # export + verify in memory, per invariant
 ```
 
 `check` writes nothing: it exports the last `--days` of the ledger with the session logs'
@@ -67,10 +67,10 @@ so). `GET /governance/proof-bundle/check?days=7` returns the same, and the web G
 screen renders it (`check_window` in the module below). Mailbox writes are observed from
 the ledger's `mailbox_write_performed` rows (below), so `check` and the web see them too.
 
-From Python (stable tier): `iris_harness.testing.proof_bundle` -- `export_bundle`,
+From Python (stable tier): `evarness.testing.proof_bundle` -- `export_bundle`,
 `verify_bundle`, `observations_from_session_logs`, `Observations`, `MailboxWrite`,
 `read_bundle` / `write_bundle`, `content_sha256`. The logic is
-`src/iris_harness/kernel/governance/audit/proof_bundle.py`; the CLI is a thin wrapper.
+`src/evarness/kernel/governance/audit/proof_bundle.py`; the CLI is a thin wrapper.
 
 ## What a bundle holds
 
@@ -100,7 +100,7 @@ Two kinds of evidence, kept apart:
     row is an observation, never an approval: invariant 2 still needs the account's
     latest `mailbox_writes` row at or before the write to be decision `allow` (a
     revoke is decision `deny`; see above). A third-party provider writes through the
-    same `mailbox_write`, exported from the stable `iris_personal.email.provider_api`;
+    same `mailbox_write`, exported from the stable `evarness_personal.email.provider_api`;
     one that only calls `require_mailbox_writes` records no observation.
   - Anything the caller adds with `--observations`, e.g.
     `{"mailbox_writes": [{"account": "...", "count": 3, "at": "ISO"}]}`, or `model_calls` /
@@ -138,11 +138,11 @@ integrity-only, with `tier_3` as its fixed cloud set.
 
 ```json
 {
-  "format": "iris-proof-bundle",
+  "format": "evarness-proof-bundle",
   "schema_version": 1,
   "subject": "email-onboarding",
   "created_at": "2026-09-30T10:00:00+00:00",
-  "producer": {"name": "iris-harness", "version": "0.x"},
+  "producer": {"name": "evarness", "version": "0.x"},
   "scope": {"since": null, "until": null, "run_ids": []},
   "invariants": [{"id": "no-private-to-cloud", "statement": "..."}, "..."],
   "ledger": [{"id": 1, "ts": "...", "hook_point": "pre_llm_call", "classification": "personal", "tier": "tier_1", "...": "..."}],
@@ -151,7 +151,7 @@ integrity-only, with `tier_3` as its fixed cloud set.
 }
 ```
 
-The JSON schema is `src/iris_harness/kernel/governance/audit/proof_bundle.schema.json`
+The JSON schema is `src/evarness/kernel/governance/audit/proof_bundle.schema.json`
 (also `SCHEMA_FILE`). `verify` checks the same closed structure in code, without a schema
 library at runtime.
 
@@ -162,7 +162,7 @@ to a field, an invariant's statement or the cloud tier set is a new version.
 
 ## Example
 
-`examples/07-verify-with-evarness` exports and verifies the bundle of `iris email demo`'s
+`examples/07-verify-with-evarness` exports and verifies the bundle of `evarness email demo`'s
 onboarding run with the CLI, and of an email chat turn from Python, then tampers with a
 bundle (a private call moved to `tier_3`, an unaudited model call, a write with no
 approval, an edit without a new digest) and shows each fail.

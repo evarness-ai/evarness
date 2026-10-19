@@ -68,7 +68,7 @@ scan() { # $1 = grep flags, $2 = regex, $3 = newline-separated files
 PRIVATE_LIST=""
 private_list() {
   if [[ -z "$PRIVATE_LIST" ]]; then
-    PRIVATE_LIST="$(mktemp "${TMPDIR:-/tmp}/iris-pii-private.XXXXXX")"
+    PRIVATE_LIST="$(mktemp "${TMPDIR:-/tmp}/evarness-pii-private.XXXXXX")"
     trap 'rm -f "$PRIVATE_LIST"' EXIT
     if [[ -f "$ROOT/scripts/oss_public_tests.py" ]]; then
       local py="$ROOT/.venv/bin/python"
@@ -131,7 +131,7 @@ done < "$PATTERNS"
 # .claude/worktrees/ carried copies of the allowlisted fixtures at un-anchored paths and
 # failed every scan. Requires gitleaks >= 8.19.
 if command -v gitleaks >/dev/null 2>&1; then
-  SECRETS_TREE="$(mktemp -d "${TMPDIR:-/tmp}/iris-pii-scan.XXXXXX")"
+  SECRETS_TREE="$(mktemp -d "${TMPDIR:-/tmp}/evarness-pii-scan.XXXXXX")"
   trap 'rm -rf "$SECRETS_TREE" ${PRIVATE_LIST:+"$PRIVATE_LIST"}' EXIT
   # A tracked file deleted in the working tree is skipped: there is nothing to scan.
   (cd "$ROOT" && printf '%s\n' "$FILES" | while IFS= read -r f; do

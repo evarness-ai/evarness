@@ -23,7 +23,7 @@ import os
 import re
 from pathlib import Path
 
-from iris_harness.foundation.paths import repo_root
+from evarness.foundation.paths import repo_root
 
 # Asked for, not counted. The first draft of this file said `parents[4]`, which is one
 # level too high: REPO_ROOT became /home/user, every glob returned nothing, and the test
@@ -42,7 +42,7 @@ _PATH = re.compile(
 
 # Not rot: webui-relative paths (that doc quotes the web client's own tree), explicit
 # `foo/bar` examples, and the truncation left by brace-expansion prose such as
-# `tests/unit/iris_harness/foundation/test_{persistence,observability}/`.
+# `tests/unit/evarness/foundation/test_{persistence,observability}/`.
 _NOT_A_REPO_PATH = re.compile(r"^src/(lib|screens|components|routes)\b|/(foo|bar)\b|[<>{}*]")
 
 
@@ -55,9 +55,9 @@ _NOT_A_REPO_PATH = re.compile(r"^src/(lib|screens|components|routes)\b|/(foo|bar
 # pointers at files it removes, and this test, run on the exported tree, holds them to it.
 _ROOTS_A_TREE_MAY_LACK = (
     "src/iris_code",
-    "src/iris_personal",
+    "src/evarness_personal",
     "tests/unit/iris_code",
-    "tests/unit/iris_personal",
+    "tests/unit/evarness_personal",
 )
 
 
@@ -84,7 +84,7 @@ def _is_placeholder(path: str) -> bool:
 def _resolves(path: str) -> bool:
     """True when the path names something real -- a file, a package, or a MODULE.
 
-    The module case is the one worth spelling out: `iris_harness/server/iris_api/main`
+    The module case is the one worth spelling out: `evarness/server/harness_api/main`
     is how a uvicorn target is written (`...main:app`), and it is a correct reference
     even though no such file exists without the suffix.
     """
@@ -117,7 +117,7 @@ def _design_docs() -> list[Path]:
         REPO_ROOT / "CLAUDE.md",
         REPO_ROOT / "src" / "CLAUDE.md",
         REPO_ROOT / "tests" / "CLAUDE.md",
-        REPO_ROOT / "src" / "iris_harness" / "server" / "CLAUDE.md",
+        REPO_ROOT / "src" / "evarness" / "server" / "CLAUDE.md",
     ]
     # The public agent files (OSS plan R20) describe the tree as it is too: authored here
     # as `AGENTS.public.md`, shipped as `AGENTS.md` (scripts/oss_export.sh renames them).
@@ -197,4 +197,4 @@ def test_the_scan_is_not_vacuous() -> None:
     ), f"the scan matched only {len(seen)} source paths in {len(docs)} docs -- regex rotted"
 
     # and it must be looking at THIS repo, not some other checkout that also parses
-    assert (REPO_ROOT / "src" / "iris_harness" / "runtime" / "bootstrap.py").is_file()
+    assert (REPO_ROOT / "src" / "evarness" / "runtime" / "bootstrap.py").is_file()

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 
-from iris_harness.foundation.paths import repo_root
+from evarness.foundation.paths import repo_root
 
 REPO_ROOT = repo_root()
 CONFIG = REPO_ROOT / ".gitleaks.toml"

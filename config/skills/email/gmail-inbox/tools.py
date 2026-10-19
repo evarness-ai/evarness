@@ -1,13 +1,13 @@
 """LangChain BaseTool wrapper for the gmail-inbox skill (Track 1C).
 
-Thin wrapper over ``iris_personal.plugins.gmail.gmail_fetch.fetch_new_emails``. The
+Thin wrapper over ``evarness_personal.plugins.gmail.gmail_fetch.fetch_new_emails``. The
 domain logic — Gmail API, cursor management, MIME parsing, store
-persistence — lives in the src/iris/ module and is tested there.
+persistence — lives in the src/evarness/ module and is tested there.
 """
 
 from __future__ import annotations
 
-from iris_personal.plugins.gmail.gmail_fetch import DEFAULT_MAX_MESSAGES, fetch_new_emails
+from evarness_personal.plugins.gmail.gmail_fetch import DEFAULT_MAX_MESSAGES, fetch_new_emails
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 

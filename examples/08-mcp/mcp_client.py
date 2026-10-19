@@ -2,7 +2,7 @@
 
 MCP's stdio transport is newline-delimited JSON-RPC 2.0 on a child process's stdin and
 stdout. This client starts a server, performs the ``initialize`` handshake, and then
-lists and calls tools. Standard library only; it works against ``iris mcp serve`` and
+lists and calls tools. Standard library only; it works against ``evarness mcp serve`` and
 against any other MCP stdio server (``weather_server.py`` here).
 """
 

@@ -39,7 +39,7 @@ export function SessionsScreen() {
       <div data-testid="sessions-empty">
         <Card title="No conversations yet">
           <p className="text-sm text-fg-muted">
-            Every conversation you have with IRIS is listed here, with its turns, tokens and
+            Every conversation you have with Evarness is listed here, with its turns, tokens and
             timing. Start a chat, then come back.
           </p>
           <Link

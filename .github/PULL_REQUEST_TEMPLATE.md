@@ -13,7 +13,7 @@ ci, perf, build). The PR is squash-merged and the title becomes the commit messa
 
 ## Stable-tier impact
 
-<!-- None, additive, or breaking. A breaking change to iris_harness.sdk, iris_harness.testing,
+<!-- None, additive, or breaking. A breaking change to evarness.sdk, evarness.testing,
 the PluginAPI kinds, the manifest schema, the entry-point group or the quickstart CLI needs a
 deprecation (docs/reference/stable-api.md). -->
 

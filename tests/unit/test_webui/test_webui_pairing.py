@@ -1,7 +1,7 @@
 """A browser pairs itself, and an unpaired one is sent to /pair — never to mock data.
 
 Served by the API (no Vite proxy injecting the secret) the console authenticates with an
-HttpOnly ``iris_device`` cookie (ADR-0117). That only holds if every data call goes through
+HttpOnly ``evarness_device`` cookie (ADR-0117). That only holds if every data call goes through
 one wrapper that turns a 401 into the pairing screen, and if no token ever reaches JS.
 
 These are structural checks: webui has no JS test runner, and these are the lines that
@@ -93,7 +93,7 @@ def test_no_token_ever_reaches_browser_storage() -> None:
     """The cookie is HttpOnly on purpose. Storage calls exist (theme, nav state, chat
     session id); none of them may carry a credential."""
     storage = re.compile(r"(localStorage|sessionStorage|document\.cookie)")
-    secretish = re.compile(r"token|iris_device|irisd_|secret|bearer", re.IGNORECASE)
+    secretish = re.compile(r"token|evarness_device|irisd_|secret|bearer", re.IGNORECASE)
     offenders = [
         f"{path.relative_to(ROOT)}:{number}"
         for path in _sources()

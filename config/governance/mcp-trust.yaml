@@ -1,7 +1,7 @@
 # Root of trust for MCP server signatures (operator-managed).
-# The IRIS agent process must NOT have write access to this file.
-# Add public keys with `iris mcp keygen --id <key_id>` (CLI lands in 6b.3),
-# then sign servers with `iris mcp sign <server> --key <key_id>`.
+# The Evarness agent process must NOT have write access to this file.
+# Add public keys with `evarness mcp keygen --id <key_id>` (CLI lands in 6b.3),
+# then sign servers with `evarness mcp sign <server> --key <key_id>`.
 version: 1
 keys: []
 # Example (do not use this fabricated key):

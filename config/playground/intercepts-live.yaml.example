@@ -9,15 +9,15 @@
 # it before building the runtime. This is the YAML-first way to pin behavior:
 # the flags that gate a behavior live next to the scenario that asserts it.
 #
-# Run:  iris playground run intercepts-live
+# Run:  evarness playground run intercepts-live
 
 name: intercepts-live
 description: Flag-gated deterministic intercepts (finance/dues/portfolio/brief).
 
 env:
-  IRIS_DUES_INTERCEPT: "1"
-  IRIS_PORTFOLIO_INTERCEPT: "1"
-  IRIS_ON_DEMAND_BRIEF: "1"
+  EVARNESS_DUES_INTERCEPT: "1"
+  EVARNESS_PORTFOLIO_INTERCEPT: "1"
+  EVARNESS_ON_DEMAND_BRIEF: "1"
 
 scenarios:
   # Personal-finance queries must answer LOCALLY and never web-search or leak an

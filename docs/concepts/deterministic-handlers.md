@@ -1,13 +1,13 @@
 # Deterministic handlers
 
 A deterministic handler answers a turn without a model: it parses the message, calls
-typed code, and returns a grounded answer. In IRIS it is a first-class primitive, and
+typed code, and returns a grounded answer. In Evarness it is a first-class primitive, and
 it is governed exactly like a generated answer.
 
 ## Why
 
 When an action is grounded and parseable, a model's tool choice is the weakest link.
-Measured on one such action in IRIS (configuring a scheduled brief from a plain
+Measured on one such action in Evarness (configuring a scheduled brief from a plain
 request): a 7B local model called the right tool 25% of the time; a 35B model, 0%; a
 judge that read only the output accepted the made-up confirmation. A deterministic
 handler that parsed the request and called the function did it every time (5 of 5).
@@ -19,7 +19,7 @@ So a plugin can claim the turns it can answer exactly, and leave the rest to the
 ## How
 
 ```python
-from iris_harness.sdk import PluginAPI
+from evarness.sdk import PluginAPI
 
 
 def setup(api: PluginAPI) -> None:
@@ -42,7 +42,7 @@ def setup(api: PluginAPI) -> None:
 Handlers see each message in order (`config/intercepts.yaml` first, then plugins in
 registration order; a profile's `intercept_order` moves names to the front). The first
 one that returns a reply answers the turn; returning `None` passes it on. The
-[deterministic-handler example](https://github.com/evarness-ai/iris-harness/tree/main/examples/01-deterministic-handler)
+[deterministic-handler example](https://github.com/evarness-ai/evarness/tree/main/examples/01-deterministic-handler)
 is a complete plugin with its test.
 
 ## Governed like a generated answer
@@ -64,7 +64,7 @@ model or a handler produced it:
 
 A turn the system opens has no message to read, so it is answered by an **opener**: a
 deterministic handler declared under `openers:` in `config/intercepts.yaml` and run by
-name (`IrisRuntime.open_turn`). It skips the input screen, since nothing arrived, and
+name (`EvarnessRuntime.open_turn`). It skips the input screen, since nothing arrived, and
 gets the same response check, audit row and session log as any handler's answer. The
 first-chat welcome is the one opener today.
 

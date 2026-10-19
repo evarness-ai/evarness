@@ -1,4 +1,4 @@
-# Initial autonomous-tuning strategies for the IRIS self-learning loop.
+# Initial autonomous-tuning strategies for the Evarness self-learning loop.
 #
 # The learning_tick heartbeat handler reads this file and decides whether to
 # create / start / evaluate experiments managed by the ExperimentLoop.

@@ -2,10 +2,10 @@
 """Put the web console's production build inside the package (OSS plan R6).
 
 The release workflow runs it between ``npm run build`` (in ``webui/``) and the wheel
-build: it replaces ``src/iris_harness/server/iris_api/webui_dist/`` with a copy of
+build: it replaces ``src/evarness/server/harness_api/webui_dist/`` with a copy of
 ``webui/dist/``, and pyproject's ``include`` ships that directory in the sdist and the
-wheel. ``static_ui.resolve_webui_dist()`` serves it when neither ``IRIS_WEBUI_DIST`` nor
-the server image's ``/app/webui/dist`` holds a build, so ``pip install iris-harness``
+wheel. ``static_ui.resolve_webui_dist()`` serves it when neither ``EVARNESS_WEBUI_DIST`` nor
+the server image's ``/app/webui/dist`` holds a build, so ``pip install evarness``
 serves the console with no checkout and no Node.
 
 The packaged directory is gitignored: git holds the console's source once, in
@@ -27,7 +27,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "webui" / "dist"
-PACKAGED = ROOT / "src" / "iris_harness" / "server" / "iris_api" / "webui_dist"
+PACKAGED = ROOT / "src" / "evarness" / "server" / "harness_api" / "webui_dist"
 
 
 def bundle(source: Path, target: Path = PACKAGED) -> int:

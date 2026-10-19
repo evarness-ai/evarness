@@ -18,7 +18,7 @@ const REPORT = (overrides: Partial<Json> = {}): Json => ({
       status: "fail",
       state: "red",
       detail: "qwen2.5:7b-instruct not pulled",
-      fix: "iris doctor --fix",
+      fix: "evarness doctor --fix",
       blocks: "use",
     },
   ],

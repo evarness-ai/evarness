@@ -1,6 +1,6 @@
 """The general lane runs every tool through the governed runner (issue #155, #134 D7).
 
-With ``IRIS_AGENTIC_CORE_ENABLED`` at ``0`` (the lane answers) or ``shadow`` (the loop runs
+With ``EVARNESS_AGENTIC_CORE_ENABLED`` at ``0`` (the lane answers) or ``shadow`` (the loop runs
 beside it and the lane's answer is the one the user reads), the lane offered the built-ins
 and every skill tool through a private dispatch table with no ``PRE_TOOL_USE`` /
 ``POST_TOOL_USE``, no external-content floor and no audit row: a fetched page's injected
@@ -22,11 +22,11 @@ from typing import Any
 
 import pytest
 
-from iris_harness.foundation.ids import is_ulid
-from iris_harness.kernel.governance import HookPoint
-from iris_harness.kernel.governance.audit.log import AuditLog
-from iris_harness.llm.client import LLMInvocationResponse, LLMMessage, LLMToolCall
-from iris_harness.runtime import build_runtime
+from evarness.foundation.ids import is_ulid
+from evarness.kernel.governance import HookPoint
+from evarness.kernel.governance.audit.log import AuditLog
+from evarness.llm.client import LLMInvocationResponse, LLMMessage, LLMToolCall
+from evarness.runtime import build_runtime
 
 pytestmark = [pytest.mark.integration, pytest.mark.usefixtures("offline_llm")]
 
@@ -48,8 +48,8 @@ class _World:
 def world(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> Iterator[_World]:
-    from iris_harness.llm.client import CodingLLMClient
-    from iris_harness.memory.knowledge.wiki_engine import WikiEngine
+    from evarness.llm.client import CodingLLMClient
+    from evarness.memory.knowledge.wiki_engine import WikiEngine
 
     prompts: list[str] = []
 
@@ -67,10 +67,10 @@ def world(
             calls.append(LLMToolCall(id="c2", name="wiki_search", arguments={"query": "news"}))
         return LLMInvocationResponse(tool_calls=tuple(calls))
 
-    monkeypatch.setenv("IRIS_AGENTIC_CORE_ENABLED", request.param)
-    monkeypatch.setenv("IRIS_DISABLE_ARBITER", "1")
+    monkeypatch.setenv("EVARNESS_AGENTIC_CORE_ENABLED", request.param)
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
     audit_path = tmp_path / "governance-audit.db"
-    monkeypatch.setenv("IRIS_GOVERNANCE_AUDIT_DB_PATH", str(audit_path))
+    monkeypatch.setenv("EVARNESS_GOVERNANCE_AUDIT_DB_PATH", str(audit_path))
     monkeypatch.setattr(CodingLLMClient, "invoke_turn", invoke_turn)
     monkeypatch.setattr(WikiEngine, "query", lambda self, question, **_: PAGE)
     # The upstream of the skill tool: whatever it returns is third-party text.
@@ -113,7 +113,7 @@ def _tool_rows(world: _World, tool: str, session_id: str) -> list[tuple[Any, dic
 
 def _everything_on_disk(world: _World) -> bytes:
     blob = b""
-    roots = [world.data_dir, Path(__import__("os").environ["IRIS_HOME"])]
+    roots = [world.data_dir, Path(__import__("os").environ["EVARNESS_HOME"])]
     for root in roots:
         for path in root.rglob("*"):
             if path.is_file() and path.stat().st_size < 50_000_000:
@@ -159,7 +159,7 @@ def test_the_lane_has_no_tool_it_cannot_govern(world: _World, entry: str) -> Non
     """Whatever the lane binds is a ``ToolSpec`` from the loop's builders and runs through
     the runner: asking for a tool the lane does not have is an error, not a direct call."""
     del entry
-    from iris_harness.runtime.handlers import general_tools
+    from evarness.runtime.handlers import general_tools
 
     source = Path(general_tools.__file__).read_text(encoding="utf-8")
     assert "tool_call.name ==" not in source  # no private dispatch table
@@ -168,7 +168,7 @@ def test_the_lane_has_no_tool_it_cannot_govern(world: _World, entry: str) -> Non
 
 def _model_calls(monkeypatch: pytest.MonkeyPatch, call: LLMToolCall, seen: list[str]) -> None:
     """From now on the model asks for ``call`` once, then answers with what it was told."""
-    from iris_harness.llm.client import CodingLLMClient
+    from evarness.llm.client import CodingLLMClient
 
     def invoke_turn(
         self: Any, *, messages: Sequence[LLMMessage], bound_tools: Sequence[Any] = (), **_: Any
@@ -192,7 +192,7 @@ def test_a_write_the_owner_has_not_approved_is_refused_in_the_lane(
     import importlib
 
     # (the package re-exports the function under the module's name, so import the module itself)
-    proposal = importlib.import_module("iris_harness.tools.propose_skill_from_sandbox")
+    proposal = importlib.import_module("evarness.tools.propose_skill_from_sandbox")
 
     written: list[Any] = []
     monkeypatch.setattr(
@@ -241,9 +241,9 @@ def test_memory_search_in_the_lane_is_the_loops_scoped_search(
 def test_the_lane_serving_with_governance_off_warns_once_and_only_then(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    from iris_harness.runtime.rollout_flags import _warn_if_lane_serves_ungoverned
+    from evarness.runtime.rollout_flags import _warn_if_lane_serves_ungoverned
 
-    with caplog.at_level("WARNING", logger="iris_harness.runtime.rollout_flags"):
+    with caplog.at_level("WARNING", logger="evarness.runtime.rollout_flags"):
         _warn_if_lane_serves_ungoverned("on", None)  # the loop answers: nothing to say
         _warn_if_lane_serves_ungoverned("off", object())  # governed: nothing to say
         assert caplog.records == []
@@ -264,8 +264,8 @@ def test_the_direct_skill_answer_is_governed_on_both_surfaces_at_flag_0_and_shad
     from langchain_core.tools import BaseTool
     from pydantic import BaseModel
 
-    from iris_harness.kernel.governance.external_content import ENVELOPE_TAG
-    from iris_harness.tools.skills.models import (
+    from evarness.kernel.governance.external_content import ENVELOPE_TAG
+    from evarness.tools.skills.models import (
         SkillManifest,
         SkillPackage,
         SkillRequirements,
@@ -290,7 +290,7 @@ def test_the_direct_skill_answer_is_governed_on_both_surfaces_at_flag_0_and_shad
         name="feed",
         version="0.1.0",
         description="fake",
-        author="iris",
+        author="evarness",
         license="Apache-2.0",
         tools=(
             SkillToolManifest(
@@ -309,7 +309,7 @@ def test_the_direct_skill_answer_is_governed_on_both_surfaces_at_flag_0_and_shad
         tool_classes=(_Feed,),
     )
     monkeypatch.setattr(
-        "iris_harness.runtime.handlers.local_skills.best_matching_skill_package",
+        "evarness.runtime.handlers.local_skills.best_matching_skill_package",
         lambda _q, _packages: package,
     )
     session_id = f"direct-{entry}"

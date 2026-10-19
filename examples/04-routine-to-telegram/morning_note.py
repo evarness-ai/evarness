@@ -18,10 +18,10 @@ from pathlib import Path
 
 import yaml
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.sdk.channels import ChannelMessage, DeliveryStatus
-from iris_harness.sdk.time import local_today
-from iris_harness.sdk.types import HeartbeatDefinition, HeartbeatRun, HeartbeatStatus
+from evarness.sdk import PluginAPI
+from evarness.sdk.channels import ChannelMessage, DeliveryStatus
+from evarness.sdk.time import local_today
+from evarness.sdk.types import HeartbeatDefinition, HeartbeatRun, HeartbeatStatus
 
 NAME = "morning_note"
 NOTE_FILE = Path(__file__).with_name("note.yaml")

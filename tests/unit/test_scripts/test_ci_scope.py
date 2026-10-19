@@ -28,8 +28,8 @@ def _scope(changed: str | None, **env: str) -> dict[str, str]:
     [
         ("README.md\ndocs/guides/a.md\nCHANGELOG.md", "false"),
         ("webui/src/App.tsx", "true"),
-        ("src/iris_harness/main.py", "false"),
-        ("docs/a.md\nsrc/iris_harness/main.py", "false"),
+        ("src/evarness/main.py", "false"),
+        ("docs/a.md\nsrc/evarness/main.py", "false"),
         (".github/workflows/ci.yml", "true"),
         (".github/ISSUE_TEMPLATE/bug.md", "false"),
         ("scripts/bundle_webui.py", "true"),

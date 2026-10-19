@@ -3,4 +3,4 @@
 *                                       @sathishksomasundaram
 
 # The governance kernel is always owned: a change here never merges without this review.
-/src/iris_harness/kernel/governance/    @sathishksomasundaram
+/src/evarness/kernel/governance/    @sathishksomasundaram

@@ -1,6 +1,6 @@
 /* System Health screen (ADR-0069) — read-only diagnostics: services, credentials
  * and hardware as green/yellow/red/grey rows over GET /health, plus the health
- * watch's incidents (ADR-0116): what broke, what IRIS tried, whether it asked the
+ * watch's incidents (ADR-0116): what broke, what Evarness tried, whether it asked the
  * owner. A thin renderer; all health logic lives in the harness. */
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -70,7 +70,7 @@ function CheckRow({ c, onReconnect }: { c: HealthCheck; onReconnect?: () => void
   );
 }
 
-/* One incident: its state, what IRIS tried, whether it told the owner, the fix. */
+/* One incident: its state, what Evarness tried, whether it told the owner, the fix. */
 function incidentTag(i: HealthIncident) {
   if (i.state === "needs_user") return <Tag kind="bad">needs you</Tag>;
   if (i.state === "repairing") return <Tag kind="warn">repairing</Tag>;
@@ -170,13 +170,13 @@ function IncidentsSection() {
         emptyText="No incident data."
       >
         {data && !data.enabled && (
-          <Notice>The health watch is off (IRIS_HEALTH_WATCH_ENABLED=0).</Notice>
+          <Notice>The health watch is off (EVARNESS_HEALTH_WATCH_ENABLED=0).</Notice>
         )}
         {data?.enabled && (
           <div className="space-y-1.5">
             {open.length === 0 && (
               <div className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-fg-muted">
-                Nothing broken. IRIS fixes what it can and messages you on every channel
+                Nothing broken. Evarness fixes what it can and messages you on every channel
                 when it can’t.
               </div>
             )}
@@ -199,14 +199,14 @@ function IncidentsSection() {
   );
 }
 
-/* What IRIS has spent (plan decision 30). LLM calls only: the Azure
+/* What Evarness has spent (plan decision 30). LLM calls only: the Azure
  * resource-group bill needs the `azure_cost` plugin and a managed identity,
  * which is track 4, so this card says so rather than implying it is the whole
  * bill.
  *
  * The off state is the one that matters. `CostLimiter` is opt-in and is the
  * ledger's only writer, so on a box that never enabled it every figure is a
- * truthful 0.00 that reads as "IRIS is free". The card refuses to show numbers
+ * truthful 0.00 that reads as "Evarness is free". The card refuses to show numbers
  * it cannot stand behind and prints the line that turns recording on. */
 function CostSection() {
   const { data, isLoading, isError } = useCost();

@@ -4,9 +4,9 @@
 # the safety belt for the bootstrap decomposition (Phase 2) — if the intercept
 # dispatch changes behavior, these fail.
 #
-# Run:  iris playground run core-deterministic
-# Snapshot before a refactor:  iris playground run core-deterministic -b before.json
-# Diff after:                  iris playground diff core-deterministic -b before.json
+# Run:  evarness playground run core-deterministic
+# Snapshot before a refactor:  evarness playground run core-deterministic -b before.json
+# Diff after:                  evarness playground diff core-deterministic -b before.json
 
 name: core-deterministic
 description: Deterministic intercepts that answer without the LLM.

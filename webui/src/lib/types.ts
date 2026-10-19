@@ -1,5 +1,5 @@
-// Trace data model. Shaped from real IRIS session JSONL events
-// (~/.iris/logs/session-<id>.jsonl) plus the resource metrics that
+// Trace data model. Shaped from real Evarness session JSONL events
+// (~/.evarness/logs/session-<id>.jsonl) plus the resource metrics that
 // session_log.py now captures per step (CPU/RAM; GPU reserved on macOS).
 
 export type NodeKind =
@@ -52,7 +52,7 @@ export interface TraceNode {
   kind: NodeKind;
   label: string;
   component_path: string; // source file this maps to
-  module?: string; // python module path, e.g. iris_harness.agent.intent_router (verbose)
+  module?: string; // python module path, e.g. evarness.agent.intent_router (verbose)
   method?: string; // function/method invoked, e.g. IntentRouter.classify (verbose)
   status: NodeStatus;
   t_offset_ms: number; // ms after request start when this step began

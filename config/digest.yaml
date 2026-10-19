@@ -3,13 +3,13 @@
 # This file is the DEFAULT. The owner's changes from Settings -> Digest (or from chat:
 # "add X to my digest") are saved on the data volume (settings.db, section `digest`,
 # ADR-0120) and laid over it by `load_digest_settings`
-# (src/iris_harness/services/digest/settings.py). A deploy that changes this file
+# (src/evarness/services/digest/settings.py). A deploy that changes this file
 # changes every field the owner has not changed.
 
 # Send the morning digest at all.
 enabled: true
 
-# Local time the digest goes out, HH:MM in IRIS_TZ (UTC when IRIS_TZ is unset).
+# Local time the digest goes out, HH:MM in EVARNESS_TZ (UTC when EVARNESS_TZ is unset).
 time: "07:00"
 
 # Jobs the digest runs, in order, right before it renders (loop-proof PR 5): mail is
@@ -22,9 +22,9 @@ time: "07:00"
 # job starts. A job that fails never stops the digest. Not edited from the app.
 run_first:
   - heartbeat: email_sweep
-    if_setting: IRIS_EMAIL_JUDGE   # only while the email judge is on
+    if_setting: EVARNESS_EMAIL_JUDGE   # only while the email judge is on
   - heartbeat: email_judge
-    if_setting: IRIS_EMAIL_JUDGE
+    if_setting: EVARNESS_EMAIL_JUDGE
 # 240 s keeps the digest on time: it fires 5 minutes early, and by then the 06:15 / 06:30
 # runs have done most of the work; mail not reached waits and the digest says so.
 run_first_budget_seconds: 240
@@ -70,7 +70,7 @@ sections_off:
   - top_repos
 
 # Always shown, always last, whatever the owner's list says: the footer that says what
-# IRIS learned yesterday (D17) is never omitted, and is in no group.
+# Evarness learned yesterday (D17) is never omitted, and is in no group.
 locked_sections:
   - learned_yesterday
 
@@ -130,7 +130,7 @@ channels:
 # When dated items leave the digest (owner rule 2026-09-25): every dated item ends
 # CLOSED (done, paid or dismissed by the owner) or EXPIRED (aged out, below). The
 # digest shows only open, unexpired items; an expired task stays in the store with
-# status `expired` and the reason. Days are the owner's local days (IRIS_TZ): a task
+# status `expired` and the reason. Days are the owner's local days (EVARNESS_TZ): a task
 # due Sep 22 with task_overdue_days 3 shows as Overdue Sep 23-25, expired from Sep 26.
 #   prep_after_event          minutes after its meeting ends, a prep task expires
 #   event_after_end           minutes after it ends, a calendar event leaves the digest

@@ -2,7 +2,7 @@
 
 Tracks emails the user owes a personal reply to. Two halves:
 
-- **Detection** (Tier 3 local, user-invoked via `iris email detect-followups`):
+- **Detection** (Tier 3 local, user-invoked via `evarness email detect-followups`):
   Scans recent classified emails for one account, asks the LLM "does
   the user need to send a personal reply?", and upserts a followup
   Task on positive verdict.
@@ -13,7 +13,7 @@ Tracks emails the user owes a personal reply to. Two halves:
 
 ## Prerequisites
 
-1. Phase 1 email subsystem operational (`iris email triage` has run —
+1. Phase 1 email subsystem operational (`evarness email triage` has run —
    followups attach to classified mail).
 2. Tier-3-local llama-server on `localhost:8090` for detection.
    `bash scripts/serve_tier3_local.sh`.
@@ -25,7 +25,7 @@ Tracks emails the user owes a personal reply to. Two halves:
   a no-op.
 - **Auto-resolution does not auto-complete** (ADR-0014 §10). The
   task's `wait_for_resolved_at` is set; the user marks done via
-  `iris task complete` after seeing the resolved followup in the
+  `evarness task complete` after seeing the resolved followup in the
   brief.
 - **Threadless emails are skipped**. Without a thread_id there is no
   reliable anchor for auto-resolution.

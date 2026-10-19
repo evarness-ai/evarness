@@ -3,8 +3,8 @@
 
 release.yml's ``workflow_dispatch`` path runs it in the runner's checkout, before the
 build, with ``N`` = the workflow's run number. Nothing is committed: the stamp lives only
-in that runner's copy of pyproject.toml and ``iris_harness/__init__.py`` (both, so
-``importlib.metadata`` and ``iris_harness.__version__`` agree inside the wheel).
+in that runner's copy of pyproject.toml and ``evarness/__init__.py`` (both, so
+``importlib.metadata`` and ``evarness.__version__`` agree inside the wheel).
 
 Why ``.devN``: TestPyPI refuses a second upload of a version, so every dispatch needs a
 new one, and the run number is unique and increasing per workflow. A dev release sorts
@@ -26,7 +26,7 @@ import tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 PYPROJECT = ROOT / "pyproject.toml"
-INIT = ROOT / "src" / "iris_harness" / "__init__.py"
+INIT = ROOT / "src" / "evarness" / "__init__.py"
 _RELEASE = re.compile(r"^\d+(\.\d+)*$")  # a final release: no pre/post/dev/local part
 
 

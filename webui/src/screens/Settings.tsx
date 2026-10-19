@@ -37,7 +37,7 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-/* What IRIS is currently running (fast-follow #5) — local inventory, zero egress.
+/* What Evarness is currently running (fast-follow #5) — local inventory, zero egress.
  * No "newer available" check (that crosses the privacy boundary). */
 function RuntimeSection() {
   const { data, isLoading, isError } = useRuntimeInventory();
@@ -47,7 +47,7 @@ function RuntimeSection() {
         {data && (
           <Grid cols={3}>
             <Card title="Build">
-              <Row k="IRIS" v={`v${data.iris_version}`} />
+              <Row k="Evarness" v={`v${data.evarness_version}`} />
               <Row k="branch" v={data.git_branch ?? "—"} />
               <Row k="commit" v={data.git_rev ?? "—"} />
               <Row k="Python" v={data.python_version} />

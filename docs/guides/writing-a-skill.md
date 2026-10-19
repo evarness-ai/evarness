@@ -24,8 +24,8 @@ my-skill/
   the skill blocked rather than crashing the runtime. Each block is reported the same way:
   one INFO line, said once, naming what is missing (`missing env FOO_KEY`, never its
   value), and `blocked: env:FOO_KEY` (or `package:`, `config:`, `credential:`) in
-  `iris skills list`. `env_vars` are read from the process environment; `extra` names the
-  `iris-harness[...]` extra to install when a package is what is missing.
+  `evarness skills list`. `env_vars` are read from the process environment; `extra` names the
+  `evarness[...]` extra to install when a package is what is missing.
 
 ## The tools
 
@@ -37,7 +37,7 @@ error value instead.
 ## A worked example: `unit-converter`
 
 The simplest useful skill: pure computation, typed args, no network, no extra
-packages. (`tests/unit/iris_harness/tools/test_skills/test_skill_guide.py` builds this
+packages. (`tests/unit/evarness/tools/test_skills/test_skill_guide.py` builds this
 skill from the two blocks below and runs it, so they stay correct.)
 
 ```yaml
@@ -145,15 +145,15 @@ SKILL_TOOLS = [ConvertUnitsTool]
 ```bash
 mkdir -p config/skills/builtin/unit-converter
 # save the two files above into it, then restart the API
-# (or rely on hot reload when IRIS_SKILL_HOTRELOAD is on)
+# (or rely on hot reload when EVARNESS_SKILL_HOTRELOAD is on)
 ```
 
 The `SkillRegistry` discovers every `manifest.yaml` under `config/skills/` (except the
-quarantined `auto/` tree) on `IrisRuntime.startup()`. To test a skill, load it the way
+quarantined `auto/` tree) on `EvarnessRuntime.startup()`. To test a skill, load it the way
 the registry does and call each tool's `_run`:
 
 ```python
-from iris_harness.tools.skills.loader import load_skill_manifest, load_skill_tool_classes
+from evarness.tools.skills.loader import load_skill_manifest, load_skill_tool_classes
 
 manifest = load_skill_manifest(skill_dir)
 tool = load_skill_tool_classes(skill_dir)[0]()

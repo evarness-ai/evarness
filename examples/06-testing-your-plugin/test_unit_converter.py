@@ -1,7 +1,7 @@
 """How to test a plugin, from the fastest test to the most complete.
 
-1. The plugin's own logic, as plain functions: no IRIS at all.
-2. The plugin in a real governed IRIS (``harness``) on a scripted model: a chat turn,
+1. The plugin's own logic, as plain functions: no Evarness at all.
+2. The plugin in a real governed Evarness (``harness``) on a scripted model: a chat turn,
    its tool call, its audit rows -- offline.
 3. The guarantees you can assert on: nothing reached the network, every model call and
    every answer was audited, the plugin imports only the stable API.
@@ -14,8 +14,8 @@ from pathlib import Path
 import pytest
 from unit_converter import convert, convert_units, setup
 
-from iris_harness.sdk import PluginAPI
-from iris_harness.testing import (
+from evarness.sdk import PluginAPI
+from evarness.testing import (
     NetworkBlockedError,
     Script,
     assert_conformant,
@@ -31,7 +31,7 @@ SCRIPT = Script.load(HERE / "fake_model.yaml")
 QUESTION = "How many miles is 10 km?"
 
 
-# -- 1. the logic, without IRIS ----------------------------------------------------------
+# -- 1. the logic, without Evarness ----------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -52,7 +52,7 @@ def test_the_tool_reports_an_error_instead_of_raising() -> None:
     assert convert_units({"value": "lots"}).startswith("error:")
 
 
-# -- 2. the plugin in a governed IRIS -----------------------------------------------------
+# -- 2. the plugin in a governed Evarness -----------------------------------------------------
 
 
 @pytest.mark.parametrize("entry", ["chat", "chat_stream"])

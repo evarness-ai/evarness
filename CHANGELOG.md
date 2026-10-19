@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Upgrade notes
+
+- **IRIS is now Evarness.** The package on PyPI is `evarness` (`uv tool install "evarness[email]"`), the command is `evarness`, the import path is `evarness` (the domains `evarness_personal`), the environment variables are `EVARNESS_*`, and the home is `~/.evarness` (`~/.local/share/evarness` and `~/.config/evarness` for the governance stores). Each 0.1.x name keeps working for one cycle and warns once: `import iris_harness` and `import iris_personal` resolve to the new packages (the same module objects), an `IRIS_*` variable is read as its `EVARNESS_*` name when that is unset, a plugin registered under the `iris_harness.plugins` entry-point group still mounts, and `~/.iris` (and the two governance directories) are read where the new directory does not exist yet. All of it is removed in 0.3.0. The `iris` command is gone: it collided with the InterSystems IRIS instance-control command of the same name. Memory collection names, the `urn:evarness:` ontology ids, the `evarness_doc` tool and the `evarnessd_` device-token marker are renamed with no fallback; a 0.1.x semantic index is rebuilt on first use.
+- The two builtin skills `iris-core` and `iris-tasks` are now `harness-core` and `harness-tasks`, not `evarness-*`: the semantic router embeds a skill's name with its description, so a brand word in the name is noise that decides whether `list_due_today` makes the tool shortlist. A profile or routine that names them by the old name must be edited.
+- The three email plugins, the other skills and the console carry the new name; the architecture diagram still says IRIS until it is redrawn.
+
 ## [0.1.5] - 2026-10-15
 
 ### Upgrade notes

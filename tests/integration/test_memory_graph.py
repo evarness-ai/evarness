@@ -17,11 +17,11 @@ from typing import Any
 
 import pytest
 
-from iris_harness.memory.coordinator import FactCoordinator
-from iris_harness.memory.graph_context import GraphContext, graph_context
-from iris_harness.memory.ontology import memory_config_dir
-from iris_harness.memory.store import MemoryStore, UserFact
-from iris_harness.runtime.turn_capture import TurnCapture
+from evarness.memory.coordinator import FactCoordinator
+from evarness.memory.graph_context import GraphContext, graph_context
+from evarness.memory.ontology import memory_config_dir
+from evarness.memory.store import MemoryStore, UserFact
+from evarness.runtime.turn_capture import TurnCapture
 from memris.graph import MemoryGraph
 from memris.interchange.jsonld import export_document, import_document
 from memris.model import OWNER_ID
@@ -48,7 +48,7 @@ def _say(store: MemoryStore, key: str, value: str) -> None:
 
 @contextmanager
 def _conversation(session_id: str) -> Iterator[None]:
-    from iris_harness.foundation.observability.session_log import session_scope
+    from evarness.foundation.observability.session_log import session_scope
 
     with session_scope(session_id):
         yield

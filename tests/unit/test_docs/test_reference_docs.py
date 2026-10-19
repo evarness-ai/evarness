@@ -4,7 +4,7 @@
 ``scripts/gen_reference_docs.py`` from the stable CLI and the settings catalog. This
 runs the script's ``--check``: a new option, a changed help string or a new setting
 fails here until the pages are regenerated. The script runs in a child process because
-it pins its own environment (a throwaway IRIS_HOME, the ``email`` profile) before the
+it pins its own environment (a throwaway EVARNESS_HOME, the ``email`` profile) before the
 CLI is imported.
 """
 
@@ -40,7 +40,7 @@ def test_the_pages_are_marked_generated() -> None:
 
 
 def test_the_settings_page_lists_the_stable_settings_first_and_collapses_the_rest() -> None:
-    from iris_harness.testing import stable_tier
+    from evarness.testing import stable_tier
 
     stable = stable_tier().settings
     assert stable, "stable_tier.yaml declares the stable settings"
@@ -48,7 +48,7 @@ def test_the_settings_page_lists_the_stable_settings_first_and_collapses_the_res
     text = (ROOT / "docs" / "reference" / "environment-variables.md").read_text(encoding="utf-8")
     head, appendix = text.split("## Every other setting", 1)
     stable_section = head.split("## Stable settings", 1)[1]
-    listed = re.findall(r"^\| `(IRIS_[A-Z0-9_]+)` \|", stable_section, re.MULTILINE)
+    listed = re.findall(r"^\| `(EVARNESS_[A-Z0-9_]+)` \|", stable_section, re.MULTILINE)
     assert tuple(listed) == stable
     # The full catalog sits in a collapsed (`???`) admonition marked not stable, and
     # lists each stable setting again, marked so.

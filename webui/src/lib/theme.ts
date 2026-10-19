@@ -1,11 +1,11 @@
 /* Theme manager — toggles the `.dark` class on <html> and persists the choice.
- * Dark is the default (matches the index.html class + the IRIS console identity).
+ * Dark is the default (matches the index.html class + the Evarness console identity).
  * Framework-light: a tiny external store consumed via useSyncExternalStore. */
 import { useSyncExternalStore } from "react";
 
 export type Theme = "dark" | "light";
 
-const STORAGE_KEY = "iris-theme";
+const STORAGE_KEY = "evarness-theme";
 const listeners = new Set<() => void>();
 
 function read(): Theme {

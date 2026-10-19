@@ -57,7 +57,7 @@ const NODES: Node[] = [
     kind: "pattern",
     label: "asks for the digest before 9am",
     confirmed: true,
-    meta: { file: "~/.iris/memory/episodic.md" },
+    meta: { file: "~/.evarness/memory/episodic.md" },
   },
 ];
 
@@ -253,7 +253,7 @@ test("lessons and patterns have no Remove and name their file; a previously remo
   // With `meta.file` (PR 3 adds it) the note names the file instead.
   await node(page, "asks for the digest").click();
   const note = page.getByText(/Patterns are files you curate/);
-  await expect(note.locator("code")).toHaveText("~/.iris/memory/episodic.md");
+  await expect(note.locator("code")).toHaveText("~/.evarness/memory/episodic.md");
   await expect(page.getByRole("button", { name: "Remove from memory…" })).toHaveCount(0);
 
   await node(page, "Barclays").click();
@@ -296,5 +296,5 @@ test("with writes off there is no Remove, only the read-only note", async ({ pag
   await openMap(page);
   await node(page, "Northwind Bank").click();
   await expect(page.getByRole("button", { name: "Remove from memory…" })).toHaveCount(0);
-  await expect(page.getByText(/IRIS_WEBUI_ALLOW_WRITES=1/)).toBeVisible();
+  await expect(page.getByText(/EVARNESS_WEBUI_ALLOW_WRITES=1/)).toBeVisible();
 });

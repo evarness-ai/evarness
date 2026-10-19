@@ -242,7 +242,7 @@ def test_what_cannot_be_mapped_is_reported_not_dropped(tmp_path: Path) -> None:
     assert report.statements >= 7  # everything that maps still came in
 
 
-def test_full_iris_resolve_to_the_ontology_names(tmp_path: Path) -> None:
+def test_full_evarness_resolve_to_the_ontology_names(tmp_path: Path) -> None:
     """Another tool may write full IRIs; they fold back to the ontology's own names."""
     onto = _ontology(tmp_path / "onto")
     document = export_document(_populated(onto, InMemoryGraphStore()))

@@ -5,7 +5,7 @@ The egress declaration refuses a wildcard over a public suffix (``*.co.uk``): it
 plugin reach every registrant under that suffix. The suffixes come from Mozilla's Public Suffix
 List, ICANN section only (the PRIVATE section lists hosting providers such as ``github.io``,
 whose subdomains a plugin may legitimately declare), vendored as
-``src/iris_harness/kernel/governance/public_suffix_icann.dat``.
+``src/evarness/kernel/governance/public_suffix_icann.dat``.
 
     python scripts/refresh_public_suffixes.py             # fetch publicsuffix.org, rewrite
     python scripts/refresh_public_suffixes.py --from FILE # use a downloaded copy
@@ -28,8 +28,7 @@ from pathlib import Path
 
 URL = "https://publicsuffix.org/list/public_suffix_list.dat"
 TARGET = (
-    Path(__file__).resolve().parents[1]
-    / "src/iris_harness/kernel/governance/public_suffix_icann.dat"
+    Path(__file__).resolve().parents[1] / "src/evarness/kernel/governance/public_suffix_icann.dat"
 )
 _BEGIN = "// ===BEGIN ICANN DOMAINS==="
 _END = "// ===END ICANN DOMAINS==="

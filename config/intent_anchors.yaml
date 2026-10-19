@@ -1,11 +1,11 @@
 # Per-intent anchor phrases for the semantic intent classifier (opt-in,
-# IRIS_INTENT_ROUTER_SEMANTIC=1). The router embeds the user query with the local
+# EVARNESS_INTENT_ROUTER_SEMANTIC=1). The router embeds the user query with the local
 # ONNX MiniLM-L6 model and picks the intent whose anchor phrases are closest by cosine
 # similarity. When no intent is confidently closest (below threshold or two intents
 # tie within the margin) the router falls back to the keyword + LLM classifier.
 #
-# Tunable without code. Calibrate via IRIS_INTENT_ROUTER_SEMANTIC_THRESHOLD (absolute
-# floor) and IRIS_INTENT_ROUTER_SEMANTIC_MARGIN (how far the winner must beat the
+# Tunable without code. Calibrate via EVARNESS_INTENT_ROUTER_SEMANTIC_THRESHOLD (absolute
+# floor) and EVARNESS_INTENT_ROUTER_SEMANTIC_MARGIN (how far the winner must beat the
 # runner-up). Intent names MUST be valid intents (see _INTENT_TO_AGENT in
 # core/intent_router.py); agent_type is derived from the intent. The ambiguous
 # catch-all intents (general/system/help/clarify) are intentionally NOT anchored —

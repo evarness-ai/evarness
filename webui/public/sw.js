@@ -1,4 +1,4 @@
-/* IRIS service worker.
+/* Evarness service worker.
  *
  * It exists so the console can be added to the Home Screen and, from Track 2b
  * PR 9, receive Web Push — iOS only delivers push to a home-screen web app, and
@@ -15,7 +15,7 @@
  *
  * PR 9 added `push` and `notificationclick` below. */
 
-const CACHE = "iris-offline-v1";
+const CACHE = "evarness-offline-v1";
 const OFFLINE_URL = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -49,7 +49,7 @@ self.addEventListener("fetch", (event) => {
       const offline = await cache.match(OFFLINE_URL);
       return (
         offline ??
-        new Response("Can't reach IRIS.", {
+        new Response("Can't reach Evarness.", {
           status: 503,
           headers: { "content-type": "text/plain; charset=utf-8" },
         })
@@ -133,7 +133,7 @@ self.addEventListener("push", (event) => {
     payload = {};
   }
 
-  const title = payload.title || "IRIS";
+  const title = payload.title || "Evarness";
   const data = payload.data && typeof payload.data === "object" ? payload.data : {};
   event.waitUntil(
     show(title, {
@@ -187,7 +187,7 @@ async function answerReminder(id, action, url) {
     });
   } catch {
     return show("Couldn't update the reminder", {
-      body: "Tap to open it in IRIS.",
+      body: "Tap to open it in Evarness.",
       icon: "/icon-192.png",
       badge: "/icon-192.png",
       tag,

@@ -4,15 +4,15 @@
 # the extractor produce the facts, and does the model USE what linking and the
 # memory_graph tool hand it — so it runs by hand:
 #
-#   iris playground run memory-graph
+#   evarness playground run memory-graph
 #
 # On another model: the tiers come from llm_tiers.yaml and nothing overrides them from
 # the environment, so run against a copy of the config with tier 1 (and the fallback,
 # also granite4) swapped. From the repo root:
 #
-#   cp -R config /tmp/iris-qwen
-#   perl -pi -e 's/"granite4:latest"/"qwen2.5:7b-instruct"/' /tmp/iris-qwen/llm_tiers.yaml
-#   IRIS_CONFIG_DIR=/tmp/iris-qwen iris playground run memory-graph
+#   cp -R config /tmp/evarness-qwen
+#   perl -pi -e 's/"granite4:latest"/"qwen2.5:7b-instruct"/' /tmp/evarness-qwen/llm_tiers.yaml
+#   EVARNESS_CONFIG_DIR=/tmp/evarness-qwen evarness playground run memory-graph
 #
 # `ollama ps` during the run shows which model actually answered.
 #
@@ -28,7 +28,7 @@ description: Does a live model capture facts into the graph and use them in a la
 isolated: true
 
 env:
-  IRIS_WIKI_INGEST: "0"
+  EVARNESS_WIKI_INGEST: "0"
 
 scenarios:
   # --- 1. supersede: the current value is the one that comes back ---------------------

@@ -107,7 +107,7 @@ function MessageFooter({ meta }: { meta: ChatMeta }) {
 }
 
 /** Non-blocking answer feedback (ADR-0072): thumbs + "not what I meant". Only shown
- * when IRIS_FEEDBACK_CAPTURE is on; one reaction per message, never required. */
+ * when EVARNESS_FEEDBACK_CAPTURE is on; one reaction per message, never required. */
 function MessageFeedback({
   msg,
   sessionId,
@@ -166,7 +166,7 @@ function MessageFeedback({
   );
 }
 
-/** A single chat turn — teal-tinted for the user, surface card for IRIS. */
+/** A single chat turn — teal-tinted for the user, surface card for Evarness. */
 export function ChatMessage({
   msg,
   sessionId,

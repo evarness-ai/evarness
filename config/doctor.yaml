@@ -1,23 +1,23 @@
-# `iris doctor` -- the install preflight (OSS plan R5, milestone L1).
+# `evarness doctor` -- the install preflight (OSS plan R5, milestone L1).
 #
 # Thresholds and the model sets live here, not in code. The supported Python range is
 # not repeated: doctor reads it from the installed package's metadata (pyproject's
 # `python = ">=3.12,<3.14"`).
 
-# Host memory, total (not free). Below `demo_gb` IRIS cannot run at all. Above it, the
+# Host memory, total (not free). Below `demo_gb` Evarness cannot run at all. Above it, the
 # machine runs the synthetic demo on the scripted model; real use needs a model set
 # (below) whose `fits_when.ram_gb` the host meets.
 ram:
   demo_gb: 8
 
-# Where IRIS runs (platform.system() / platform.machine(), lowercased). Anything else
-# is a warning. Native Windows is a warning too: it is for development, and running IRIS
+# Where Evarness runs (platform.system() / platform.machine(), lowercased). Anything else
+# is a warning. Native Windows is a warning too: it is for development, and running Evarness
 # there is the Docker stack's job (docs/guides/windows.md).
 platforms:
   darwin: [arm64]
   linux: [x86_64, amd64, aarch64, arm64]
 
-# Free space on the volume under IRIS_HOME: the missing starter models' size (below)
+# Free space on the volume under EVARNESS_HOME: the missing starter models' size (below)
 # plus this much for data (mail stores, indexes, the audit ledger). Below that is a
 # failure; below `warn_free_gb` a warning.
 disk:
@@ -26,10 +26,10 @@ disk:
 
 # Model sets, sized to the host (ADR: model sets and host sizing). Doctor picks the
 # largest set whose `fits_when` the host meets (whole GiB: a 16 GB Linux box reports
-# 15.6), says why, and `iris doctor --fix` pulls that set's `starter_models` and lays
+# 15.6), says why, and `evarness doctor --fix` pulls that set's `starter_models` and lays
 # its `tiers` over `llm_tiers.yaml` as tier edits (ADR-0120, the settings store), so an
 # upgrade keeps the choice and the owner can still change one tier in the app.
-# `iris doctor --model-set <name>` forces a set.
+# `evarness doctor --model-set <name>` forces a set.
 #
 # `tiers` is sparse: only the fields that differ from `llm_tiers.yaml`, and only the
 # editable ones (provider, model, max_tokens, temperature, timeout_seconds, think).
@@ -81,17 +81,17 @@ model_sets:
         size_gb: 2.2
       - name: qwen2.5:7b-instruct  # tier 2, Advanced
         size_gb: 4.7
-      - name: qwen3.5:4b-q4_K_M    # the email judge: `iris email setup` stops without it
+      - name: qwen3.5:4b-q4_K_M    # the email judge: `evarness email setup` stops without it
         size_gb: 2.5
 
 # Optional extras: reported as information, never a failure. `module` is what is
 # importable when the extra is installed.
 optional_extras:
   # Without it the Gmail plugin does not load, so an unnamed run stays on the `default`
-  # profile and there is no `iris email` (config/profiles/default.yaml).
+  # profile and there is no `evarness email` (config/profiles/default.yaml).
   - name: email
     module: googleapiclient
-    purpose: the email assistant (`iris email`, Gmail)
+    purpose: the email assistant (`evarness email`, Gmail)
   - name: ml
     module: sentence_transformers
     purpose: semantic email discovery and BGE rerank

@@ -19,7 +19,7 @@ What it shows:
 | `morning_note.py` | The plugin: the heartbeat and its handler. |
 | `note.yaml` | The schedule and the note's lines. |
 | `manifest.yaml` | The plugin's manifest (`provides: [heartbeat]`). |
-| `test_morning_note.py` | Fires the job in a real IRIS; Telegram is faked at the HTTP layer. |
+| `test_morning_note.py` | Fires the job in a real Evarness; Telegram is faked at the HTTP layer. |
 
 ## Run it
 
@@ -36,7 +36,7 @@ fires the job with `api.services.heartbeats.trigger_by_name("morning_note")`:
   lines from `note.yaml`; the run is `success`, no model was called;
 - when Telegram answers `502`, the run is `failed` and says why.
 
-## Use it in your IRIS
+## Use it in your Evarness
 
 1. Give the Telegram channel (the `telegram_channel` plugin, in the `default` and
    `email` profiles) your bot: set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, which
@@ -44,17 +44,17 @@ fires the job with `api.services.heartbeats.trigger_by_name("morning_note")`:
 2. Mount the plugin:
 
    ```bash
-   cp -r examples/04-routine-to-telegram ~/.iris/plugins/morning_note
+   cp -r examples/04-routine-to-telegram ~/.evarness/plugins/morning_note
    ```
 
    ```yaml
-   # ~/.iris/profile.yaml
+   # ~/.evarness/profile.yaml
    plugins:
      - name: morning_note
    ```
 
 3. It now runs on its schedule. To run it on another one, or to another channel, ask
-   IRIS for a routine in chat -- "every weekday at 7, send me the morning note on
+   Evarness for a routine in chat -- "every weekday at 7, send me the morning note on
    Telegram" -- and approve it; the routine engine fires `morning_note` with that
    channel.
 

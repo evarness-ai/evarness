@@ -10,7 +10,7 @@
 #
 # Precedence (highest first):
 #   1. per-event CalendarEvent.alarm_minutes_before (when > 0)
-#   2. env override:  IRIS_MEETING_LEAD_MINUTES / IRIS_REMINDER_LEAD_MINUTES
+#   2. env override:  EVARNESS_MEETING_LEAD_MINUTES / EVARNESS_REMINDER_LEAD_MINUTES
 #   3. this file
 #   4. built-in defaults (meeting=15, reminder=0)
 #
@@ -32,7 +32,7 @@ reminder_channels: [telegram, web_push]
 # fixed choices (10m, 1h, tomorrow_9am); these words are what a typed reply to a
 # reminder ("snooze 1h", "an hour", "tomorrow at 6pm", "done") may say. The grammar
 # (numbers, clock times, the order of the pieces) lives in
-# iris_harness/services/notifications/snooze.py; every word lives here.
+# evarness/services/notifications/snooze.py; every word lives here.
 snooze:
   # "tomorrow" with no time means this local time.
   tomorrow_default: "09:00"

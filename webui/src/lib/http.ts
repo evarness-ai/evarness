@@ -1,7 +1,7 @@
-/* The one door to the IRIS API. Every lib module calls `apiFetch`, never `fetch`
+/* The one door to the Evarness API. Every lib module calls `apiFetch`, never `fetch`
  * (tests/unit/test_webui/test_webui_pairing.py holds that line).
  *
- * A paired browser authenticates with the HttpOnly `iris_device` cookie (ADR-0117).
+ * A paired browser authenticates with the HttpOnly `evarness_device` cookie (ADR-0117).
  * JS never sees that token and must never store one — no localStorage, no header.
  * The cookie rides along on same-origin requests; when the server answers 401
  * (never paired, or the device was revoked) the console goes to /pair, once, and

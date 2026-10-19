@@ -1,7 +1,7 @@
 /* Streaming chat client over POST /chat/stream.
  *
- * The IRIS API streams NDJSON (one JSON object per line, media type
- * application/x-ndjson) — see src/iris_harness/server/iris_api/main.py::chat_stream. Event
+ * The Evarness API streams NDJSON (one JSON object per line, media type
+ * application/x-ndjson) — see src/evarness/server/harness_api/main.py::chat_stream. Event
  * shapes:
  *   { event: "token",    text }                       incremental answer text
  *   { event: "activity", text }                       status line (thinking, …)
@@ -52,7 +52,7 @@ interface RawEvent {
   metadata?: unknown;
 }
 
-const SESSION_KEY = "iris-chat-session";
+const SESSION_KEY = "evarness-chat-session";
 
 function freshId(): string {
   // crypto.randomUUID is available in all evergreen browsers (secure context).

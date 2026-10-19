@@ -1,11 +1,11 @@
 # Connect your mailbox
 
-`iris email setup` takes your own mailbox through the same steps the demo ran, one at a
+`evarness email setup` takes your own mailbox through the same steps the demo ran, one at a
 time, and stops wherever it needs your decision. It is resumable: run it again and it
 picks up where it stopped.
 
-Before you start, run `iris doctor` until it says "Ready." (see [Install](install.md)):
-your mail is personal data, so IRIS reads and sorts it on the local model only.
+Before you start, run `evarness doctor` until it says "Ready." (see [Install](install.md)):
+your mail is personal data, so Evarness reads and sorts it on the local model only.
 
 ## 1. Connect an account
 
@@ -14,7 +14,7 @@ its login, and setup takes over once the account is connected. With no account
 connected yet, setup says how to connect one:
 
 ```bash
-iris email setup
+evarness email setup
 ```
 
 ### IMAP with an app password
@@ -24,16 +24,16 @@ for IMAP in your account's security settings. Then:
 
 <!-- ci: skip needs your mailbox and its app password -->
 ```bash
-iris auth imap login --user you@example.com
+evarness auth imap login --user you@example.com
 ```
 
-IRIS asks for the app password (hidden), logs in once to prove it works, and only then
+Evarness asks for the app password (hidden), logs in once to prove it works, and only then
 stores the account in the vault. For common providers it knows the server; otherwise
 pass `--host imap.example.com` (and `--port` or `--security starttls` if your server
-needs them). `--folder` picks the folder IRIS syncs (default `INBOX`), and
+needs them). `--folder` picks the folder Evarness syncs (default `INBOX`), and
 `--password-stdin` reads the password from standard input, for scripts.
 
-IRIS logs in with a password over TLS (`--security ssl`, port 993, by default) and
+Evarness logs in with a password over TLS (`--security ssl`, port 993, by default) and
 checks the server's certificate against the system's trusted certificates. It does not
 do OAuth over IMAP, so a provider that accepts only OAuth for IMAP cannot be connected
 this way.
@@ -61,7 +61,7 @@ change these; if a login fails, check the linked page first.
 
   <!-- ci: skip needs an iCloud mailbox and its app-specific password -->
   ```bash
-  iris auth imap login --user you@icloud.com --username you
+  evarness auth imap login --user you@icloud.com --username you
   ```
 
 - **Fastmail.** Settings, then Privacy & Security, then "Manage app passwords and
@@ -82,7 +82,7 @@ change these; if a login fails, check the linked page first.
   included, in every Microsoft 365 tenant; no admin can turn it back on, and app
   passwords stop working with it
   ([Microsoft Learn](https://learn.microsoft.com/en-us/exchange/clients-and-mobile-in-exchange-online/deprecation-of-basic-authentication-exchange-online)).
-  IRIS has no OAuth login for IMAP yet, so neither can be connected today.
+  Evarness has no OAuth login for IMAP yet, so neither can be connected today.
 - **Proton Mail.** Proton Mail has no IMAP server of its own; Proton Mail Bridge, a
   desktop app on a paid plan, serves your mailbox on `127.0.0.1`, IMAP on port 1143 by
   default ([Proton: IMAP setup](https://proton.me/support/imap-smtp-and-pop3-setup),
@@ -92,8 +92,8 @@ change these; if a login fails, check the linked page first.
   Bridge encrypts that local connection (STARTTLS or SSL, its "Connection mode"
   setting) with a self-signed certificate it generates
   ([Proton](https://proton.me/support/comprehensive-guide-to-bridge-settings)), which
-  IRIS's certificate check does not trust out of the box. `--security plain` is
-  accepted for a loopback host only, for a bridge that allows it. Connecting IRIS to
+  Evarness's certificate check does not trust out of the box. `--security plain` is
+  accepted for a loopback host only, for a bridge that allows it. Connecting Evarness to
   Bridge has not been tested yet.
 
 ### Gmail with OAuth
@@ -101,20 +101,20 @@ change these; if a login fails, check the linked page first.
 Gmail through its API is the full-fidelity option. It needs a one-time Google Cloud
 OAuth client of your own (about ten minutes: a project, the Gmail API, a consent
 screen with you as the test user, and a "Desktop app" client whose JSON you save as
-`~/.iris/workspace/credentials/google_oauth_client.json`). The
-[Gmail setup guide](https://github.com/evarness-ai/iris-harness/blob/main/docs/usage-guides/gmail-auth.md)
+`~/.evarness/workspace/credentials/google_oauth_client.json`). The
+[Gmail setup guide](https://github.com/evarness-ai/evarness/blob/main/docs/usage-guides/gmail-auth.md)
 walks through it. Then:
 
 <!-- ci: skip opens a browser for Google's consent screen -->
 ```bash
-iris auth gmail login --user you@gmail.com
+evarness auth gmail login --user you@gmail.com
 ```
 
 ## 2. Run setup
 
 <!-- ci: skip needs the account connected above -->
 ```bash
-iris email setup --account imap:you@example.com
+evarness email setup --account imap:you@example.com
 ```
 
 With only one connected account you can leave out `--account`. The account id is the
@@ -128,15 +128,15 @@ Setup runs these steps, in order:
 4. **Review the categories**: accept all, or pick the ones you want.
 5. **Classify**: the judge reads new mail on the local model, then a kNN classifier
    files the rest.
-6. **Label preview and approval.** How many emails each `IRIS/*` label would go on, with
-   sample subjects, and one question: may IRIS change this mailbox? The default is no.
-   Nothing touches your mailbox before this step, and IRIS never archives, never marks
+6. **Label preview and approval.** How many emails each `Evarness/*` label would go on, with
+   sample subjects, and one question: may Evarness change this mailbox? The default is no.
+   Nothing touches your mailbox before this step, and Evarness never archives, never marks
    mail read and never deletes on its own.
 7. **First digest.**
 8. **Review queue**: the emails the judge was unsure of wait for you in the Action
    Center.
 9. **Keep it current**: the scheduled sweep starts taking this account.
-10. **What IRIS just did**: what was fetched, judged and labelled, and the audit rows
+10. **What Evarness just did**: what was fetched, judged and labelled, and the audit rows
     it wrote.
 
 Setup exits 0 when it is done, 3 when it stopped to wait (for your decision, or for
@@ -153,31 +153,31 @@ Setup's step 6 records your answer. You can also give or take back the approval 
 time, per account:
 
 ```bash
-iris email writes status
+evarness email writes status
 ```
 
 <!-- ci: skip needs your connected account -->
 ```bash
-iris email writes approve --account imap:you@example.com
-iris email writes revoke --account imap:you@example.com
+evarness email writes approve --account imap:you@example.com
+evarness email writes revoke --account imap:you@example.com
 ```
 
 Without an approval, every write (a label, a move to Trash, a restore) is refused, and
 the refusal names the command above.
 
-## Start the IRIS API
+## Start the Evarness API
 
-The scheduled sweep and the judge run inside the IRIS API service, which also serves
+The scheduled sweep and the judge run inside the Evarness API service, which also serves
 the web console:
 
 <!-- ci: skip runs the API in the foreground until stopped -->
 ```bash
-export IRIS_AUTH_SECRET="$(openssl rand -hex 32)"
-iris serve
+export EVARNESS_AUTH_SECRET="$(openssl rand -hex 32)"
+evarness serve
 ```
 
-[The email assistant](../guides/email.md#run-the-iris-api) covers the rest: the one
-shared secret, used the same way in every shell that talks to this API (`iris device
+[The email assistant](../guides/email.md#run-the-evarness-api) covers the rest: the one
+shared secret, used the same way in every shell that talks to this API (`evarness device
 pair` included, not just this one), building the web console from a source checkout,
 and the separate, optional Governor service.
 
@@ -185,4 +185,4 @@ and the separate, optional Governor service.
 
 - [The email assistant](../guides/email.md): running the API, the web console, and
   what to use day to day.
-- Build on IRIS: [Write a plugin](../guides/write-a-plugin.md).
+- Build on Evarness: [Write a plugin](../guides/write-a-plugin.md).

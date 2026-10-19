@@ -4,7 +4,7 @@ Working notes for coding agents (and people) changing this repository. Read this
 each folder with its own `AGENTS.md` adds local rules. Human-facing process is in
 [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
-## What IRIS is
+## What Evarness is
 
 A deterministic, governed agent harness for small local models. A turn runs one pipeline
 (intercept, classify, resolve, route, execute, curate, record); every model call and every
@@ -12,11 +12,11 @@ tool call passes a governance kernel that classifies data, gates egress, asks fo
 where required and writes an audit row. Everything outside that loop and kernel is a
 plugin. Email is the proof domain shipped in release 1.
 
-Python 3.12 or 3.13, Poetry, FastAPI services, a Typer CLI (`iris`), a React web console.
+Python 3.12 or 3.13, Poetry, FastAPI services, a Typer CLI (`evarness`), a React web console.
 
 ## Layout
 
-- `src/iris_harness/` — the harness core, layered top-down; each package imports only
+- `src/evarness/` — the harness core, layered top-down; each package imports only
   layers below it (`[tool.importlinter]` in `pyproject.toml`):
   `server` → `cli` → `playground` → `plugins_builtin` → `testing` → `sdk` → `runtime` →
   `agent` → `services` → `memory` → `tools`/`llm` → `kernel` → `foundation`.
@@ -27,8 +27,8 @@ Python 3.12 or 3.13, Poetry, FastAPI services, a Typer CLI (`iris`), a React web
   - `sdk/` — the author-facing API a plugin imports. `testing/` — the scripted fake model
     and the governed test harness.
   - `plugins_builtin/` — reference plugins (system, research, code_exec, channels).
-- `src/memris/` — the memory graph; imports nothing from IRIS.
-- `src/iris_personal/` — the email domain: `email/` (the record), `connections/`, and
+- `src/memris/` — the memory graph; imports nothing from Evarness.
+- `src/evarness_personal/` — the email domain: `email/` (the record), `connections/`, and
   `plugins/email_workflows/`, `plugins/gmail/` (the plugins). It imports only the SDK; the
   core never imports it.
 - `config/` — runtime YAML: profiles (`config/profiles/`), model tiers, governance policy.
@@ -51,14 +51,14 @@ Python 3.12 or 3.13, Poetry, FastAPI services, a Typer CLI (`iris`), a React web
    add an `ignore_imports` entry to get green; move the code to the right layer or add a
    typed seam in the SDK.
 5. **Plugins use the stable tier only** (`docs/reference/stable-api.md`):
-   `iris_harness.sdk`, `iris_harness.testing`, the `PluginAPI` kinds, the manifest
-   schema, the `iris_harness.plugins` entry-point group. Breaking a stable name needs a
+   `evarness.sdk`, `evarness.testing`, the `PluginAPI` kinds, the manifest
+   schema, the `evarness.plugins` entry-point group. Breaking a stable name needs a
    deprecation cycle; `tests/unit/test_stable_tier.py` pins it.
 6. **Cover every path.** A behaviour change lands on every surface that reaches it (CLI,
    API, streaming chat, channels, web UI) and is tested on each. Logic lives in
-   `src/iris_harness/`; the web UI and CLI only render it.
-7. **User state resolves `IRIS_HOME`** (or `IRIS_DATA_DIR`) via
-   `iris_harness.foundation.paths`, never `Path.home()` directly. The suite relocates
+   `src/evarness/`; the web UI and CLI only render it.
+7. **User state resolves `EVARNESS_HOME`** (or `EVARNESS_DATA_DIR`) via
+   `evarness.foundation.paths`, never `Path.home()` directly. The suite relocates
    both before import; a module that ignores them writes into the real profile.
 8. **YAML drives behaviour.** Intents, keywords, profiles and policy are configuration,
    not hard-coded lists.
@@ -69,14 +69,14 @@ Python 3.12 or 3.13, Poetry, FastAPI services, a Typer CLI (`iris`), a React web
 ## Tests
 
 ```bash
-export IRIS_AUTH_SECRET="test-secret-for-testing" IRIS_DISABLE_WARMUP=1
+export EVARNESS_AUTH_SECRET="test-secret-for-testing" EVARNESS_DISABLE_WARMUP=1
 poetry run pytest tests/unit/<narrow path>
 ```
 
 - Run the narrowest path that exercises the change; the gate runs the rest.
 - `asyncio_mode = "auto"`: never add `@pytest.mark.asyncio`.
-- Tests never reach a model, an IRIS port or the network (`tests/conftest.py` fails them);
-  use the scripted fake model in `iris_harness.testing` or the offline fixtures.
+- Tests never reach a model, an Evarness port or the network (`tests/conftest.py` fails them);
+  use the scripted fake model in `evarness.testing` or the offline fixtures.
 - A bug fix ships with the test that would have caught it.
 
 ## The gate

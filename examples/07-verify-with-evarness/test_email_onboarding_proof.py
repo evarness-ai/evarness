@@ -1,11 +1,11 @@
 """The R14 proof for email onboarding, as a proof bundle exported and verified offline.
 
-Part 1 runs ``iris email demo`` -- fetch, judge, the label preview, the approval of
+Part 1 runs ``evarness email demo`` -- fetch, judge, the label preview, the approval of
 mailbox writes for the demo's own account, the labels, the first digest -- as a child
 process in a temporary home, exports its proof bundle with
-``iris governance proof-bundle export`` and verifies it with ``... verify``.
+``evarness governance proof-bundle export`` and verifies it with ``... verify``.
 Part 2 asks the email assistant a question in a governed harness and does the same from
-Python (``iris_harness.testing.proof_bundle``). Part 3 tampers with a bundle three ways
+Python (``evarness.testing.proof_bundle``). Part 3 tampers with a bundle three ways
 and shows each one fail verification.
 """
 
@@ -23,8 +23,8 @@ from typing import Any
 
 import pytest
 
-from iris_harness.testing import harness
-from iris_harness.testing.proof_bundle import (
+from evarness.testing import harness
+from evarness.testing.proof_bundle import (
     content_sha256,
     export_bundle,
     observations_from_session_logs,
@@ -33,13 +33,15 @@ from iris_harness.testing.proof_bundle import (
 
 
 def child_env(tmp_path: Path) -> dict[str, str]:
-    env = {k: v for k, v in os.environ.items() if not k.startswith("IRIS_")}
+    env = {k: v for k, v in os.environ.items() if not k.startswith("EVARNESS_")}
     return env | {"HOME": str(tmp_path), "PYTHON_KEYRING_BACKEND": "keyring.backends.fail.Keyring"}
 
 
-def iris(*args: str, env: dict[str, str], timeout: int = 60) -> subprocess.CompletedProcess[str]:
+def evarness(
+    *args: str, env: dict[str, str], timeout: int = 60
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603 -- a fixed argv, our own interpreter
-        [sys.executable, "-m", "iris_harness.main", *args],
+        [sys.executable, "-m", "evarness.main", *args],
         env=env,
         capture_output=True,
         text=True,
@@ -54,7 +56,7 @@ def iris(*args: str, env: dict[str, str], timeout: int = 60) -> subprocess.Compl
 def test_the_onboarding_run_exports_a_bundle_that_verifies(tmp_path: Path) -> None:
     home = tmp_path / "demo"
     env = child_env(tmp_path)
-    demo = iris("email", "demo", "--home", str(home), env=env, timeout=240)
+    demo = evarness("email", "demo", "--home", str(home), env=env, timeout=240)
     assert demo.returncode == 0, demo.stderr[-2000:]
     labelled = re.search(r"labelled (\d+) email", demo.stdout)
     assert labelled, "the demo reports the labels it wrote"
@@ -62,7 +64,7 @@ def test_the_onboarding_run_exports_a_bundle_that_verifies(tmp_path: Path) -> No
     # The labels the run wrote need no caller's word: the demo provider writes through
     # mailbox_write, so each write is a timed mailbox_write_performed row in the ledger.
     bundle_path = tmp_path / "bundle.json"
-    export = iris(
+    export = evarness(
         "governance", "proof-bundle", "export",
         "--db", str(home / "governance" / "audit.db"),
         "--session-logs", str(home / "logs"),
@@ -72,7 +74,7 @@ def test_the_onboarding_run_exports_a_bundle_that_verifies(tmp_path: Path) -> No
     )  # fmt: skip
     assert export.returncode == 0, export.stdout + export.stderr
 
-    verified = iris("governance", "proof-bundle", "verify", str(bundle_path), env=env)
+    verified = evarness("governance", "proof-bundle", "verify", str(bundle_path), env=env)
     assert verified.returncode == 0, verified.stdout
 
     bundle = json.loads(bundle_path.read_text(encoding="utf-8"))

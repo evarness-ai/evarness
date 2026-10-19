@@ -85,7 +85,7 @@ def tracked_files(tmp_path_factory: pytest.TempPathFactory) -> list[str]:
 
 
 def test_source_path_with_no_test_home_escalates_to_full_suite() -> None:
-    plan = _plan("src/iris_harness/no_such_package/module.py")
+    plan = _plan("src/evarness/no_such_package/module.py")
     assert "full suite" in plan
     assert "nothing to run" not in plan
 
@@ -93,22 +93,22 @@ def test_source_path_with_no_test_home_escalates_to_full_suite() -> None:
 def test_no_full_policy_skips_the_full_suite_but_keeps_smoke_and_mapped_tests() -> None:
     """The hosted PR job sets NO_FULL=1: a trigger file or an unmapped source path must not
     run the whole suite, and must not become a green line with no tests either."""
-    trigger = _plan("pyproject.toml", "src/iris_harness/memory/retriever.py", no_full=True)
+    trigger = _plan("pyproject.toml", "src/evarness/memory/retriever.py", no_full=True)
     assert "SKIPPED by policy" in trigger and "-m smoke" in trigger
-    assert "tests/unit/iris_harness/memory" in trigger
-    unmapped = _plan("src/iris_harness/no_such_package/module.py", no_full=True)
+    assert "tests/unit/evarness/memory" in trigger
+    unmapped = _plan("src/evarness/no_such_package/module.py", no_full=True)
     assert "SKIPPED by policy" in unmapped
     assert "smoke marker only" in unmapped or "-m smoke" in unmapped
     assert "nothing to run" not in unmapped
 
 
 def test_a_root_dir_that_only_contains_layers_is_not_a_test_home() -> None:
-    """tests/unit/iris_harness/ exists (M6.2 put foundation under it) but answers for
+    """tests/unit/evarness/ exists (M6.2 put foundation under it) but answers for
     nothing on its own: most of the core has no mirrored home yet, so a path that walks
     all the way up to the root must escalate rather than run the one layer that moved."""
-    plan = _plan("src/iris_harness/no_such_package/module.py")
+    plan = _plan("src/evarness/no_such_package/module.py")
     assert "full suite" in plan
-    assert "tests/unit/iris_harness\n" not in plan
+    assert "tests/unit/evarness\n" not in plan
 
 
 @pytest.mark.parametrize(
@@ -135,27 +135,27 @@ def test_a_root_dir_with_its_own_tests_is_a_test_home(root: str, module: str) ->
 
 
 def test_a_moved_layer_maps_to_its_mirrored_tests() -> None:
-    plan = _plan("src/iris_harness/foundation/persistence/sqlite.py")
-    assert "tests/unit/iris_harness/foundation" in plan
+    plan = _plan("src/evarness/foundation/persistence/sqlite.py")
+    assert "tests/unit/evarness/foundation" in plan
     assert "full suite" not in plan
 
 
 def test_a_cli_command_module_maps_to_the_cli_tests() -> None:
-    """src/iris_harness/cli/ mirrors to a `cli/` test dir that does not exist; the CLI
+    """src/evarness/cli/ mirrors to a `cli/` test dir that does not exist; the CLI
     tests live in `test_cli/`. Without the rule a new command module escalated too."""
-    plan = _plan("src/iris_harness/cli/approvals.py")
-    assert _targets(plan) == ["tests/unit/iris_harness/test_cli"]
+    plan = _plan("src/evarness/cli/approvals.py")
+    assert _targets(plan) == ["tests/unit/evarness/test_cli"]
     assert "full suite" not in plan
 
 
 def test_the_cli_entry_point_maps_to_the_cli_tests() -> None:
-    """src/iris_harness/main.py is the Typer wiring: its tests are the CLI tests.
+    """src/evarness/main.py is the Typer wiring: its tests are the CLI tests.
 
     It mirrors to the container root (which answers for nothing), so without its own
     rule every new subcommand escalated the pre-push gate to the full suite.
     """
-    plan = _plan("src/iris_harness/main.py")
-    assert _targets(plan) == ["tests/unit/iris_harness/test_cli"]
+    plan = _plan("src/evarness/main.py")
+    assert _targets(plan) == ["tests/unit/evarness/test_cli"]
     assert "full suite" not in plan
 
 
@@ -172,7 +172,7 @@ def test_the_flat_convention_has_no_subjects_left() -> None:
 
     This replaces `test_flat_convention_still_maps_until_the_move_lands`, whose own
     docstring said to delete it when that happened. The fallback still exists in the
-    script and is still correct -- it just has nothing under `src/iris_harness/` to
+    script and is still correct -- it just has nothing under `src/evarness/` to
     catch any more, and asserting that is what stops someone re-adding a flat test
     directory by accident.
     """
@@ -187,12 +187,12 @@ def test_the_flat_convention_has_no_subjects_left() -> None:
     # covers deploy/ (the owner's server: compose, config overrides, migration scripts),
     # which stays private, so the public tree has no test_deploy. None is a Python
     # package. Everything that DOES mirror a package lives under
-    # tests/unit/iris_harness/<layer>/.
+    # tests/unit/evarness/<layer>/.
     private = ["test_deploy"] if (ROOT / "deploy" / "compose.server.yml").is_file() else []
     public = ["test_container", "test_docs", "test_scenarios", "test_scripts", "test_webui"]
     assert flat == sorted(public + private), (
-        f"unexpected flat test directories: {flat}. A package under src/iris_harness/ "
-        "mirrors into tests/unit/iris_harness/<layer>/test_<pkg>/, not here."
+        f"unexpected flat test directories: {flat}. A package under src/evarness/ "
+        "mirrors into tests/unit/evarness/<layer>/test_<pkg>/, not here."
     )
 
 
@@ -264,14 +264,14 @@ def test_a_changed_conftest_or_helper_is_never_a_target_of_its_own() -> None:
     root = _plan("tests/conftest.py", no_full=True)
     assert "tests/conftest.py" not in _running(root)
     assert "-m smoke" in root or "smoke marker only" in root
-    helper = _plan("tests/unit/iris_personal/test_connections/fake_google.py", no_full=True)
-    assert _running(helper) == ["tests/unit/iris_personal/test_connections"]
-    test_file = "tests/unit/iris_harness/memory/test_facts/test_fact_keys.py"
+    helper = _plan("tests/unit/evarness_personal/test_connections/fake_google.py", no_full=True)
+    assert _running(helper) == ["tests/unit/evarness_personal/test_connections"]
+    test_file = "tests/unit/evarness/memory/test_facts/test_fact_keys.py"
     assert _running(_plan(test_file, no_full=True)) == [test_file]
 
 
 def test_trigger_fires_through_the_script() -> None:
-    plan = _plan("src/iris_harness/runtime/bootstrap.py")
+    plan = _plan("src/evarness/runtime/bootstrap.py")
     assert "core file changed" in plan and "full suite" in plan
 
 
@@ -286,23 +286,23 @@ def test_a_file_inside_a_selected_directory_is_not_passed_separately() -> None:
     """
     targets = _targets(
         _plan(
-            "src/iris_harness/memory/graph.py",  # maps to tests/unit/iris_harness/memory
-            "tests/unit/iris_harness/memory/test_facts/test_fact_keys.py",
+            "src/evarness/memory/graph.py",  # maps to tests/unit/evarness/memory
+            "tests/unit/evarness/memory/test_facts/test_fact_keys.py",
         )
     )
-    assert "tests/unit/iris_harness/memory" in targets
-    assert "tests/unit/iris_harness/memory/test_facts/test_fact_keys.py" not in targets
+    assert "tests/unit/evarness/memory" in targets
+    assert "tests/unit/evarness/memory/test_facts/test_fact_keys.py" not in targets
 
 
 def test_a_directory_inside_a_selected_directory_is_dropped_too() -> None:
     targets = _targets(
         _plan(
-            "src/iris_harness/memory/graph.py",
-            "tests/unit/iris_harness/memory/test_facts/conftest.py",
+            "src/evarness/memory/graph.py",
+            "tests/unit/evarness/memory/test_facts/conftest.py",
         )
     )
-    assert [t for t in targets if t.startswith("tests/unit/iris_harness/memory")] == [
-        "tests/unit/iris_harness/memory"
+    assert [t for t in targets if t.startswith("tests/unit/evarness/memory")] == [
+        "tests/unit/evarness/memory"
     ]
 
 
@@ -313,7 +313,7 @@ def _run_with_workers(workers: str) -> subprocess.CompletedProcess[str]:
         env={
             "PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
             "CHANGED_OVERRIDE": "docs/architecture/plugin-capabilities.md",
-            "IRIS_PYTEST_WORKERS": workers,
+            "EVARNESS_PYTEST_WORKERS": workers,
         },
         capture_output=True,
         text=True,
@@ -330,4 +330,4 @@ def test_a_valid_worker_count_is_accepted(workers: str) -> None:
 def test_an_invalid_worker_count_fails_loudly(workers: str) -> None:
     result = _run_with_workers(workers)
     assert result.returncode == 2
-    assert "IRIS_PYTEST_WORKERS" in result.stderr
+    assert "EVARNESS_PYTEST_WORKERS" in result.stderr

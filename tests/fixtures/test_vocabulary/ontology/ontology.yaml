@@ -3,11 +3,11 @@
 # loaded exactly as a plugin's is; it only adds names.
 
 fragment:
-  id: urn:iris:ontology:test-vocabulary
+  id: urn:evarness:ontology:test-vocabulary
   version: 0.0.0
 
 prefixes:
-  tv: "urn:iris:ontology:test-vocabulary#"
+  tv: "urn:evarness:ontology:test-vocabulary#"
 
 classes:
   tv:Institution: { subclass_of: Organization, maps_to: schema:Organization }

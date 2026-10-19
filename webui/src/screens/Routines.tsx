@@ -127,7 +127,7 @@ export function RoutinesScreen() {
               The reflection loop proposes routines here. Approval is human-gated —{" "}
               {canWrite
                 ? "use the actions above, or via chat / the CLI."
-                : "enable editing (IRIS_WEBUI_ALLOW_WRITES=1) to act here, or approve via chat / the CLI."}
+                : "enable editing (EVARNESS_WEBUI_ALLOW_WRITES=1) to act here, or approve via chat / the CLI."}
             </p>
           </Section>
         )}

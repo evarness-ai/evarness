@@ -34,8 +34,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IRIS_AUTH_SECRET: ci-only-secret
-  IRIS_DISABLE_WARMUP: "1"
+  EVARNESS_AUTH_SECRET: ci-only-secret
+  EVARNESS_DISABLE_WARMUP: "1"
   PYTHONDONTWRITEBYTECODE: "1"
   POETRY_VERSION: "2.3.3"
 
@@ -85,7 +85,7 @@ jobs:
       - name: Black
         run: poetry run black --check src/ tests/ examples/
       - name: Mypy (src)
-        run: poetry run mypy src/iris_harness/ src/memris/ src/iris_personal/
+        run: poetry run mypy src/evarness/ src/memris/ src/evarness_personal/
       # The examples type-check against the stable tier, as a plugin author's code would.
       - name: Mypy (examples)
         run: poetry run mypy examples/
@@ -192,9 +192,9 @@ jobs:
         with:
           enable-cache: false
       # The README's hero path (R6) on the scripted fake model, offline after the
-      # install: `uv tool install "iris-harness[email]"` (timed, cold cache; R19 target
-      # < 60 s, reported in the job summary), `iris doctor`, `iris email demo`.
-      - name: Fresh install, iris doctor, iris email demo
+      # install: `uv tool install "evarness[email]"` (timed, cold cache; R19 target
+      # < 60 s, reported in the job summary), `evarness doctor`, `evarness email demo`.
+      - name: Fresh install, evarness doctor, evarness email demo
         run: bash scripts/ci_quickstart.sh
 
   licenses:
@@ -208,10 +208,10 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      # The core install (R19): what a plain `pip install iris-harness` puts in an
+      # The core install (R19): what a plain `pip install evarness` puts in an
       # environment, no extras, resolved fresh as a user's install is. Every
       # distribution's license must be on scripts/license_policy.toml's allow list;
-      # arize-phoenix (Elastic-2.0) is denied outright, a guard: IRIS no longer depends on it.
+      # arize-phoenix (Elastic-2.0) is denied outright, a guard: Evarness no longer depends on it.
       - name: Core install into a fresh venv
         run: |
           python -m venv "$RUNNER_TEMP/core"

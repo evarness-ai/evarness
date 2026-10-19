@@ -19,7 +19,7 @@ import pytest
 import tomllib
 import yaml
 
-from iris_harness.server.iris_api import static_ui
+from evarness.server.harness_api import static_ui
 
 ROOT = Path(__file__).resolve().parents[3]
 _PRIVATE_LAYOUT = ROOT / ".github" / "public"

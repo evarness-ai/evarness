@@ -1,13 +1,13 @@
 # Memory subsystem
 
-**Status:** Current as of 2026-06-25 — written from code (`src/iris_harness/memory/`).
-Engineering doc; PRD intent lives in `project-iris-prd/05-memory-and-learning.md`.
-The harness-level summary is in `iris-harness.md` §5; the **operator/user how-to for
+**Status:** Current as of 2026-06-25 — written from code (`src/evarness/memory/`).
+Engineering doc; PRD intent lives in `project-evarness-prd/05-memory-and-learning.md`.
+The harness-level summary is in `evarness.md` §5; the **operator/user how-to for
 curation** (capture gates, recall filter, correct/forget/restore, retention,
 contradictions) is `docs/usage-guides/memory-curation.md`; this is the architecture
 detail.
 
-IRIS memory is a **dual store**: durable rows in SQLite (`MemoryStore`) plus a
+Evarness memory is a **dual store**: durable rows in SQLite (`MemoryStore`) plus a
 semantic index over ChromaDB (`SemanticIndex`). The retriever blends both into the
 `MemoryContext` assembled for every turn.
 
@@ -18,45 +18,45 @@ dependency; ~80 MB one-time download).
 
 | Collection | Holds | Doc id |
 |---|---|---|
-| `iris_user_facts` | one doc per `UserFact` | fact key |
-| `iris_learning_signals` | one doc per learning signal | signal id |
-| `iris_conversation_turns` | one doc per stored turn | SQLite row id |
-| `iris_wiki_pages` | one doc per `WikiPage` | slug |
-| `iris_episodic_patterns` | one pattern per line from `~/.iris/memory/episodic.md` | pattern |
+| `evarness_user_facts` | one doc per `UserFact` | fact key |
+| `evarness_learning_signals` | one doc per learning signal | signal id |
+| `evarness_conversation_turns` | one doc per stored turn | SQLite row id |
+| `evarness_wiki_pages` | one doc per `WikiPage` | slug |
+| `evarness_episodic_patterns` | one pattern per line from `~/.evarness/memory/episodic.md` | pattern |
 
-(Note: RAG documents are a **separate** index — `iris_documents` in `data/chroma_docs`,
-owned by `src/iris_harness/services/rag/`, not this subsystem.)
+(Note: RAG documents are a **separate** index — `evarness_documents` in `data/chroma_docs`,
+owned by `src/evarness/services/rag/`, not this subsystem.)
 
 The RAG index follows the same rule (canonical store plus rebuildable projection), by a
 different route. The canonical chunk text and each chunk's classification live in
 `data/rag.db` (`DocumentStore`); the documents stay where the user keeps them;
-`iris_documents` only mirrors the stored chunks. If `data/chroma_docs` is lost or damaged,
-`iris docs reindex` (`reindex_all`) rebuilds it from `rag.db` without reading any source
-file. `iris docs sync` is not a rebuild: it skips files whose mtime or hash is unchanged, so
+`evarness_documents` only mirrors the stored chunks. If `data/chroma_docs` is lost or damaged,
+`evarness docs reindex` (`reindex_all`) rebuilds it from `rag.db` without reading any source
+file. `evarness docs sync` is not a rebuild: it skips files whose mtime or hash is unchanged, so
 it never refills an empty index. Nothing is scanned for injections at ingest (that would rewrite the owner's
 stored text irreversibly): a document is marked where a model reads it, through the `search_documents`
 tool, which is `content: external`, so what it returns is redacted and inside the untrusted-content
-envelope, whichever route (`iris docs add`, `/rag/upload`, `iris docs sync`) indexed it. It does prune: a registered file that is gone from disk
+envelope, whichever route (`evarness docs add`, `/rag/upload`, `evarness docs sync`) indexed it. It does prune: a registered file that is gone from disk
 is removed from the store and the index and reported to the file domain (`removed`), but
 only when its parent folder is readable; otherwise (an unmounted volume) it is left alone and
-counted as unavailable. If `rag.db` is lost instead, re-run `iris docs add <path>`
+counted as unavailable. If `rag.db` is lost instead, re-run `evarness docs add <path>`
 for each source; chunks ingested that way carry no classification stamp unless they go
 back through the ingest gate (`execute_rag_ingest`), which is what sets it.
 
 Two properties of `reindex_all` to know. It refuses (`EmptyStoreRefused`; `--force` on the
 CLI overrides) when `rag.db` holds zero chunks but the index does not, since the rebuild
-would delete every vector; the usual cause is a wrong `IRIS_DATA_DIR`. And it is not atomic
+would delete every vector; the usual cause is a wrong `EVARNESS_DATA_DIR`. And it is not atomic
 with a running server: it snapshots the stored chunks, then upserts and prunes. A chunk the
 server ingests during the rebuild is missing from the snapshot, so the prune can drop it
-from the index until the next `iris docs sync` (or re-ingest) puts it back; it stays safe
+from the index until the next `evarness docs sync` (or re-ingest) puts it back; it stays safe
 in `rag.db`. Run the rebuild while ingestion is quiet.
 
 One failure `reindex_all` cannot repair by itself: if the embedding model changed, Chroma
 refuses to open the persisted collection under the new embedder (an "embedding function
 already exists" conflict), so the index is unavailable and retrieval falls back to keyword
-search; labels and sources in `rag.db` are untouched. `iris docs reindex` then says so and
-names the fix: `iris docs reindex --reset-collection` (`reset_and_reindex`), explicit and
-off by default. It deletes and re-creates only the `iris_documents` collection (no other
+search; labels and sources in `rag.db` are untouched. `evarness docs reindex` then says so and
+names the fix: `evarness docs reindex --reset-collection` (`reset_and_reindex`), explicit and
+off by default. It deletes and re-creates only the `evarness_documents` collection (no other
 collection, never `rag.db`, never a source file) and refills it from `store.iter_chunks()`,
 so every source and chunk keeps its label; it applies the same empty-store refusal (and
 `--force`) before it deletes anything, and logs one INFO line with the chunk count. If the rebuild fails after the delete (disk full, embedder error) it raises `IndexRebuildIncomplete`: the index is partial, `rag.db` is untouched, and rerunning the command is idempotent. Unlike a
@@ -134,37 +134,37 @@ Empty / whitespace-only turns are dropped from the summary input (keep only the 
 behavior miner can mine it before it leaves the working window — "learn before you forget"
 (ADR-0082; see `digital-twin.md` Layer 1). The compactor is built window-derived in
 `build_runtime` from the live
-`tier_router`; env overrides win (`IRIS_COMPACTION_{TOKEN_BUDGET,RATIO,THRESHOLD,
+`tier_router`; env overrides win (`EVARNESS_COMPACTION_{TOKEN_BUDGET,RATIO,THRESHOLD,
 KEEP_RECENT}`). Each event emits telemetry (`trigger`, `archived`, `tokens
 before->after`, `kept_turns`) via `_record_turn`. This is the cross-turn twin of the
-ADR-0077 P3 in-loop `ContextBudgetController` (`src/iris_harness/agent/context_budget.py`),
+ADR-0077 P3 in-loop `ContextBudgetController` (`src/evarness/agent/context_budget.py`),
 which bounds a single ReAct transcript with the same window-derived discipline.
 
 ### Context-health surface (ADR-0081)
 
 The compactor (above), the P3 in-loop controller, and the surface-feedback
 suppression spine (ADR-0078) each bound the working context but logged in isolation.
-`IrisRuntime.context_health(session_id)` composes them into one read-only snapshot —
+`EvarnessRuntime.context_health(session_id)` composes them into one read-only snapshot —
 window fill % + last compaction, the transcript/memory budget split + latest in-loop
 eviction (via a `budget_observer` the `AgenticCore` fires per iteration into a shared
 sink), and the suppression roll-up (`SurfaceFeedbackStore.summary()`). Pure
-composition in `src/iris_harness/agent/context_health.py`; surfaced at `GET /context-health`,
-`iris context-health`, and the web Health screen's Context-budget panel.
+composition in `src/evarness/agent/context_health.py`; surfaced at `GET /context-health`,
+`evarness context-health`, and the web Health screen's Context-budget panel.
 
 **Acting on it (ADR-0084).** Auto-compaction is already eager (every turn boundary), so
 the surface's job isn't to trigger it — it's to let you *act* on the pressure you see.
-`IrisRuntime.compact_now(session_id)` force-compacts on demand (`compact(..., force=True)`
+`EvarnessRuntime.compact_now(session_id)` force-compacts on demand (`compact(..., force=True)`
 summarizes the older span even below the auto trigger; a short conversation is a no-op),
 applied through the shared `_apply_compaction` helper that the reactive `_record_turn` path
 also uses. Surfaced at write-gated `POST /context-health/compact` and a **Compact now**
 button on the Context-budget panel.
 
 **The agent acting on itself (ADR-0086).** The same controls are exposed to the **agent**
-as ReAct tools — `context_health`, `compact_context`, `learning_status` — so IRIS can
+as ReAct tools — `context_health`, `compact_context`, `learning_status` — so Evarness can
 introspect and manage its own state mid-turn (*"I'm near full, let me compact"*), not just
 the user. Built per-turn in `_core_for` (capturing the live `session_id`), late-bound to the
 runtime via a holder, relevance-shortlisted so they surface only on self-referential turns.
-Opt-in (`IRIS_AGENT_SELF_MANAGEMENT`, off by default — one tool mutates the conversation),
+Opt-in (`EVARNESS_AGENT_SELF_MANAGEMENT`, off by default — one tool mutates the conversation),
 and **hot-toggleable** from the web Experiment console (`self_management` flag) with no
 restart — `_core_for` reads `runtime.learning.self_management_enabled()` (override > env) per turn.
 
@@ -232,15 +232,15 @@ never filtered.
 
 ### Measuring both defences (ADR-0085)
 
-`iris_harness.memory.gate_audit` is the meter for the two defences above. Given **labelled**
+`evarness.memory.gate_audit` is the meter for the two defences above. Given **labelled**
 candidates it scores the capture gates and the recall filter — **false-admit** (junk
 that slipped the gates), **false-recall** (junk that reached the prompt), **false-reject
 / false-drop** (real facts over-blocked) — with per-gate attribution, and sweeps the drop
 threshold for a balanced-accuracy suggestion. `run_full_audit` models the real pipeline
 (gates on all; recall on the *admitted* subset). Pure + deterministic; a built-in
-synthetic `DEFAULT_CORPUS` makes it run out of the box. Surface: `iris facts gate-eval
+synthetic `DEFAULT_CORPUS` makes it run out of the box. Surface: `evarness facts gate-eval
 [--corpus x.json]`. It **measures and suggests, never auto-tunes** — changing
-`IRIS_MEMORY_MIN_FACT_CONFIDENCE` stays a human, real-data call. Distinct from `iris facts
+`EVARNESS_MEMORY_MIN_FACT_CONFIDENCE` stays a human, real-data call. Distinct from `evarness facts
 audit`, which buckets your *real* facts by the live thresholds (no labels).
 
 ### Provenance, reversibility, retention, contradictions (store tables)
@@ -253,14 +253,14 @@ audit`, which buckets your *real* facts by the live thresholds (no labels).
 | `user_fact_history` (retention) | human-reviewed retention — entries past the window (180d) surfaced, never auto-deleted | `fetch_history_retention_candidates`, `prune_history_entries` |
 | `user_fact_contradictions` | detected same-key value conflicts (`superseded`/`blocked`, deduped via `seen_count`) | `fetch_contradictions`, `acknowledge_contradictions` |
 
-Surfaces (CLI `iris facts`, chat tools `memory_correct`/`memory_forget`/`memory_restore`,
+Surfaces (CLI `evarness facts`, chat tools `memory_correct`/`memory_forget`/`memory_restore`,
 web UI Memory screen, and `/memory/*` API endpoints) are all thin layers over these
 methods.
 
 ## Related
 
-- `iris-harness.md` §5 — harness-level memory summary.
+- `evarness.md` §5 — harness-level memory summary.
 - `usage-guides/memory-curation.md` — operator/user how-to for curation.
-- `learning-subsystem.md` — the `iris_learning_signals` producer.
-- `src/iris_harness/services/rag/` — the separate `iris_documents` RAG index.
+- `learning-subsystem.md` — the `evarness_learning_signals` producer.
+- `src/evarness/services/rag/` — the separate `evarness_documents` RAG index.
 - `DOCS-DRIFT-AUDIT.md` — why this doc exists.

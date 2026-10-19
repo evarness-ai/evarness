@@ -83,7 +83,7 @@ function pendingConfirmationFrom(
 function EmptyState() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-      <div className="text-base font-semibold text-fg">Talk to IRIS</div>
+      <div className="text-base font-semibold text-fg">Talk to Evarness</div>
       <p className="max-w-md text-sm text-fg-muted">
         Streaming, local-first. Ask a question, request a task, or check on your
         day. Your messages are processed on this machine — nothing leaves unless
@@ -242,7 +242,7 @@ export function ChatScreen() {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
-  // The first chat on this install opens on IRIS's welcome (ADR-0127). The harness
+  // The first chat on this install opens on Evarness's welcome (ADR-0127). The harness
   // decides whether it is due and runs it; Chat only asks when it opens and, when this
   // was the call that ran it, shows the welcome's session, so the first question
   // continues it.
@@ -671,7 +671,7 @@ export function ChatScreen() {
             column to own once it's reachable from the sidebar on any width. */}
         <div className="flex items-center justify-between gap-2 md:hidden">
           <span className="min-w-0 truncate font-mono text-[11px] text-fg-subtle">
-            IRIS v{chatStatus?.iris_version ?? "-"} · {chatStatus?.model ?? "-"}
+            Evarness v{chatStatus?.evarness_version ?? "-"} · {chatStatus?.model ?? "-"}
           </span>
           <ChatMoreMenu
             session={session}
@@ -717,7 +717,7 @@ export function ChatScreen() {
 
         <div className="hidden rounded-lg border border-border bg-surface px-3 py-2 md:block">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-fg-subtle">
-            <span>IRIS v{chatStatus?.iris_version ?? "-"}</span>
+            <span>Evarness v{chatStatus?.evarness_version ?? "-"}</span>
             <span>session {session}</span>
             <span>{chatStatus?.provider ?? "-"}</span>
             <span>{chatStatus?.model ?? "-"}</span>
@@ -886,7 +886,7 @@ export function ChatScreen() {
                     disabled={selectedDueIds.length === 0}
                     onClick={submitDueReminderSelection}
                   >
-                    Ask IRIS for selected ({selectedDueIds.length})
+                    Ask Evarness for selected ({selectedDueIds.length})
                   </Button>
                   <Button
                     type="button"

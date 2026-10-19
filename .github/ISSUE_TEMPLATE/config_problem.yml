@@ -1,5 +1,5 @@
 name: Configuration or setup problem
-description: Install, `iris doctor`, onboarding, profiles, models or provider setup does not work.
+description: Install, `evarness doctor`, onboarding, profiles, models or provider setup does not work.
 labels: [config]
 body:
   - type: markdown
@@ -12,11 +12,11 @@ body:
       label: Area
       options:
         - Install (uv tool / pipx / Docker / Poetry)
-        - iris doctor
-        - iris email demo
-        - iris email setup (IMAP)
-        - iris email setup (Gmail OAuth)
-        - Profiles and plugins (config/profiles, iris --dump-config)
+        - evarness doctor
+        - evarness email demo
+        - evarness email setup (IMAP)
+        - evarness email setup (Gmail OAuth)
+        - Profiles and plugins (config/profiles, evarness --dump-config)
         - Models and tiers (Ollama, LM Studio, cloud)
         - Vault and secrets
         - Other
@@ -31,18 +31,18 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: "`iris doctor` output"
+      label: "`evarness doctor` output"
       render: text
   - type: textarea
     id: config
     attributes:
       label: Effective configuration
-      description: The relevant part of `iris --dump-config` and any `IRIS_*` variables you set, secret values removed.
+      description: The relevant part of `evarness --dump-config` and any `EVARNESS_*` variables you set, secret values removed.
       render: text
   - type: input
     id: platform
     attributes:
-      label: IRIS version, OS, Python
+      label: Evarness version, OS, Python
       placeholder: 0.1.0, Ubuntu 24.04, Python 3.12
     validations:
       required: true

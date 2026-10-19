@@ -6,8 +6,8 @@ import { usePlugins } from "@/lib/queries";
 import type { CatalogSetting, PluginSummary } from "@/lib/control";
 import { effectiveValue, useSaveSetting } from "./SettingRow";
 
-const DISABLE = "IRIS_PLUGINS_DISABLE";
-const ENABLE = "IRIS_PLUGINS_ENABLE";
+const DISABLE = "EVARNESS_PLUGINS_DISABLE";
+const ENABLE = "EVARNESS_PLUGINS_ENABLE";
 
 function names(value: string): string[] {
   return value
@@ -18,7 +18,7 @@ function names(value: string): string[] {
 
 /**
  * Plugins on/off (ADR-0120). No new mechanism: a switch rewrites the
- * ``IRIS_PLUGINS_DISABLE`` / ``IRIS_PLUGINS_ENABLE`` settings (guarded, so each change
+ * ``EVARNESS_PLUGINS_DISABLE`` / ``EVARNESS_PLUGINS_ENABLE`` settings (guarded, so each change
  * is confirmed), which the profile reads at the next start. A plugin whose manifest
  * is ``locked`` shows why and cannot be switched off here.
  */

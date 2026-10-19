@@ -14,12 +14,12 @@ from typing import Any
 
 import pytest
 
-from iris_harness.agent.agent_executor import AgentTask
-from iris_harness.agent.agentic_core import ToolSpec
-from iris_harness.kernel.governance.approvals import ApprovalQueue
-from iris_harness.kernel.governance.approvals.service import respond_to_approval
-from iris_harness.runtime import build_runtime
-from iris_harness.runtime.plugin_host.registry import PluginRecord, PluginStatus
+from evarness.agent.agent_executor import AgentTask
+from evarness.agent.agentic_core import ToolSpec
+from evarness.kernel.governance.approvals import ApprovalQueue
+from evarness.kernel.governance.approvals.service import respond_to_approval
+from evarness.runtime import build_runtime
+from evarness.runtime.plugin_host.registry import PluginRecord, PluginStatus
 
 pytestmark = pytest.mark.integration
 
@@ -39,9 +39,9 @@ def _model(self: Any, *, system_prompt: str, user_prompt: str, **kwargs: Any) ->
 
 @pytest.fixture()
 def world(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
-    from iris_harness.llm.client import CodingLLMClient
+    from evarness.llm.client import CodingLLMClient
 
-    monkeypatch.delenv("IRIS_GOVERNANCE_ENABLED", raising=False)  # on by default
+    monkeypatch.delenv("EVARNESS_GOVERNANCE_ENABLED", raising=False)  # on by default
     monkeypatch.setattr(CodingLLMClient, "invoke", _model)
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()

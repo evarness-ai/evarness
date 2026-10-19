@@ -1,6 +1,6 @@
 # Governance
 
-The governance kernel (`src/iris_harness/kernel/governance/`) is a mandatory passage:
+The governance kernel (`src/evarness/kernel/governance/`) is a mandatory passage:
 every model call and every tool call goes through it, whether the core, an agent or a
 plugin makes it. It cannot be unplugged, and a plugin has no way around it.
 
@@ -39,7 +39,7 @@ email assistant runs on local models by construction.
 ## Secrets as handles
 
 Credentials live in a Fernet-encrypted vault under one master key (the one
-`iris doctor` checks). A tool that needs a secret declares it, and receives it at
+`evarness doctor` checks). A tool that needs a secret declares it, and receives it at
 `pre_tool_use` through a `vault://` handle: the value never appears in a prompt, a
 transcript or a log line. Outbound text is also scanned and redacted.
 
@@ -52,13 +52,13 @@ A plugin's manifest declares each tool's effect, and the kernel enforces it:
 - `destructive` tools wait for the owner's approval on every call.
 
 Approvals are durable rows in an approval queue. The owner answers in the CLI
-(`iris approvals`), in chat, or in the web console's Actions screen, and the halted run
+(`evarness approvals`), in chat, or in the web console's Actions screen, and the halted run
 resumes from a checkpoint with the approved call, governed again. Mailbox writes are a
-standing approval per account (`iris email writes approve`). Every side effect a tool
-reports lands in the side-effect ledger when `IRIS_GOVERNANCE_SIDE_EFFECT_LEDGER_ALL=1`. A
+standing approval per account (`evarness email writes approve`). Every side effect a tool
+reports lands in the side-effect ledger when `EVARNESS_GOVERNANCE_SIDE_EFFECT_LEDGER_ALL=1`. A
 destructive call or a pinned write gets its ledger row before it runs whenever the ledger
-is on (`IRIS_GOVERNANCE_SIDE_EFFECT_LEDGER`, on by default), so a crash mid-call still
-leaves a record for `iris run resume` to check; if that row cannot be written, the call is
+is on (`EVARNESS_GOVERNANCE_SIDE_EFFECT_LEDGER`, on by default), so a crash mid-call still
+leaves a record for `evarness run resume` to check; if that row cannot be written, the call is
 denied and nothing runs. Without `..._LEDGER_ALL`, plain writes and reads leave no row.
 Turning the ledger off denies destructive tools and pinned writes.
 
@@ -68,7 +68,7 @@ action, and a poisoned memory outlives the turn. A run is *tainted* once one of 
 a tool declared `content: external`. In a tainted run, a call of a tool listed in
 `config/governance/taint-policy.yaml` (`approval_when_tainted`; by default `memory_correct`,
 `memory_forget` and `memory_restore`) is held for the owner's approval on the same card as any
-approved-per-call tool, and the card says why ("IRIS read text from outside ... earlier in this
+approved-per-call tool, and the card says why ("Evarness read text from outside ... earlier in this
 turn and now wants to make this change"). The same call in a run that read nothing from
 outside is unchanged ("forget that I like X" asks nothing). The loop works the taint out from
 the run's own recorded steps, so a run resumed after an approval keeps it, and one approval is
@@ -92,7 +92,7 @@ so the agent it watches cannot influence it.
 Retrieved content a third party wrote (a web page, an email) is marked `external`.
 Two layers act on it. The first is the always-on floor, below, which needs no model.
 The second is the optional model guard: the retrieved-content injection guard scans the
-text with the Prompt Guard classifier, but only when `IRIS_GOVERNANCE_PROMPT_GUARD` is on
+text with the Prompt Guard classifier, but only when `EVARNESS_GOVERNANCE_PROMPT_GUARD` is on
 (off by default, and in shadow mode when on: a detection is audited and nothing is
 redacted), and it needs the model (the `ml` extra plus the weights). Without them it
 lets the text through and records a `guard unavailable` row naming the tool, how many
@@ -105,7 +105,7 @@ passes, whatever is turned on.
 
 On by default, with no model, no weights and no network, so it runs on every install.
 It acts at `POST_TOOL_USE` (priority 46, after the model guard), so every path that
-fires that hook gets it from one mechanism: the agent loop, `api.tools`, `iris mcp
+fires that hook gets it from one mechanism: the agent loop, `api.tools`, `evarness mcp
 serve`, the MCP bridge and capability calls. Both chat entries share the pipeline.
 
 **1. The untrusted-content envelope.** A tool result declared `content: external` reaches
@@ -121,7 +121,7 @@ the model, or an MCP client, as
 tool's own name for a core tool. The text inside is not changed. It is applied to every
 external result, so it has no false positives. A literal `<external_content` or
 `</external_content` in the text is escaped, so a page cannot close the envelope early. The
-envelope is for text a model reads: the loop's calls and an `iris mcp serve` client's. A call
+envelope is for text a model reads: the loop's calls and an `evarness mcp serve` client's. A call
 by plugin or core code (`api.tools`, caller `plugin:<name>` or `core:<workflow>`) gets the
 tripwire and no envelope, because that code may show the text to the owner or parse it;
 code that hands an external result to a model should wrap it itself. A
@@ -184,7 +184,7 @@ hr@..."). The known false positives above are the cost of matching phrases.
 
 **Telling the owner.** When an answer or a brief the owner is reading shows the redaction
 marker, one plain sentence is appended once: part of that text was withheld because it looked
-like instructions aimed at the assistant, and `iris governance redactions` (or `GET
+like instructions aimed at the assistant, and `evarness governance redactions` (or `GET
 /governance/redactions`) lists which rule matched. A shared turn stage (`notice`, after the
 response checks and before the turn is recorded) does it for the generated and the
 deterministic path on `chat` and `chat_stream`, so the transcript holds what the owner saw;
@@ -193,7 +193,7 @@ view shows pattern ids, span counts, the tool, the source and the caller, never 
 
 **The allow-list.** A text that quotes an attack phrase (an article about prompt injection,
 the docs of an LLM library) is a false positive. The owner can allow it, narrowly, in
-`config/governance/external-content.yaml` or with `iris governance allow add|remove|list`:
+`config/governance/external-content.yaml` or with `evarness governance allow add|remove|list`:
 
 ```yaml
 allow:
@@ -228,14 +228,14 @@ that is not phrased as one. An attack that is not caught is marked as untrusted 
 nothing more. The model guard is the layer that can judge meaning, which is why it stays.
 Zero-width characters are dropped from a text only when a phrase pattern matched in it.
 
-**The setting.** `IRIS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR` is a plain boolean (`true`,
+**The setting.** `EVARNESS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR` is a plain boolean (`true`,
 `false`, `1`, `0`, `yes`, `no`, `on`, `off`), default on. Unset, blank, whitespace-only or any
 unrecognised value leaves it on (an unrecognised one logs a warning naming the accepted
 spellings, in case it was a typo for off); only `0`, `false`, `no` or `off` turns it off, and
 turning it off logs a warning at start-up. (Unlike most flags, a blank value is on: an empty line
 in `.env` must not switch off a safety floor. The Settings screen and `PUT /settings`
 cannot write a blank for a bool, so only `.env` or the shell can.) `GET /governance/state` lists it with the other posture flags. The
-model guard (`IRIS_GOVERNANCE_PROMPT_GUARD`) is separate: still opt-in, still shadow.
+model guard (`EVARNESS_GOVERNANCE_PROMPT_GUARD`) is separate: still opt-in, still shadow.
 `config/governance/threat-detection.yaml` no longer has a `fail_mode` key: it was parsed
 and read by nothing. A guard that cannot run lets the text through and writes a
 `guard unavailable` row; the floor does not depend on that file. An override file that still
@@ -262,7 +262,7 @@ retriever adds, and the recent-turns block of the intent router's prompt. `kerne
   the general lane, `code_exec` and escalation actions all read the window built in
   `SessionMemory.build_memory_context`, and the intent router's "Conversation so far" block
   (`format_recent_context`, scanned before its 200-character cut) is its only producer. The compaction summariser's input (assistant turns and the previous summary) goes through the same scan, because a summary the model writes is stored and a reworded instruction would defeat a scan at read time (reader `compactor`). The behavior miner's input (`mine_behavior_patterns`, reader `behavior_miner`) goes through the same scan. `recall_conversation` and `memory_search` run in the
-  loop only (`iris mcp serve` and `api.tools` resolve plugin tools, which do not include them).
+  loop only (`evarness mcp serve` and `api.tools` resolve plugin tools, which do not include them).
 - **Learned memory (issue #163).** `active.md`, `episodic.md` and a lesson's body are written
   from conversations, some of which held third-party text, and come back into the prompt every
   turn, so they are scanned at read as well: the retriever (`active`, the episodic digest, the
@@ -302,7 +302,7 @@ retriever adds, and the recent-turns block of the intent router's prompt. `kerne
   kept in the process: a restart starts them again, and a long-lived process forgets the
   oldest keys. This was chosen (issue #164) over one row per read, which wrote about a
   hundred rows for one text.
-- **The setting.** There is none of its own: `IRIS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR` off
+- **The setting.** There is none of its own: `EVARNESS_GOVERNANCE_EXTERNAL_CONTENT_FLOOR` off
   means no scan here either.
 
 **Known limits.** Phrase-level only, like the floor: a paraphrase, another language, a
@@ -344,7 +344,7 @@ text as its input: that is the compactor's own call, not a re-entry.
 
 Every check writes a row: the hook point, the check, the decision and why, the run,
 step and session, the data class and the tier. Recent rows stay in SQLite; older ones
-move to a compressed Parquet archive you can query. `iris audit` and the web console's
+move to a compressed Parquet archive you can query. `evarness audit` and the web console's
 Governance and Call trace screens read it, and the
 [proof bundle](../reference/proof-bundle.md) turns it into evidence a CI job verifies
 offline.

@@ -8,9 +8,9 @@ persists envelope + snippet to `data/email.db`. Used by:
 
 ## Prerequisites
 
-Run `iris auth gmail login --user <address>` once per Gmail account
+Run `evarness auth gmail login --user <address>` once per Gmail account
 before this skill can run. The skill reads tokens from the macOS
-Keychain (per ADR-0003) and the account row from `data/iris.db`
+Keychain (per ADR-0003) and the account row from `data/evarness.db`
 (per ADR-0016).
 
 ## Behavior

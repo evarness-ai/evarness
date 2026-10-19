@@ -1,7 +1,7 @@
 {
-  "name": "IRIS Console",
-  "short_name": "IRIS",
-  "description": "Talk to IRIS, approve what it is waiting on, and see how the harness is doing.",
+  "name": "Evarness Console",
+  "short_name": "Evarness",
+  "description": "Talk to Evarness, approve what it is waiting on, and see how the harness is doing.",
   "id": "/",
   "scope": "/",
   "start_url": "/chat",

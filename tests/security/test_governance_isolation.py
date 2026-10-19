@@ -24,7 +24,7 @@ Invariants covered (numbering follows §14):
   Stubbed (Phase 4+ features):
     #1  Agent cannot read evaluator policy file
     #2  Agent cannot write evaluator/audit/approval DBs (broader property)
-    #7  Out-of-band kill switch (~/.config/iris/halt)
+    #7  Out-of-band kill switch (~/.config/evarness/halt)
     #8  Approval queue rows immutable except by approval channels
     #9  Orchestrator persona cannot directly invoke tools
     #10 FS jail symlink-resolved
@@ -39,7 +39,7 @@ from typing import Any, Final, get_type_hints
 
 import pytest
 
-from iris_harness.kernel.governance import (
+from evarness.kernel.governance import (
     GovernanceKernel,
     HookContext,
     HookDecision,
@@ -47,18 +47,18 @@ from iris_harness.kernel.governance import (
     HookRegistrationLockedError,
     build_default_kernel,
 )
-from iris_harness.kernel.governance.audit import AuditLog
-from iris_harness.kernel.governance.evaluator import judge_template
-from iris_harness.kernel.governance.evaluator.client import (
+from evarness.kernel.governance.audit import AuditLog
+from evarness.kernel.governance.evaluator import judge_template
+from evarness.kernel.governance.evaluator.client import (
     RemoteEvaluatorClient,
     isolation_db_open_readonly,
 )
-from iris_harness.kernel.governance.plugins.fs_jail import FSJail
-from iris_harness.kernel.governance.plugins.persona_surface import (
+from evarness.kernel.governance.plugins.fs_jail import FSJail
+from evarness.kernel.governance.plugins.persona_surface import (
     PersonaPolicy,
     PersonaPolicyDocument,
 )
-from iris_harness.kernel.governance.plugins.redaction import RedactionFilterHook
+from evarness.kernel.governance.plugins.redaction import RedactionFilterHook
 
 # -----------------------------------------------------------------------------
 # #3 — Evaluator runs out-of-process (wiring surface)
@@ -270,7 +270,7 @@ def _store_with_row(tmp_path: Path, name: str) -> tuple[Any, Any]:
     Overdue on purpose: with a future deadline `expire_stale` would be a no-op and the
     test would pass without ever running its write.
     """
-    from iris_harness.kernel.governance.approvals import ApprovalCard, ApprovalItem, ApprovalStore
+    from evarness.kernel.governance.approvals import ApprovalCard, ApprovalItem, ApprovalStore
 
     store = ApprovalStore(db_path=tmp_path / f"{name}.db")
     approval_id = store.enqueue(
@@ -297,7 +297,7 @@ def test_invariant_2_every_public_method_is_held_to_the_invariant(tmp_path: Path
     to "may this method exist?" is no longer a line in a set, it is whether it passes the
     two assertions below.
     """
-    from iris_harness.kernel.governance.approvals import ApprovalStore
+    from evarness.kernel.governance.approvals import ApprovalStore
 
     store = ApprovalStore(db_path=tmp_path / "approvals.db")
     unexercised = _public_methods(store) - set(_EXERCISE)
@@ -387,14 +387,14 @@ def test_invariant_2_set_checkpoint_fills_in_the_pointer_it_exists_for(
 @pytest.mark.xfail(reason="Phase 4: kill switch file not yet wired", strict=False)
 def test_invariant_7_kill_switch_path_outside_tool_jails() -> None:
     raise NotImplementedError(
-        "Phase 4: assert ~/.config/iris/halt is in the global FSJail deny-write list "
+        "Phase 4: assert ~/.config/evarness/halt is in the global FSJail deny-write list "
         "and no persona has write access"
     )
 
 
 def test_invariant_8_approval_rows_immutable_from_agent_creds(tmp_path: Path) -> None:
     """Once approved/rejected, a row cannot be changed again (respond is idempotent-reject)."""
-    from iris_harness.kernel.governance.approvals import ApprovalAlreadyAnsweredError, ApprovalStore
+    from evarness.kernel.governance.approvals import ApprovalAlreadyAnsweredError, ApprovalStore
 
     store = ApprovalStore(db_path=tmp_path / "approvals.db")
     aid = store.enqueue("run-inv8", None, "require_approval", "ctx", channel="cli")
@@ -412,7 +412,7 @@ async def test_invariant_9_orchestrator_cannot_directly_invoke_tools() -> None:
     """
     # The packaged policy ships with the coding agent (absent from the harness release).
     resource_paths = pytest.importorskip("iris_code.resource_paths")
-    from iris_harness.kernel.governance.plugins.persona_surface import (
+    from evarness.kernel.governance.plugins.persona_surface import (
         PersonaPolicy,
         PersonaPolicyDocument,
         PersonaSurface,
@@ -463,12 +463,12 @@ async def test_invariant_9_orchestrator_cannot_directly_invoke_tools() -> None:
 @pytest.mark.symlinks
 async def test_invariant_10_fs_jail_resolves_symlinks(tmp_path: Path) -> None:
     workspace_root = tmp_path / "workspace"
-    (workspace_root / "src" / "iris").mkdir(parents=True)
+    (workspace_root / "src" / "evarness").mkdir(parents=True)
     outside_root = tmp_path / "outside"
     outside_root.mkdir()
     link_out = workspace_root / "src" / "link_out"
     link_out.symlink_to(outside_root, target_is_directory=True)
-    protected_root = tmp_path / "iris-config"
+    protected_root = tmp_path / "evarness-config"
     (protected_root / "runs").mkdir(parents=True)
 
     policy = PersonaPolicyDocument(
@@ -480,7 +480,7 @@ async def test_invariant_10_fs_jail_resolves_symlinks(tmp_path: Path) -> None:
             )
         }
     )
-    jail = FSJail(policy=policy, iris_config_root=protected_root)
+    jail = FSJail(policy=policy, evarness_config_root=protected_root)
 
     allowed = await jail(
         HookContext(
@@ -490,7 +490,7 @@ async def test_invariant_10_fs_jail_resolves_symlinks(tmp_path: Path) -> None:
             persona="developer",
             payload={
                 "tool_name": "create_file",
-                "args": {"path": "src/iris_harness/ok.py"},
+                "args": {"path": "src/evarness/ok.py"},
             },
             metadata={"workspace_root": str(workspace_root)},
         )
@@ -540,7 +540,7 @@ async def test_invariant_10_fs_jail_resolves_symlinks(tmp_path: Path) -> None:
 def test_invariant_11_global_fail_closed_on_repeated_fail_opens() -> None:
     raise NotImplementedError(
         "Phase 4: drive N fail-opens within 60s; assert kernel escalates to "
-        "global_fail_closed and ``iris governance reset-degraded`` clears it"
+        "global_fail_closed and ``evarness governance reset-degraded`` clears it"
     )
 
 
@@ -566,8 +566,8 @@ def _governor_policy(repo_root: Path) -> None:
 def test_invariant_mcp_signing_enforce_blocks_unverified_launch(tmp_path: Path) -> None:
     """Under enforce + deny, the agent cannot launch/connect an MCP server whose
     signature does not verify — refused before any process starts."""
-    from iris_harness.kernel.governance.mcp_signing import MCPSigningConfig, TrustStore
-    from iris_harness.tools.mcp_bridge import (
+    from evarness.kernel.governance.mcp_signing import MCPSigningConfig, TrustStore
+    from evarness.tools.mcp_bridge import (
         MCPBridge,
         MCPBridgeConfig,
         MCPServerConfig,
@@ -599,7 +599,7 @@ def test_invariant_mcp_signing_enforce_blocks_unverified_launch(tmp_path: Path) 
 def test_invariant_mcp_trust_store_not_written_by_verification_path(tmp_path: Path) -> None:
     """The verification path only *reads* the trust store — the agent process
     never mutates its own root of trust (design §14 / §2)."""
-    from iris_harness.kernel.governance.mcp_signing import (
+    from evarness.kernel.governance.mcp_signing import (
         MCPSigningConfig,
         ServerSpec,
         TrustedKey,
@@ -607,7 +607,7 @@ def test_invariant_mcp_trust_store_not_written_by_verification_path(tmp_path: Pa
         generate_keypair,
         sign,
     )
-    from iris_harness.tools.mcp_bridge import MCPBridge, MCPBridgeConfig, MCPServerConfig
+    from evarness.tools.mcp_bridge import MCPBridge, MCPBridgeConfig, MCPServerConfig
 
     _governor_policy(tmp_path)
     trust_path = tmp_path / "config" / "governance" / "mcp-trust.yaml"
@@ -640,7 +640,7 @@ def test_invariant_mcp_trust_store_is_immutable() -> None:
     """The in-memory trust store is frozen — a hook can't mutate trusted keys."""
     from dataclasses import FrozenInstanceError
 
-    from iris_harness.kernel.governance.mcp_signing import TrustedKey, TrustStore
+    from evarness.kernel.governance.mcp_signing import TrustedKey, TrustStore
 
     store = TrustStore(keys={"ops": TrustedKey(key_id="ops", public_key="AAAA")})
     with pytest.raises(FrozenInstanceError):
@@ -662,7 +662,7 @@ _HARDENING_BASELINE = (
 def test_invariant_hardening_baseline_holds_across_runtimes(tmp_path: Path) -> None:
     """Every sandbox backend carries the same hardening baseline — switching to a
     stronger runtime never *drops* the container hardening (it only adds to it)."""
-    from iris_harness.tools.sandbox import DockerSandbox, GVisorSandbox, SessionWorkspace
+    from evarness.tools.sandbox import DockerSandbox, GVisorSandbox, SessionWorkspace
 
     workspace = SessionWorkspace("iso", root=tmp_path)
     for sandbox in (DockerSandbox(workspace), GVisorSandbox(workspace)):
@@ -677,7 +677,7 @@ def test_invariant_hardening_baseline_holds_across_runtimes(tmp_path: Path) -> N
 def test_invariant_unavailable_strong_runtime_never_runs_unsandboxed(tmp_path: Path) -> None:
     """A requested-but-unavailable strong runtime resolves to docker-hardened or
     is disabled — never a bare (unsandboxed) host process."""
-    from iris_harness.tools.sandbox import (
+    from evarness.tools.sandbox import (
         DockerSandbox,
         GVisorSandbox,
         SandboxConfig,

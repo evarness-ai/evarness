@@ -1,7 +1,7 @@
 # Red-team detection corpus for the Phase 6 threat guards (sub-phase 6a.5).
 #
 # Labeled attack + benign examples used by the detection battery
-# (src/iris_harness/kernel/governance/threat/battery.py) to grade detection rate vs.
+# (src/evarness/kernel/governance/threat/battery.py) to grade detection rate vs.
 # false-positive rate. The benign control set is deliberately sized to make
 # false positives visible. Attack strings are defensive test fixtures
 # (authorized security testing) — patterns, not working exploits.

@@ -178,8 +178,8 @@ test("a blocked connect shows the login command, and Copy puts it on the clipboa
   const blocked = setupAt(ACCOUNT, "connect", {
     status: "waiting",
     waiting_kind: "blocked",
-    waiting_for: `${ACCOUNT} is not connected yet: run \`iris auth gmail login --user owner@example.com\`, then run setup again`,
-    connect_command: "iris auth gmail login --user owner@example.com",
+    waiting_for: `${ACCOUNT} is not connected yet: run \`evarness auth gmail login --user owner@example.com\`, then run setup again`,
+    connect_command: "evarness auth gmail login --user owner@example.com",
   });
   const api = fakeSetupApi([blocked]);
   await serve(page, api);
@@ -188,14 +188,14 @@ test("a blocked connect shows the login command, and Copy puts it on the clipboa
   const current = page.getByTestId("current-step");
   await expect(current).toHaveAttribute("data-waiting", "blocked");
   await expect(current.getByTestId("connect-command")).toHaveText(
-    "iris auth gmail login --user owner@example.com",
+    "evarness auth gmail login --user owner@example.com",
   );
   // No password or login form: the provider's own CLI login owns that.
   await expect(page.locator("input[type='password']")).toHaveCount(0);
   await current.getByRole("button", { name: "Copy" }).click();
   await expect(current.getByRole("button", { name: "Copied" })).toBeVisible();
   const copied = await page.evaluate(() => (window as unknown as { __copied: string[] }).__copied);
-  expect(copied).toEqual(["iris auth gmail login --user owner@example.com"]);
+  expect(copied).toEqual(["evarness auth gmail login --user owner@example.com"]);
   expect(api.posted).toEqual([]);
 });
 
@@ -210,14 +210,14 @@ test("when the clipboard refuses, the command is selected instead", async ({ pag
     status: "waiting",
     waiting_kind: "blocked",
     waiting_for: "not connected yet",
-    connect_command: "iris auth gmail login --user owner@example.com",
+    connect_command: "evarness auth gmail login --user owner@example.com",
   });
   await serve(page, fakeSetupApi([blocked]));
   await page.goto("/setup", { waitUntil: "networkidle" });
   await page.getByTestId("current-step").getByRole("button", { name: "Copy" }).click();
   await expect(page.getByText("Selected: copy it with your keyboard or menu.")).toBeVisible();
   expect(await page.evaluate(() => window.getSelection()?.toString())).toBe(
-    "iris auth gmail login --user owner@example.com",
+    "evarness auth gmail login --user owner@example.com",
   );
 });
 
@@ -226,8 +226,8 @@ test("with no mailbox yet, each provider's login is offered", async ({ page }) =
   await page.goto("/setup", { waitUntil: "networkidle" });
   const commands = page.getByTestId("start-panel").getByTestId("connect-command");
   await expect(commands).toHaveText([
-    "iris auth gmail login --user you@example.com",
-    "iris auth imap login --user you@example.com",
+    "evarness auth gmail login --user you@example.com",
+    "evarness auth imap login --user you@example.com",
   ]);
 });
 
@@ -244,11 +244,11 @@ test("the steps show done / now / ahead, each finished one in the server's words
   await expect(page.getByTestId("current-step")).toContainText("Next: Classify");
 });
 
-test("a finished setup leads with what IRIS just did", async ({ page }) => {
+test("a finished setup leads with what Evarness just did", async ({ page }) => {
   await serve(page, fakeSetupApi([setupAt(ACCOUNT, "complete")]));
   await page.goto("/setup", { waitUntil: "networkidle" });
   const summary = page.getByTestId("setup-summary");
-  await expect(summary).toContainText("What IRIS just did");
+  await expect(summary).toContainText("What Evarness just did");
   await expect(summary).toContainText("Mailbox writes approved: 180 label(s) written.");
   await expect(page.getByTestId("sweep")).toContainText("Scheduled sweep: on");
   await expect(page.getByTestId("current-step")).toHaveCount(0);
@@ -312,8 +312,8 @@ test("step 6 shows the preview and posts nothing until a button is clicked", asy
   await expect(approval.getByTestId("preview-total")).toHaveText("168 label(s) would be written");
   await expect(approval.getByTestId("preview-group")).toHaveCount(3);
   await expect(approval).toContainText("Your statement is ready");
-  await expect(approval).toContainText("IRIS labels removed from 2 email(s) marked promo.");
-  await expect(approval).toContainText(`iris email writes revoke --account ${ACCOUNT}`);
+  await expect(approval).toContainText("Evarness labels removed from 2 email(s) marked promo.");
+  await expect(approval).toContainText(`evarness email writes revoke --account ${ACCOUNT}`);
   await expect(approval.getByTestId("action-center-note")).toContainText("appr-42");
   await expect(approval.getByRole("link", { name: "Open the Action Center" })).toHaveAttribute(
     "href",
@@ -326,7 +326,7 @@ test("step 6 shows the preview and posts nothing until a button is clicked", asy
 });
 
 for (const [name, approve] of [
-  ["Approve: let IRIS label mail", true],
+  ["Approve: let Evarness label mail", true],
   ["Decline: keep it read-only", false],
 ] as const) {
   test(`step 6: "${name}" posts approve=${approve} to approve-writes`, async ({ page }) => {
@@ -349,7 +349,7 @@ test("a read-only console shows step 6 but offers no answer to it", async ({ pag
   await expect(page.getByRole("button", { name: /^Approve/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Decline/ })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /Start over/ })).toHaveCount(0);
-  await expect(page.getByTestId("setup-readonly")).toContainText("IRIS_WEBUI_ALLOW_WRITES");
+  await expect(page.getByTestId("setup-readonly")).toContainText("EVARNESS_WEBUI_ALLOW_WRITES");
   expect(api.posted).toEqual([]);
 });
 
@@ -442,7 +442,7 @@ test("a failed request says so and re-reads the state the server kept", async ({
   api.failWith(502, "Bad Gateway");
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("alert")).toContainText("Bad Gateway");
-  await expect(page.getByRole("alert")).toContainText("IRIS may have kept going");
+  await expect(page.getByRole("alert")).toContainText("Evarness may have kept going");
   await expect.poll(() => api.gets).toBeGreaterThan(before);
   await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
 });
@@ -510,7 +510,7 @@ async function lowContrast(page: Page, selector: string): Promise<string[]> {
 
 for (const theme of ["dark", "light"] as const) {
   test(`Setup reads at phone width in ${theme} mode`, async ({ page }) => {
-    await page.addInitScript((t) => localStorage.setItem("iris-theme", t), theme);
+    await page.addInitScript((t) => localStorage.setItem("evarness-theme", t), theme);
     await serve(page, fakeSetupApi([setupAt(ACCOUNT, "classify")]));
     await page.goto("/setup", { waitUntil: "networkidle" });
 

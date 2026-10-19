@@ -2,7 +2,7 @@
 
 Plain ``"Error: ..."`` text is recorded as a success: the call's rows carry no
 ``tool_error``, a write settles ``completed``, and only the loop's text-prefix check counts it
-toward the failure streak. ``FailedResult`` (``iris_harness.sdk.tools``) is the one way a tool
+toward the failure streak. ``FailedResult`` (``evarness.sdk.tools``) is the one way a tool
 reports a call that ran and did not do what was asked, without raising.
 
 This scan holds the source to it: no function returns a string starting ``Error:`` unless it
@@ -18,12 +18,12 @@ from typing import Any
 import pytest
 
 _ROOT = Path(__file__).resolve()
-while not (_ROOT / "src" / "iris_harness").is_dir():
+while not (_ROOT / "src" / "evarness").is_dir():
     if _ROOT == _ROOT.parent:
-        raise RuntimeError("could not locate repo root (src/iris_harness)")
+        raise RuntimeError("could not locate repo root (src/evarness)")
     _ROOT = _ROOT.parent
 
-_TREES = ("src/iris_harness", "src/iris_personal")
+_TREES = ("src/evarness", "src/evarness_personal")
 
 
 def _first_text(node: ast.expr) -> str | None:
@@ -58,7 +58,7 @@ def test_no_tool_returns_error_text_without_failed_result() -> None:
     ]
 
     assert offenders == [], (
-        "return FailedResult('Error: ...') (iris_harness.sdk.tools) so the call is recorded "
+        "return FailedResult('Error: ...') (evarness.sdk.tools) so the call is recorded "
         "as failed:\n" + "\n".join(offenders)
     )
 
@@ -81,12 +81,12 @@ def test_the_scan_sees_a_bare_error_return(tmp_path: Path) -> None:
     "tool",
     [
         "stock_quote",
-        "iris_doc",
+        "evarness_doc",
     ],
 )
 def test_a_built_in_tool_given_no_arguments_returns_a_failed_result(tool: str) -> None:
-    from iris_harness.runtime.react_tools import builtin_react_tools
-    from iris_harness.sdk.tools import FailedResult
+    from evarness.runtime.react_tools import builtin_react_tools
+    from evarness.sdk.tools import FailedResult
 
     specs = {
         spec.name: spec
@@ -162,7 +162,7 @@ def test_the_handler_scan_sees_an_unwrapped_failure(tmp_path: Path) -> None:
 
 
 def _react_tools(**kwargs: Any) -> dict[str, Any]:
-    from iris_harness.runtime.react_tools import builtin_react_tools
+    from evarness.runtime.react_tools import builtin_react_tools
 
     base: dict[str, Any] = {"semantic_index": None, "wiki": None, "repo_root": None}
     return {spec.name: spec for spec in builtin_react_tools(**{**base, **kwargs})}
@@ -187,7 +187,7 @@ def _react_tools(**kwargs: Any) -> dict[str, Any]:
 def test_a_tool_that_cannot_run_or_was_given_nothing_to_act_on_returns_a_failed_result(
     tool: str, args: dict[str, Any]
 ) -> None:
-    from iris_harness.sdk.tools import FailedResult
+    from evarness.sdk.tools import FailedResult
 
     result = _react_tools()[tool].call(args)
 
@@ -196,7 +196,7 @@ def test_a_tool_that_cannot_run_or_was_given_nothing_to_act_on_returns_a_failed_
 
 def test_an_empty_result_is_not_a_failure() -> None:
     """Nothing stored that matches is an answer, not a failed call."""
-    from iris_harness.sdk.tools import FailedResult
+    from evarness.sdk.tools import FailedResult
 
     class _Store:
         def search_turns(self, *args: Any, **kwargs: Any) -> list[Any]:

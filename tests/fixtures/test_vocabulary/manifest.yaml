@@ -4,7 +4,7 @@
 # relations to organisations, multi-valued properties and look-alike entities. The core
 # ontology deliberately has none of them: they belong to whichever plugin brings them.
 # The `test_vocabulary` fixture (tests/conftest.py) installs this directory through the
-# same seam a real plugin uses -- `iris_harness.memory.ontology.vocabulary_fragments()`,
+# same seam a real plugin uses -- `evarness.memory.ontology.vocabulary_fragments()`,
 # which reads `ontology:` from an installed plugin's manifest -- so these tests run the
 # same in every tree, whichever domain plugins it carries.
 name: test_vocabulary

@@ -15,23 +15,23 @@ from typing import Any
 
 import pytest
 
-import iris_personal.plugins.email_workflows as email_workflows
-from iris_harness.agent.agentic_core import (
+import evarness_personal.plugins.email_workflows as email_workflows
+from evarness.agent.agentic_core import (
     AgenticCore,
     AgenticCoreConfig,
     resume_seed_from_checkpoint,
 )
-from iris_harness.kernel.governance import GovernanceKernel, HookContext, HookDecision, HookPoint
-from iris_harness.kernel.governance.approvals import ApprovalQueue
-from iris_harness.kernel.governance.audit import AuditLog
-from iris_harness.kernel.governance.plugins import DestructiveApprovalHook, ToolPolicyHook
-from iris_harness.kernel.governance.side_effects import SideEffectLedger
-from iris_harness.kernel.governance.wiring import register_side_effect_ledger
-from iris_harness.memory.state import CheckpointStore
-from iris_harness.runtime.plugin_host.manifest import load_manifest
-from iris_personal.email.contracts import EmailMessage
-from iris_personal.email.store import EmailStore
-from iris_personal.email.trash_tools import build_trash_tools
+from evarness.kernel.governance import GovernanceKernel, HookContext, HookDecision, HookPoint
+from evarness.kernel.governance.approvals import ApprovalQueue
+from evarness.kernel.governance.audit import AuditLog
+from evarness.kernel.governance.plugins import DestructiveApprovalHook, ToolPolicyHook
+from evarness.kernel.governance.side_effects import SideEffectLedger
+from evarness.kernel.governance.wiring import register_side_effect_ledger
+from evarness.memory.state import CheckpointStore
+from evarness.runtime.plugin_host.manifest import load_manifest
+from evarness_personal.email.contracts import EmailMessage
+from evarness_personal.email.store import EmailStore
+from evarness_personal.email.trash_tools import build_trash_tools
 
 pytestmark = pytest.mark.integration
 
@@ -248,20 +248,20 @@ def runtime_world(
     the menu left to pool order every email tool fell off it and the fake model below
     never saw ``trash_email``. ``model`` ranks with the embedder, where it is on disk.
     """
-    from iris_harness.kernel.governance.evaluator import embeddings
-    from iris_harness.llm.client import CodingLLMClient
-    from iris_harness.runtime import build_runtime, routine_authoring
-    from iris_personal.email.providers import register_mail_provider
+    from evarness.kernel.governance.evaluator import embeddings
+    from evarness.llm.client import CodingLLMClient
+    from evarness.runtime import build_runtime, routine_authoring
+    from evarness_personal.email.providers import register_mail_provider
 
     if request.param == "no_model":
-        monkeypatch.setenv("IRIS_TEST_NULL_EMBEDDINGS", "1")
+        monkeypatch.setenv("EVARNESS_TEST_NULL_EMBEDDINGS", "1")
         monkeypatch.setattr(embeddings, "default_model_on_disk", lambda: False)
     elif not embeddings.default_model_on_disk():
         pytest.skip(f"needs the all-MiniLM-L6-v2 ONNX model at {embeddings.default_model_path()}")
     # A router built by an earlier test holds whichever embedder that test had.
     monkeypatch.setattr(routine_authoring, "_semantic_router_singleton", None)
     monkeypatch.setattr(routine_authoring, "_semantic_router_init_failed", False)
-    monkeypatch.delenv("IRIS_GOVERNANCE_ENABLED", raising=False)
+    monkeypatch.delenv("EVARNESS_GOVERNANCE_ENABLED", raising=False)
     monkeypatch.setattr(CodingLLMClient, "invoke", _model)
     config_dir, data_dir = tmp_path / "config", tmp_path / "data"
     config_dir.mkdir()
@@ -289,8 +289,8 @@ def test_an_email_turn_runs_on_the_loop_that_can_pause(runtime_world: Any) -> No
 
 
 def test_trash_routed_to_the_email_agent_halts_then_approving_trashes(runtime_world: Any) -> None:
-    from iris_harness.agent.agent_executor import AgentTask
-    from iris_harness.kernel.governance.approvals.service import respond_to_approval
+    from evarness.agent.agent_executor import AgentTask
+    from evarness.kernel.governance.approvals.service import respond_to_approval
 
     runtime, store, gmail = runtime_world
     result = runtime.agent_executor.execute(
@@ -318,7 +318,7 @@ def test_trash_routed_to_the_email_agent_halts_then_approving_trashes(runtime_wo
 
 # --- the owner confirms once, on the card (2026-09-21) ------------------------------
 #
-# The owner said "yes" to "Do you want to allow IRIS to manage your Gmail account for
+# The owner said "yes" to "Do you want to allow Evarness to manage your Gmail account for
 # deleting emails?" and then had the approval card to answer as well. qwen2.5 asks first
 # whatever the prompt says, so once it has tried the tool the loop turns the ask back
 # until the card is shown.

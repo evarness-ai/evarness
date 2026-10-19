@@ -3,9 +3,9 @@
 # opens is resolved and checked to sit inside one of them (symlinks and `..` refused).
 # Nothing here can name the identity files (SOUL/USER/AGENTS), the vault, a .env, the
 # user's data directories or any store: they are not under these roots, and a root that
-# overlaps IRIS_HOME / the data or governance directories is refused at load.
+# overlaps EVARNESS_HOME / the data or governance directories is refused at load.
 #
-# This shipped file is the allow-list. A docs_search.yaml under IRIS_CONFIG_DIR can only
+# This shipped file is the allow-list. A docs_search.yaml under EVARNESS_CONFIG_DIR can only
 # NARROW it (roots and extensions intersect, limits take the smaller value); a root it adds
 # is ignored. Every root must be a plain relative path under docs/.
 #

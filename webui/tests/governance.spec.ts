@@ -1,6 +1,6 @@
 /* The builder showcase (OSS plan R17/R12): Governance and Call trace.
  *
- * What a builder evaluating IRIS should see on a phone: every governed call with who
+ * What a builder evaluating Evarness should see on a phone: every governed call with who
  * made it (an MCP client is `mcp:<client>`), whether a deterministic handler answered,
  * local or cloud; the proof bundle's three invariants verified over the last week, with
  * the evidence and the CLI to reproduce it; the owner-PII shadow counts; and, on a call
@@ -288,8 +288,8 @@ test("the proof bundle shows each invariant, its evidence and the CLI", async ({
   await expect(invariants.nth(1)).toContainText("holds (nothing observed)");
   await expect(invariants.nth(2)).toContainText("holds");
   await expect(invariants.nth(2)).toContainText("80 model calls observed");
-  await expect(proof).toContainText("iris governance proof-bundle check --days 7");
-  await expect(proof).toContainText("iris governance proof-bundle verify proof-bundle.json");
+  await expect(proof).toContainText("evarness governance proof-bundle check --days 7");
+  await expect(proof).toContainText("evarness governance proof-bundle verify proof-bundle.json");
   await expect(page.getByText("violations", { exact: true })).toBeVisible();
 });
 
@@ -335,8 +335,8 @@ test("a call trace lists every hook decision of the turn, in order", async ({ pa
 });
 
 /* A fresh install (OSS plan R17, public issue #20): no turn has run, so the ledger, the
- * proof window and the trace list are empty. FRESH (tests/fresh-install.ts) is what the IRIS API
- * answers on an empty IRIS_HOME. Each screen must say what to do next, never sit on a
+ * proof window and the trace list are empty. FRESH (tests/fresh-install.ts) is what the Evarness API
+ * answers on an empty EVARNESS_HOME. Each screen must say what to do next, never sit on a
  * spinner, and never show canned traces as if they were the owner's. */
 async function serveFresh(page: Page): Promise<string[]> {
   const errors: string[] = [];
@@ -361,14 +361,14 @@ test("on a fresh install, Governance says what to do next", async ({ page }) => 
 
   await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
   await expect(page.getByText("No governance decisions yet")).toContainText(
-    "ask IRIS something in Chat",
+    "ask Evarness something in Chat",
   );
   // The three invariants hold over nothing, and the card says so instead of a bare pass.
   const invariants = page.getByTestId("proof-invariant");
   await expect(invariants).toHaveCount(3);
   for (let i = 0; i < 3; i++) await expect(invariants.nth(i)).toContainText("holds (nothing observed)");
   await expect(page.getByTestId("proof-bundle")).toContainText("Nothing recorded in this window yet");
-  await expect(page.getByTestId("pii-shadow")).toContainText("IRIS_GOVERNANCE_OWNER_PII is off here");
+  await expect(page.getByTestId("pii-shadow")).toContainText("EVARNESS_GOVERNANCE_OWNER_PII is off here");
   expect(errors).toEqual([]);
 });
 
@@ -400,7 +400,7 @@ test("on a fresh install, Call trace says what to do next, not mock traces", asy
 
   const empty = page.getByTestId("calltrace-empty");
   await expect(empty).toContainText("No turns traced yet");
-  await expect(empty).toContainText("Ask IRIS something in Chat");
+  await expect(empty).toContainText("Ask Evarness something in Chat");
   await expect(page.getByText("mock data")).toHaveCount(0);
   await expect(page.getByText("Loading trace")).toHaveCount(0);
   await expect(page).toHaveURL(/\/calltrace$/);

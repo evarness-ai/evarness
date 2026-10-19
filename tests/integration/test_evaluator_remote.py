@@ -1,6 +1,6 @@
 """Integration test: agent ↔ remote evaluator HTTP round-trip (story 12.gov-3.9).
 
-Spins up the FastAPI ``src/iris_harness/server/evaluator`` app in-process and proxies
+Spins up the FastAPI ``src/evarness/server/evaluator`` app in-process and proxies
 sync httpx requests through the FastAPI ``TestClient`` so the agent
 side talks to the real route handlers (no socket needed). This is the
 AC-2/AC-6 proof: same ``SignalResult`` shape between local and remote;
@@ -15,12 +15,12 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
-from iris_harness.foundation.auth import auth_headers
-from iris_harness.kernel.governance.evaluator import EvaluatorHook, StepRecord
-from iris_harness.kernel.governance.evaluator.client import RemoteEvaluatorClient
-from iris_harness.kernel.governance.evaluator.signals import StepCapSignal
-from iris_harness.kernel.governance.hooks.types import HookContext, HookPoint
-from iris_harness.server.evaluator.main import create_app
+from evarness.foundation.auth import auth_headers
+from evarness.kernel.governance.evaluator import EvaluatorHook, StepRecord
+from evarness.kernel.governance.evaluator.client import RemoteEvaluatorClient
+from evarness.kernel.governance.evaluator.signals import StepCapSignal
+from evarness.kernel.governance.hooks.types import HookContext, HookPoint
+from evarness.server.evaluator.main import create_app
 
 
 def _proxy_transport(fastapi_app: TestClient) -> httpx.MockTransport:
@@ -117,7 +117,7 @@ def test_remote_step_cap_halts_at_threshold(remote_client: RemoteEvaluatorClient
 
 def test_in_process_mode_still_default() -> None:
     """AC-6: existing in-process mode continues to work."""
-    from iris_harness.kernel.governance.evaluator import EvaluatorRegistry
+    from evarness.kernel.governance.evaluator import EvaluatorRegistry
 
     reg = EvaluatorRegistry()
     reg.register(StepCapSignal(default_threshold=20))

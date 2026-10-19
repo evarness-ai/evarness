@@ -7,7 +7,7 @@ version: 0.1.0
 description: Generic web content fetcher — dispatches on (type, category) to
   GitHub Trending, HackerNews, RSS feeds, and Yahoo Finance. Returns a uniform
   list of dicts per category for use in brief skills.
-author: iris
+author: evarness
 license: Apache-2.0
 tools:
   - name: fetch_web_content
