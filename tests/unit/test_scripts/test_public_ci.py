@@ -167,14 +167,21 @@ def test_the_test_matrix_is_the_supported_python_range() -> None:
     assert "schedule" not in triggers
 
 
-def test_pypi_publishing_is_trusted_publishing() -> None:
+def test_pypi_publishing_is_trusted_publishing_with_a_token_bridge() -> None:
+    """The publish step keeps the OIDC permission for trusted publishing and takes its
+    password from one environment secret, never a literal: with the secret absent the action
+    falls back to trusted publishing, with it set the token uploads. The token is the bridge
+    while PyPI's publisher for the project still names the pre-rename repository."""
     jobs = _load(WORKFLOWS / "release.yml")["jobs"]
     publish = jobs["pypi"]
     assert publish["permissions"] == {"id-token": "write"}
     assert publish["environment"]["name"] == "pypi"
     (step,) = [s for s in publish["steps"] if "pypi-publish" in str(s.get("uses", ""))]
-    assert "password" not in (step.get("with") or {}), "trusted publishing needs no token"
-    assert "repository-url" not in (step.get("with") or {}), "the real release goes to PyPI"
+    with_ = step.get("with") or {}
+    assert (
+        with_.get("password") == "${{ secrets.PYPI_API_TOKEN }}"
+    ), "the token is a secret, or absent"
+    assert "repository-url" not in with_, "the real release goes to PyPI"
     triggers = _triggers(_load(WORKFLOWS / "release.yml"))
     assert set(triggers) == {"push", "workflow_dispatch"}
     assert set(triggers["push"]) == {"tags"}  # a tag publishes; a branch push never does
