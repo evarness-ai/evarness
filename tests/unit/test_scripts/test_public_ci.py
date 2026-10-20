@@ -19,11 +19,11 @@ from __future__ import annotations
 
 import json
 import re
+import tomllib
 from pathlib import Path
 from typing import Any
 
 import pytest
-import tomllib
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -156,7 +156,7 @@ def test_no_run_script_interpolates_event_data(path: Path) -> None:
 
 def test_the_test_matrix_is_the_supported_python_range() -> None:
     pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert pyproject["tool"]["poetry"]["dependencies"]["python"] == ">=3.12,<3.14"
+    assert pyproject["project"]["requires-python"] == ">=3.12,<3.14"
     test = _load(WORKFLOWS / "ci.yml")["jobs"]["test"]
     # Pull requests and pushes run 3.12 only; 3.13 joins on a manual full=true run.
     expr = test["strategy"]["matrix"]["python-version"]

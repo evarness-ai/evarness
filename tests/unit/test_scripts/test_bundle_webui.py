@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tomllib
 from pathlib import Path
 from types import ModuleType
 from typing import Any
 
 import pytest
-import tomllib
 import yaml
 
 from evarness.server.harness_api import static_ui

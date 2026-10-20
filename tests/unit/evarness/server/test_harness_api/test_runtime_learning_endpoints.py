@@ -3,7 +3,7 @@ surfaces. A dummy runtime avoids building the real one."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -44,7 +44,7 @@ def test_learning_experiments_serializes_records() -> None:
         baseline_metric=0.42,
         current_metric=0.55,
         status="kept",
-        created_at=datetime(2026, 6, 20, tzinfo=timezone.utc),
+        created_at=datetime(2026, 6, 20, tzinfo=UTC),
         started_at=None,
         evaluated_at=None,
         evaluation_window_hours=24,

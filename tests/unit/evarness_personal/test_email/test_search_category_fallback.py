@@ -12,7 +12,7 @@ the search drops it, searches the whole inbox, and says that is what it did.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +36,7 @@ def data_dir(tmp_path: Path) -> Path:
             from_address='"Anthropic, PBC" <invoice+statements@mail.anthropic.com>',
             subject="Your receipt from Anthropic, PBC #2208-9031-8878",
             snippet="Receipt for your subscription",
-            received_at=datetime(2026, 9, 19, tzinfo=timezone.utc),
+            received_at=datetime(2026, 9, 19, tzinfo=UTC),
         )
     )
     return tmp_path
@@ -71,7 +71,7 @@ def test_a_category_with_no_matching_mail_is_dropped_and_says_so(data_dir: Path)
             thread_id="2",
             from_address="bank@example.com",
             subject="Statement ready",
-            received_at=datetime(2026, 9, 19, tzinfo=timezone.utc),
+            received_at=datetime(2026, 9, 19, tzinfo=UTC),
         )
     )
     store.mark_classified("2", category="email/bills/bank", confidence=0.9)

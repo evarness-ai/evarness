@@ -24,11 +24,13 @@ under, so it fails on 3.11 until you pass one). On 3.14 or later from a clone, P
 "The currently activated Python version is not supported by the project" and looks for a
 compatible interpreter; install 3.12 or 3.13 first (`.python-version` pins 3.12).
 
-**`uv sync` installed nothing.** `uv sync` is for projects that declare themselves under
-`[project]`. Evarness declares itself under `[tool.poetry]`, so in a clone uv finds no
-dependencies and no `requires-python`, guesses `>=3.13` and builds an empty environment.
-To run Evarness, install the package: `uv tool install "evarness[email]"`. To work on the
-code, use `poetry install --with dev --extras email`.
+**`uv sync` installed nothing.** On 0.2.2 and earlier the project declared itself only
+under `[tool.poetry]`, so in a clone uv found no project, resolved an empty workspace and
+built an empty environment. Since 0.2.3 the project is declared under `[project]` as well:
+`uv sync` installs the package and the `evarness` command into `.venv`
+(`uv run evarness doctor`). The development tools, the gate's ruff, black, mypy and
+pytest, are Poetry's dev group: to work on the code, use
+`poetry install --with dev --extras email`.
 
 **Windows.** Run Evarness with Docker Desktop, or inside WSL2. Native Windows is for
 development: `evarness doctor` warns on the platform row but does not block. See

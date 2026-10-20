@@ -186,9 +186,9 @@ poetry run evarness email demo           # the whole stack from source: no accou
 scripts/ci_local.sh --fast               # ruff, black, mypy, import contracts, the tests for what changed
 ```
 
-Evarness is a Poetry project: `poetry install` is the step, and `uv sync` in a clone
-installs nothing and no `evarness` command (the `uv tool install` line above is for using
-it, not working on it).
+`uv sync` in a clone installs the package and the `evarness` command too
+(`uv run evarness doctor`); the gate's tools are Poetry's dev group, so `poetry install`
+is the step to work on the code.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the governance rules every change keeps, the DCO
 sign-off, the stable-tier rule and **where help is wanted**. Read the

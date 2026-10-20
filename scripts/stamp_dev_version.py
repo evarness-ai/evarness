@@ -47,14 +47,14 @@ def _replace_once(text: str, pattern: str, value: str, where: Path) -> str:
 
 def stamp(run_number: int, pyproject: Path = PYPROJECT, init: Path = INIT) -> str:
     """Rewrite both version lines to the dev version; return it."""
-    base = tomllib.loads(pyproject.read_text(encoding="utf-8"))["tool"]["poetry"]["version"]
+    base = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
     version = dev_version(base, run_number)
-    # The [tool.poetry] table opens the file, so its `version =` is the first one.
+    # The [project] table opens the file, so its `version =` is the first one.
     text = _replace_once(
         pyproject.read_text(encoding="utf-8"), r'^(version = )"[^"]*"', version, pyproject
     )
-    if tomllib.loads(text)["tool"]["poetry"]["version"] != version:
-        raise ValueError(f"{pyproject}: the first `version =` is not [tool.poetry]'s")
+    if tomllib.loads(text)["project"]["version"] != version:
+        raise ValueError(f"{pyproject}: the first `version =` is not [project]'s")
     pyproject.write_text(text, encoding="utf-8")
     init_text = init.read_text(encoding="utf-8")
     init.write_text(

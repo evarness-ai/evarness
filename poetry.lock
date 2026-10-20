@@ -7335,4 +7335,4 @@ ml = ["sentence-transformers"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.14"
-content-hash = "4db878e090018cfc8ff3a057ddbdfaa7123be8c2a4b5bf0574d9feb9672f02ce"
+content-hash = "ffdc3397ea181ccfced60c4f6088ca411a8aaa2146c2e4ca39a02c364d6c0ffe"
