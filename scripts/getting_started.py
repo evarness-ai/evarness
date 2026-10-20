@@ -188,9 +188,26 @@ def run(docs: Path, workdir: Path | None) -> int:
     return 0
 
 
+COMMANDS = ("run", "list")
+
+NOT_THE_CLI = (
+    "{word!r} is not a command of this script, which runs the getting-started pages' shell "
+    "blocks for CI ({commands}). The Evarness CLI is `evarness`: `uv tool install "
+    '"evarness[email]"` to use it, `poetry install` in a clone to work on it (`uv sync` '
+    "installs nothing here)."
+)
+
+
 def main(argv: list[str] | None = None) -> int:
+    args_in = sys.argv[1:] if argv is None else argv
+    first = next((a for a in args_in if not a.startswith("-")), None)
+    if first is not None and first not in COMMANDS:
+        # Someone reaching for `evarness doctor` in a clone where `uv sync` installed no
+        # CLI lands here; argparse's "invalid choice" would send them nowhere.
+        print(NOT_THE_CLI.format(word=first, commands=", ".join(COMMANDS)), file=sys.stderr)
+        return 2
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("command", choices=("run", "list"))
+    parser.add_argument("command", choices=COMMANDS)
     parser.add_argument("--docs", type=Path, default=DOCS, help="the getting-started dir")
     parser.add_argument("--workdir", type=Path, help="where the blocks run (default: cwd)")
     args = parser.parse_args(argv)

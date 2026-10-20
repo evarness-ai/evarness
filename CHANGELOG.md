@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `scripts/getting_started.py`, given an Evarness command such as `doctor`, says it is CI's runner of the docs' shell blocks and names the CLI and the two ways to install it. In a clone where `uv sync` installed no `evarness` command it was the nearest runnable thing, and argparse's bare "invalid choice" sent a tester nowhere. The README's contributing section says the same about `uv sync`.
+
 - `evarness governance proof-bundle export --home HOME`: one flag for the ledger and the session logs of one Evarness home (`HOME/governance/audit.db` and `HOME/logs`), the demo's home first of all. `--db` and `--session-logs` still override each one.
 - `evarness email demo` ends with the command that verifies the run it just made, ledger and session logs from its own home.
 
