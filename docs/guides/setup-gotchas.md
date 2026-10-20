@@ -14,6 +14,14 @@ only to shells started afterwards. See [Install](../getting-started/install.md#p
 **`uv` or `pipx` is not installed.** Neither ships with Python. If you have `pip`,
 `pip install uv` is the shortest route.
 
+**`evarness` prints `usage: evarness [-h] {validate,run,render,prove,verify,export,patterns}`.**
+That is not the harness. The verifier shipped as `evarness` 0.1.0a1 on PyPI in July 2026,
+before the harness took the name (it is `evarness-verify` now), and a machine that
+installed it then keeps it: a later `uv tool install "evarness[email]"` answers
+"already installed" and leaves it in place. Run
+`uv tool install "evarness[email]" --upgrade` (or `pipx install --force "evarness[email]"`);
+`evarness --version` then says `Evarness 0.2.x`.
+
 **The wrong Python.** Evarness needs Python 3.12 or 3.13. A plain `uv tool install` fetches
 one for you, so it works whatever Python the machine has. If it stops with
 `No solution found ... evarness depends on Python>=3.12,<3.14`, uv is pinned to another

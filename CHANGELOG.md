@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The install line is `uv tool install "evarness[email]" --upgrade`: on a machine that installed the verifier's pre-release, which shipped as `evarness` 0.1.0a1 on PyPI before the harness took the name, the plain line answered "already installed" and left the verifier's CLI in place, so `evarness doctor` printed its `invalid choice`. The setup-gotchas page names the symptom.
 - `scripts/ci_local.sh` runs its playground smoke step in a scratch home it removes afterwards. Run with the developer's environment, the playground wrote its session logs into the developer's own `~/.evarness/logs`, where the owner's proof bundle then read them (#363).
 - `proof-bundle export --db` with a ledger inside a home's `governance/` now reads that home's `logs/` as well, instead of the owner's. Before, the demo's ledger was checked against the owner's own chat sessions and `every-call-and-answer-audited` failed for sessions the demo never ran (#362). When `--db` and `--session-logs` name two homes, the export says so.
 

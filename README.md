@@ -46,7 +46,7 @@ sets everything up in Docker Desktop; see the
 [Windows guide](https://evarness-ai.github.io/evarness/guides/windows/).
 
 ```bash
-uv tool install "evarness[email]"   # or: pipx install "evarness[email]"
+uv tool install "evarness[email]" --upgrade   # or: pipx install "evarness[email]"
 evarness doctor                     # can Evarness run here, and what to fix
 evarness email demo                 # a synthetic mailbox, a scripted model, no network
 ```

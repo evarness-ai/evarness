@@ -19,7 +19,7 @@ it, and leaves an audit row for every call.
 ## Three minutes, no credentials
 
 ```text
-uv tool install "evarness[email]"   # or: pipx install "evarness[email]"
+uv tool install "evarness[email]" --upgrade   # or: pipx install "evarness[email]"
 evarness doctor                             # can Evarness run here, and what to fix
 evarness email demo                         # a synthetic mailbox, a scripted model, no network
 evarness email setup                        # then your own mailbox, step by step
