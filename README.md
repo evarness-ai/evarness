@@ -39,8 +39,10 @@ adaptation. Governance provides authority.
 ## Try it in three minutes
 
 You need [uv](https://docs.astral.sh/uv/) or [pipx](https://pipx.pypa.io/)
-([install notes](https://evarness-ai.github.io/evarness/getting-started/install/)). On
-Windows, one script sets everything up in Docker Desktop; see the
+([install notes](https://evarness-ai.github.io/evarness/getting-started/install/)), and
+Python 3.12 or 3.13: `uv` fetches one if you have neither, and a uv or pipx pinned to
+another Python says `No solution found`; pass `--python 3.13` then. On Windows, one script
+sets everything up in Docker Desktop; see the
 [Windows guide](https://evarness-ai.github.io/evarness/guides/windows/).
 
 ```bash
