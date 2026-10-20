@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/ci_local.sh` runs its playground smoke step in a scratch home it removes afterwards. Run with the developer's environment, the playground wrote its session logs into the developer's own `~/.evarness/logs`, where the owner's proof bundle then read them (#363).
 - `proof-bundle export --db` with a ledger inside a home's `governance/` now reads that home's `logs/` as well, instead of the owner's. Before, the demo's ledger was checked against the owner's own chat sessions and `every-call-and-answer-audited` failed for sessions the demo never ran (#362). When `--db` and `--session-logs` name two homes, the export says so.
 
 ## [0.2.2] - 2026-10-19
