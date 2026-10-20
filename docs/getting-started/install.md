@@ -26,7 +26,7 @@ With [uv](https://docs.astral.sh/uv/):
 
 <!-- ci: install -->
 ```bash
-uv tool install "evarness[email]"
+uv tool install "evarness[email]" --upgrade
 ```
 
 Or with [pipx](https://pipx.pypa.io/):
@@ -38,8 +38,10 @@ pipx install "evarness[email]"
 
 The `[email]` extra adds the Gmail client libraries. Without it Evarness is still the email
 assistant over IMAP. Either way you get one command, `evarness`, in an isolated
-environment of its own. To upgrade later, run `uv tool upgrade evarness` (or
-`pipx upgrade evarness`).
+environment of its own. `--upgrade` makes the same line an upgrade later, and replaces an
+older `evarness` already on the machine (the verifier's pre-release shared the name; see
+[setup gotchas](../guides/setup-gotchas.md)); `uv tool upgrade evarness` or
+`pipx upgrade evarness` do the same.
 
 ### Put `evarness` on your PATH
 
