@@ -128,14 +128,27 @@ run_smoke_pytest() {
   poetry run pytest --no-cov -n "$WORKERS" -q -m smoke
 }
 
+# The playground run goes through the real runtime, so it writes session logs, a ledger
+# and memory wherever EVARNESS_HOME points. The unit suite relocates that before import;
+# this process gets a scratch home of its own, removed afterwards, so a gate run leaves
+# nothing in the developer's ~/.evarness (#363: its session logs ended up in the owner's
+# proof bundle).
+run_playground_smoke() {
+  local scratch; scratch=$(mktemp -d "${TMPDIR:-/tmp}/evarness-gate.XXXXXX") || return 1
+  EVARNESS_HOME="$scratch/home" EVARNESS_DATA_DIR="$scratch/home/data" \
+    poetry run evarness playground run core-deterministic
+  local rc=$?
+  rm -rf "$scratch"
+  return $rc
+}
+
 # ------------------------------------------------------------ mode: --smoke
 if [[ $SMOKE_ONLY -eq 1 ]]; then
   RUN_QUALITY=0
   RUN_SCAN=0
   RUN_WEBUI=0
   step "Pytest (smoke marker only)" run_smoke_pytest &&
-  step "Playground smoke (deterministic suite)" \
-      poetry run evarness playground run core-deterministic
+  step "Playground smoke (deterministic suite, scratch home)" run_playground_smoke
 fi
 
 # --------------------------------------------------------------- job: quality
@@ -177,8 +190,7 @@ if [[ $RUN_QUALITY -eq 1 ]]; then
       step "Pytest (smoke marker)" run_smoke_pytest
     fi
   } &&
-  step "Playground smoke (deterministic suite)" \
-      poetry run evarness playground run core-deterministic
+  step "Playground smoke (deterministic suite, scratch home)" run_playground_smoke
 else
   skip "job: quality"
 fi
