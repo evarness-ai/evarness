@@ -184,6 +184,10 @@ poetry run evarness email demo           # the whole stack from source: no accou
 scripts/ci_local.sh --fast               # ruff, black, mypy, import contracts, the tests for what changed
 ```
 
+Evarness is a Poetry project: `poetry install` is the step, and `uv sync` in a clone
+installs nothing and no `evarness` command (the `uv tool install` line above is for using
+it, not working on it).
+
 [CONTRIBUTING.md](CONTRIBUTING.md) has the governance rules every change keeps, the DCO
 sign-off, the stable-tier rule and **where help is wanted**. Read the
 [code of conduct](CODE_OF_CONDUCT.md). Coding agents: [AGENTS.md](AGENTS.md). Questions and
