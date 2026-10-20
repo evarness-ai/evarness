@@ -6,14 +6,14 @@ keeps only the seam a plugin registers them on (``api.register_credential_check`
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from evarness.sdk.health import CheckKind, HealthState
 from evarness_personal.connections.google import google_credential_checks, reset_probe_cache
 
-_NOW = datetime(2026, 6, 20, 12, 0, tzinfo=timezone.utc)
+_NOW = datetime(2026, 6, 20, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture(autouse=True)

@@ -1,18 +1,17 @@
-[tool.poetry]
+[project]
 name = "evarness"
 version = "0.2.2"
 description = "The governed agent harness for small local models. It proves what it did."
-authors = ["Evarness contributors"]
 readme = "README.md"
 license = "Apache-2.0"
-homepage = "https://github.com/evarness-ai/evarness"
-repository = "https://github.com/evarness-ai/evarness"
-documentation = "https://github.com/evarness-ai/evarness/blob/main/README.md"
+authors = [{ name = "Evarness contributors" }]
+# 3.13 supported since 2026-09-26: the core has no 3.12-only code; what held it back was
+# numpy<2 (no cp313 wheels) and heavy dependencies nothing imported.
+requires-python = ">=3.12,<3.14"
 keywords = ["ai", "llm", "agent", "harness", "governance", "privacy", "ollama", "local-first", "mcp", "plugins"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
@@ -23,6 +22,45 @@ classifiers = [
     "Environment :: Console",
     "Environment :: Web Environment",
 ]
+# The dependency table stays Poetry's ([tool.poetry.dependencies]: caret constraints and
+# the optional markers the extras name), which PEP 621 spells by listing dependencies
+# here as dynamic. Everything else about the package is in this table, so uv, pip and any
+# PEP 621 reader see a project: `uv sync` in a clone used to resolve an empty workspace
+# and install nothing (#373).
+dynamic = ["dependencies"]
+
+[project.urls]
+Homepage = "https://github.com/evarness-ai/evarness"
+Repository = "https://github.com/evarness-ai/evarness"
+Documentation = "https://evarness-ai.github.io/evarness/"
+"Bug Tracker" = "https://github.com/evarness-ai/evarness/issues"
+Changelog = "https://github.com/evarness-ai/evarness/blob/main/CHANGELOG.md"
+
+[project.scripts]
+evarness = "evarness.main:main"
+
+# The domain plugins, discovered exactly as a third-party plugin is: by the
+# `evarness.plugins` entry-point group, with their manifest.yaml read from beside
+# the module named here (OSS plan M6, decisions 2 and 10). The public tree ships the
+# email slice's three (R2) -- the email profile mounts them; `default` names none -- and
+# the fenced four stay private until release 2.
+[project.entry-points."evarness.plugins"]
+email_workflows = "evarness_personal.plugins.email_workflows.plugin:setup"
+gmail = "evarness_personal.plugins.gmail.plugin:setup"
+imap = "evarness_personal.plugins.imap.plugin:setup"
+
+[project.optional-dependencies]
+# The email assistant (OSS plan R2/R6), declared in the public tree only: here the Google
+# packages are main dependencies already (see the dependency table), and an extra that
+# names a main dependency would make it extra-only in the wheel.
+# The versions repeat the dependency table's optional entries below, which carry the
+# same constraints for the lock: this table is what the wheel's Requires-Dist reads.
+email = ["google-api-python-client>=2.0,<3.0", "google-auth>=2.0,<3.0", "google-auth-oauthlib>=1.0,<2.0", "scikit-learn>=1.3"]
+ml = ["sentence-transformers>=5.5.1,<6.0"]
+all = ["sentence-transformers>=5.5.1,<6.0", "google-api-python-client>=2.0,<3.0", "google-auth>=2.0,<3.0", "google-auth-oauthlib>=1.0,<2.0", "scikit-learn>=1.3"]
+
+[tool.poetry]
+# What PEP 621 cannot say: where the packages are, what else ships, and what stays out.
 packages = [
     { include = "evarness", from = "src" },
     { include = "memris", from = "src" },  # the memory-graph engine, public (ADR-0115 decision 10)
@@ -72,28 +110,7 @@ exclude = [
 "config/skills/research/research-draft/**/*",
 ]
 
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/evarness-ai/evarness/issues"
-"Changelog" = "https://github.com/evarness-ai/evarness/blob/main/CHANGELOG.md"
-
-[tool.poetry.scripts]
-evarness = "evarness.main:main"
-
-# The domain plugins, discovered exactly as a third-party plugin is: by the
-# `evarness.plugins` entry-point group, with their manifest.yaml read from beside
-# the module named here (OSS plan M6, decisions 2 and 10). The public tree ships the
-# email slice's three (R2) -- the email profile mounts them; `default` names none -- and
-# the fenced four stay private until release 2.
-[tool.poetry.plugins."evarness.plugins"]
-email_workflows = "evarness_personal.plugins.email_workflows.plugin:setup"
-gmail = "evarness_personal.plugins.gmail.plugin:setup"
-imap = "evarness_personal.plugins.imap.plugin:setup"
-
 [tool.poetry.dependencies]
-# 3.13 supported since 2026-09-26: the core has no 3.12-only code; what held it back was
-# numpy<2 (no cp313 wheels) and heavy dependencies nothing imported.
-python = ">=3.12,<3.14"
-
 # LangChain: the only parts the code imports. `langchain_core.tools.BaseTool` is every
 # tool's base class (skills, MCP bridge, research); the two chat clients are llm/client.py's
 # (lazily). 1.x since 2026-09-26, which the private coding agent's langgraph 1.x needs.
@@ -202,14 +219,6 @@ pytest-xdist = "^3.6"
 import-linter = "^2.15"
 
 
-[tool.poetry.extras]
-# The email assistant (OSS plan R2/R6), declared in the public tree only: here the Google
-# packages are main dependencies already (see the dependency table), and an extra that
-# names a main dependency would make it extra-only in the wheel.
-email = ["google-api-python-client", "google-auth", "google-auth-oauthlib", "scikit-learn"]
-ml = ["sentence-transformers"]
-all = ["sentence-transformers", "google-api-python-client", "google-auth", "google-auth-oauthlib", "scikit-learn"]
-
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -220,6 +229,10 @@ target-version = ['py312']
 
 [tool.ruff]
 line-length = 100
+# Explicit, and the same value ruff infers from [project].requires-python. Before the
+# [project] table ruff had nothing to infer from and fell back to 3.9, which kept the
+# 3.12-era UP rules off and sorted tomllib (stdlib since 3.11) as third-party.
+target-version = "py312"
 
 [tool.ruff.lint]
 # BLE: a broad `except` must say why (`# noqa: BLE001 — reason`) or narrow. T20: no
@@ -227,7 +240,11 @@ line-length = 100
 # RUF100: a `# noqa` for a rule that is off or not triggered is an error, so markers
 # stay honest (0.16 upgrade: 1534 such markers removed; their reasons kept as comments).
 select = ["E", "W", "F", "I", "B", "C4", "UP", "S", "BLE", "T20", "RUF100"]
-ignore = ["E501", "S101"]
+# UP042 and UP047 arrived with the 3.12 target. UP042 rewrites `(str, Enum)` classes to
+# StrEnum, which changes what str() and format() of a member return; UP047 rewrites
+# signatures to PEP 695 generics. Both are code changes to review on their own, not to
+# slip in with a packaging change (#375 tracks adopting them).
+ignore = ["E501", "S101", "UP042", "UP047"]
 
 [tool.ruff.lint.isort]
 # Every source root under src/, named so grouping does not depend on ruff's detection

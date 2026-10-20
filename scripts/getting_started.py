@@ -194,7 +194,7 @@ NOT_THE_CLI = (
     "{word!r} is not a command of this script, which runs the getting-started pages' shell "
     "blocks for CI ({commands}). The Evarness CLI is `evarness`: `uv tool install "
     '"evarness[email]"` to use it, `poetry install` in a clone to work on it (`uv sync` '
-    "installs nothing here)."
+    "gives the package and the command, not the development tools)."
 )
 
 

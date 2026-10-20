@@ -120,7 +120,7 @@ def test_render_agents_overview_counts(store: TaskStore) -> None:
 
 # ── Per-agent metrics rollup (ADR-0074) ────────────────────────────────────
 
-from datetime import datetime, timezone  # noqa: E402
+from datetime import UTC, datetime  # noqa: E402
 
 
 def _cell(intent, tier, samples, done, *, corr_n=0, tokens=None, reuse=0):
@@ -140,7 +140,7 @@ def _report(*cells):
     return SimpleNamespace(
         matrix=tuple(cells),
         window_hours=168.0,
-        sampled_at=datetime(2026, 6, 22, tzinfo=timezone.utc),
+        sampled_at=datetime(2026, 6, 22, tzinfo=UTC),
     )
 
 

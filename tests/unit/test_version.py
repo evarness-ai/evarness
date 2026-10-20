@@ -4,9 +4,9 @@ stale and shipped 0.1.1 printing "Evarness 0.1.0"."""
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
-import tomllib
 from typer.testing import CliRunner
 
 import evarness
@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_the_package_version_is_the_one_pyproject_declares() -> None:
     declared = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert evarness.__version__ == declared["tool"]["poetry"]["version"]
+    assert evarness.__version__ == declared["project"]["version"]
 
 
 def test_evarness_version_prints_the_package_version() -> None:

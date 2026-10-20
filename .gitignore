@@ -228,3 +228,7 @@ data/memris-migration/
 # Playwright (webui viewport smoke) — reports and per-run artifacts.
 webui/playwright-report/
 webui/test-results/
+
+# uv writes one next to poetry.lock when a clone runs `uv sync` (the [project] table makes
+# that work); Poetry's lock is the one the gate and the release build from.
+uv.lock

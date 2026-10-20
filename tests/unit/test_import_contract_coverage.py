@@ -14,10 +14,10 @@ from the public export) are skipped.
 
 from __future__ import annotations
 
+import tomllib
 from pathlib import Path
 
 import pytest
-import tomllib
 
 _ROOT = Path(__file__).resolve()
 while not (_ROOT / "src" / "evarness").is_dir():

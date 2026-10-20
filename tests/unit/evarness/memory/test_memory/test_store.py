@@ -54,7 +54,7 @@ def test_low_confidence_does_not_clobber_higher(tmp_path) -> None:
 
     ms = MemoryStore(db_path=tmp_path / "m.db")
     ms.ensure_schema()
-    now = _dt.datetime.now(_dt.timezone.utc)
+    now = _dt.datetime.now(_dt.UTC)
 
     def _fact(v, c):
         return UserFact(

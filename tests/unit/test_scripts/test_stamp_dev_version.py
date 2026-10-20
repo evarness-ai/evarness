@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+import tomllib
 from pathlib import Path
 from types import ModuleType
 
 import pytest
-import tomllib
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -64,10 +64,10 @@ def test_the_run_number_must_be_positive() -> None:
 
 def test_both_version_lines_move_together(tmp_path: Path) -> None:
     pyproject, init = _copies(tmp_path)
-    base = tomllib.loads(pyproject.read_text("utf-8"))["tool"]["poetry"]["version"]
+    base = tomllib.loads(pyproject.read_text("utf-8"))["project"]["version"]
     version = stamp_dev_version.stamp(42, pyproject=pyproject, init=init)
     assert version == f"{base}.dev42"
-    assert tomllib.loads(pyproject.read_text("utf-8"))["tool"]["poetry"]["version"] == version
+    assert tomllib.loads(pyproject.read_text("utf-8"))["project"]["version"] == version
     namespace: dict[str, object] = {}
     exec(init.read_text("utf-8"), namespace)  # noqa: S102 -- a copy of our own file
     assert namespace["__version__"] == version
