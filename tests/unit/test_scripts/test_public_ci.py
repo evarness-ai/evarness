@@ -178,7 +178,9 @@ def test_pypi_publishing_is_trusted_publishing_with_a_token_bridge() -> None:
     assert publish["environment"]["name"] == "pypi"
     (step,) = [s for s in publish["steps"] if "pypi-publish" in str(s.get("uses", ""))]
     with_ = step.get("with") or {}
-    assert with_.get("password") == "${{ secrets.PYPI_API_TOKEN }}", "the token is a secret, or absent"
+    assert (
+        with_.get("password") == "${{ secrets.PYPI_API_TOKEN }}"
+    ), "the token is a secret, or absent"
     assert "repository-url" not in with_, "the real release goes to PyPI"
     triggers = _triggers(_load(WORKFLOWS / "release.yml"))
     assert set(triggers) == {"push", "workflow_dispatch"}
