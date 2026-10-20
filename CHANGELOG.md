@@ -7,12 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-20
+
 ### Added
 
 - `pyproject.toml` declares the project under `[project]` (PEP 621): name, version, `requires-python`, the console script, the plugin entry points, the extras and the URLs. The dependency table stays Poetry's, listed as dynamic. `uv sync` in a clone now installs the package and the `evarness` command instead of resolving an empty workspace (#373); `uv build` and `poetry build` produce the same wheel metadata as before, with the license as a `License-Expression`. The version is read from `[project]` by the release workflow, the TestPyPI stamper and the version test.
-
 - `scripts/getting_started.py`, given an Evarness command such as `doctor`, says it is CI's runner of the docs' shell blocks and names the CLI and the two ways to install it. In a clone where `uv sync` installed no `evarness` command it was the nearest runnable thing, and argparse's bare "invalid choice" sent a tester nowhere. The README's contributing section says the same about `uv sync`.
-
 - `evarness governance proof-bundle export --home HOME`: one flag for the ledger and the session logs of one Evarness home (`HOME/governance/audit.db` and `HOME/logs`), the demo's home first of all. `--db` and `--session-logs` still override each one.
 - `evarness email demo` ends with the command that verifies the run it just made, ledger and session logs from its own home.
 
