@@ -320,6 +320,54 @@ proof_bundle_app = typer.Typer(
 governance_app.add_typer(proof_bundle_app, name="proof-bundle")
 
 
+def _home_of_ledger(db: Path) -> Path | None:
+    """The Evarness home a ledger path belongs to: ``<home>/governance/audit.db``."""
+    return db.parent.parent if db.parent.name == "governance" else None
+
+
+def _home_of_logs(logs: Path) -> Path | None:
+    """The Evarness home a session-log directory belongs to: ``<home>/logs``."""
+    return logs.parent if logs.name == "logs" else None
+
+
+def resolve_bundle_sources(
+    *,
+    home: Path | None,
+    db: Path | None,
+    session_logs: Path | None,
+    default_db: Path,
+    default_logs: Path,
+) -> tuple[Path, Path, str | None]:
+    """Where an export reads its ledger and its session logs, and a note when the two
+    come from different homes.
+
+    ``--home`` names both (``<home>/governance/audit.db`` and ``<home>/logs``); ``--db``
+    and ``--session-logs`` each override one. A ``--db`` alone that sits in a home's
+    ``governance/`` brings that home's ``logs/`` with it: the ledger of one home checked
+    against another home's sessions fails every-call-and-answer-audited for sessions the
+    ledger never saw (#362), which is what happened with the demo's ledger and the
+    owner's own chat sessions.
+    """
+    ledger = db or (home / "governance" / "audit.db" if home else default_db)
+    if session_logs is not None:
+        logs = session_logs
+    elif home is not None:
+        logs = home / "logs"
+    elif db is not None and (ledger_home := _home_of_ledger(db)) is not None:
+        logs = ledger_home / "logs"
+    else:
+        logs = default_logs
+    ledger_home, logs_home = _home_of_ledger(ledger), _home_of_logs(logs)
+    note = None
+    if ledger_home is not None and logs_home is not None and ledger_home != logs_home:
+        note = (
+            f"note: the ledger is {ledger_home}'s and the session logs are {logs_home}'s; "
+            "a bundle across two homes does not verify. Pass --home, or --session-logs "
+            "for the ledger's home."
+        )
+    return ledger, logs, note
+
+
 @proof_bundle_app.command("export")
 def proof_bundle_export(
     out: Annotated[Path, typer.Option("--out", help="Where to write the bundle (JSON).")],
@@ -333,6 +381,14 @@ def proof_bundle_export(
         list[str] | None, typer.Option("--run", help="Only this run id (repeatable).")
     ] = None,
     subject: Annotated[str, typer.Option("--subject", help="What the bundle covers.")] = "",
+    home: Annotated[
+        Path | None,
+        typer.Option(
+            "--home",
+            help="An Evarness home (the demo's, say): its governance/audit.db and logs/ "
+            "stand in for --db and --session-logs.",
+        ),
+    ] = None,
     db: Annotated[
         Path | None, typer.Option("--db", help="Audit ledger (default: this home's).")
     ] = None,
@@ -361,14 +417,20 @@ def proof_bundle_export(
     from evarness.foundation.paths import audit_db_path
     from evarness.kernel.governance.audit import proof_bundle
 
-    ledger = db or audit_db_path()
+    ledger, logs, note = resolve_bundle_sources(
+        home=home,
+        db=db,
+        session_logs=session_logs,
+        default_db=audit_db_path(),
+        default_logs=session_log_dir(),
+    )
     if not ledger.exists():
         print_error(f"no audit ledger at {ledger}")
         raise typer.Exit(2)
+    if note:
+        console.print(note)
     try:
-        seen = proof_bundle.observations_from_session_logs(
-            session_logs or session_log_dir(), since=since, until=until
-        )
+        seen = proof_bundle.observations_from_session_logs(logs, since=since, until=until)
         if observations is not None:
             raw = json.loads(observations.read_text(encoding="utf-8"))
             seen = seen + proof_bundle.observations_from_json(raw)

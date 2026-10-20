@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 import json
+import shutil
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -491,3 +492,59 @@ def test_the_cli_exports_and_verifies(ledger: AuditLog, tmp_path: Path) -> None:
 
     out.write_text("not json")
     assert runner.invoke(governance_app, ["proof-bundle", "verify", str(out)]).exit_code == 2
+
+
+def test_the_cli_takes_a_home_for_the_ledger_and_the_session_logs(
+    ledger: AuditLog, tmp_path: Path
+) -> None:
+    """``--home`` is the demo's case: one flag names the ledger and the session logs of
+    one home, so a bundle is never built across two homes (#362)."""
+    home = tmp_path / "demo-home"
+    (home / "governance").mkdir(parents=True)
+    shutil.copy(ledger.db_path, home / "governance" / "audit.db")
+    out = tmp_path / "bundle.json"
+    runner = CliRunner()
+    made = runner.invoke(
+        governance_app, ["proof-bundle", "export", "--home", str(home), "--out", str(out)]
+    )
+    assert made.exit_code == 0, made.output
+    flat = " ".join(made.output.split())  # the console wraps long lines
+    assert "0 model call(s), 0 answer(s)" in flat  # the home has no logs/ yet
+    assert runner.invoke(governance_app, ["proof-bundle", "verify", str(out)]).exit_code == 0
+
+
+def test_the_export_resolves_its_sources_from_one_home() -> None:
+    from evarness.cli.governance import resolve_bundle_sources
+
+    owner_db, owner_logs = Path("/share/evarness/audit.db"), Path("/home/me/.evarness/logs")
+    demo = Path("/home/me/.evarness-demo")
+    kw = {"default_db": owner_db, "default_logs": owner_logs}
+    # Nothing given: the owner's ledger and the owner's logs, as before.
+    assert resolve_bundle_sources(home=None, db=None, session_logs=None, **kw) == (
+        owner_db, owner_logs, None,
+    )  # fmt: skip
+    # --home names both.
+    assert resolve_bundle_sources(home=demo, db=None, session_logs=None, **kw) == (
+        demo / "governance" / "audit.db", demo / "logs", None,
+    )  # fmt: skip
+    # --db alone, inside a home's governance/: that home's logs come with it. This is the
+    # case the README's demo command hit: the demo's ledger against the owner's sessions.
+    assert resolve_bundle_sources(
+        home=None, db=demo / "governance" / "audit.db", session_logs=None, **kw
+    ) == (demo / "governance" / "audit.db", demo / "logs", None)
+    # --db somewhere that is not a home: the default logs, and no claim about homes.
+    assert resolve_bundle_sources(home=None, db=Path("/tmp/copy.db"), session_logs=None, **kw) == (
+        Path("/tmp/copy.db"),
+        owner_logs,
+        None,
+    )
+    # Both given, from different homes: honoured, with a note that says so.
+    ledger, logs, note = resolve_bundle_sources(
+        home=None, db=demo / "governance" / "audit.db", session_logs=owner_logs, **kw
+    )
+    assert (ledger, logs) == (demo / "governance" / "audit.db", owner_logs)
+    assert note and str(demo) in note and "does not verify" in note
+    # Explicit flags beat --home.
+    assert resolve_bundle_sources(
+        home=demo, db=Path("/tmp/copy.db"), session_logs=Path("/tmp/logs"), **kw
+    ) == (Path("/tmp/copy.db"), Path("/tmp/logs"), None)

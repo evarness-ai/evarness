@@ -55,10 +55,17 @@ verifier passed now fails, which is the point.
 ```bash
 evarness governance proof-bundle export --out bundle.json \
     [--since ISO] [--until ISO] [--run RUN_ID ...] [--subject TEXT] \
-    [--db AUDIT_DB] [--session-logs DIR] [--observations observed.json]
+    [--home HOME] [--db AUDIT_DB] [--session-logs DIR] [--observations observed.json]
 evarness governance proof-bundle verify bundle.json    # exit 0 verified, 1 a violation, 2 unreadable
 evarness governance proof-bundle check [--days 7] [--json]   # export + verify in memory, per invariant
 ```
+
+`--home` names another Evarness home, the demo's for one (`~/.evarness-demo`): its
+`governance/audit.db` and `logs/` are the ledger and the session logs. `--db` and
+`--session-logs` each override one; a `--db` alone that sits in a home's `governance/`
+brings that home's `logs/` with it. The two must be one home's: a ledger checked against
+another home's sessions fails `every-call-and-answer-audited` for calls the ledger never
+saw, and `export` says so when the flags point at two homes.
 
 `check` writes nothing: it exports the last `--days` of the ledger with the session logs'
 observations and verifies it, reporting per invariant whether it holds, why not, and the
