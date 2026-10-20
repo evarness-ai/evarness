@@ -375,6 +375,9 @@ def render_summary(report: DemoReport) -> str:
         "own (`evarness learning status`).",
         "",
         f"Everything is in {report.home}. Run it again: nothing is fetched or judged twice.",
+        "Verify this run offline, ledger and session logs from this home: "
+        f"`evarness governance proof-bundle export --home {report.home} --out bundle.json "
+        "&& evarness governance proof-bundle verify bundle.json`.",
         "Connect your own mailbox with `evarness email setup` when you are ready.",
     ]
     return "\n".join(lines)

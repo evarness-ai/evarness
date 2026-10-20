@@ -367,6 +367,8 @@ def test_the_demo_runs_end_to_end_offline_and_audits_every_model_call(
     assert "Model calls: 125" in summary and "Network connections attempted: 0" in summary
     assert f"labelled {report.labels_written} email(s) in the demo mailbox" in summary
     assert "evarness email writes approve --account" in summary  # what a real mailbox needs
+    # The run says how to verify itself, ledger and session logs from its own home (#362).
+    assert f"proof-bundle export --home {home} --out bundle.json" in summary
 
 
 def test_a_second_run_fetches_and_judges_nothing(

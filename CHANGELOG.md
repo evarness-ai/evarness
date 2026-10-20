@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `evarness governance proof-bundle export --home HOME`: one flag for the ledger and the session logs of one Evarness home (`HOME/governance/audit.db` and `HOME/logs`), the demo's home first of all. `--db` and `--session-logs` still override each one.
+- `evarness email demo` ends with the command that verifies the run it just made, ledger and session logs from its own home.
+
+### Fixed
+
+- `proof-bundle export --db` with a ledger inside a home's `governance/` now reads that home's `logs/` as well, instead of the owner's. Before, the demo's ledger was checked against the owner's own chat sessions and `every-call-and-answer-audited` failed for sessions the demo never ran (#362). When `--db` and `--session-logs` name two homes, the export says so.
+
 ## [0.2.2] - 2026-10-19
 
 ### Changed

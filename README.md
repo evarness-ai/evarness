@@ -56,8 +56,7 @@ touches yours. Export that home's proof bundle, ledger and session logs both, an
 offline:
 
 ```bash
-evarness governance proof-bundle export --db ~/.evarness-demo/governance/audit.db \
-    --session-logs ~/.evarness-demo/logs --out bundle.json
+evarness governance proof-bundle export --home ~/.evarness-demo --out bundle.json
 evarness governance proof-bundle verify bundle.json   # exit 0 verified, 1 a violation
 ```
 
