@@ -77,7 +77,7 @@ def install_health_routes(app: FastAPI, runtime: Callable[[], Any]) -> None:
         heartbeats = getattr(rt, "heartbeats", None)
         if heartbeats is None:
             return []
-        return heartbeats.diagnose()
+        return list(heartbeats.diagnose())
 
     @app.get("/health/connectors")
     def health_connectors(live: bool = False) -> dict[str, Any]:
