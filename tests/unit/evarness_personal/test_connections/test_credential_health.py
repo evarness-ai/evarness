@@ -215,12 +215,42 @@ def test_a_new_token_voids_the_old_revoked_verdict() -> None:
     assert check.state is HealthState.GREEN  # the owner re-logged in; stale verdict ignored
 
 
-def test_a_revoked_verdict_expires_after_the_probe_interval() -> None:
+def test_a_revoked_verdict_still_holds_on_local_ticks_after_the_probe_interval() -> None:
+    """A refused refresh token does not recover by itself: hours later the local tick
+    must still read red, or the incident closes as fixed and the next probe reopens it
+    with a new message (the cloud trial's Calendar alert, 34 times in a month)."""
     _probe(lambda _addr: None)
+
+    def must_not_call(_addr: str) -> object:
+        raise AssertionError("a local tick never touches the network")
+
     later = google_credential_checks(
-        [_provider4(lambda _addr: None)], now=_NOW + timedelta(hours=2), net_probe=False
+        [_provider4(must_not_call)], now=_NOW + timedelta(hours=2), net_probe=False
     )
-    assert later[0].state is HealthState.GREEN
+    assert later[0].state is HealthState.RED
+
+
+def test_a_live_probe_after_the_interval_re_asks_a_revoked_verdict() -> None:
+    _probe(lambda _addr: None)  # revoked
+    later = _NOW + timedelta(hours=2)
+    [check] = google_credential_checks(
+        [_provider4(lambda _addr: object())], now=later, net_probe=True
+    )
+    assert check.state is HealthState.GREEN  # the provider now refreshes it
+    [local] = google_credential_checks([_provider4(lambda _addr: None)], now=later, net_probe=False)
+    assert local.state is HealthState.GREEN  # and the new verdict is what the ticks read
+
+
+def test_a_connected_verdict_ages_out_after_the_probe_interval() -> None:
+    calls: list[str] = []
+
+    def _loader(addr: str) -> object:
+        calls.append(addr)
+        return object()
+
+    google_credential_checks([_provider4(_loader)], now=_NOW, net_probe=True)
+    google_credential_checks([_provider4(_loader)], now=_NOW + timedelta(hours=2), net_probe=True)
+    assert len(calls) == 2  # re-probed once the hour was up
 
 
 def test_net_probe_reads_the_typed_revoked_error_as_revoked() -> None:
