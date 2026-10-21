@@ -78,6 +78,16 @@ _ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _INDEX_CACHE_CONTROL = "no-cache"
 _NOSNIFF = {"X-Content-Type-Options": "nosniff"}
 
+# The types the build's assets are served with, by suffix. Left to ``mimetypes``,
+# Windows answers from the registry, where ``.js`` is often ``text/plain``: a
+# browser refuses that as a module script (and, under nosniff, a stylesheet with
+# the wrong type), so the console loads blank. Any other suffix is still guessed.
+_ASSET_TYPES: dict[str, str] = {
+    ".js": "text/javascript",
+    ".mjs": "text/javascript",
+    ".css": "text/css",
+}
+
 # Root-level build output (track 2b PR 8). Unhashed names, so like the shell
 # they must be revalidated: a stale service worker would outlive the deploy
 # that replaced it, and a stale manifest would keep an old name on the Home
@@ -163,7 +173,11 @@ def install_static_ui(app: FastAPI) -> bool:
             asset = _asset_file(assets_root, path)
             if asset is None:
                 return JSONResponse(status_code=404, content={"detail": "Not Found"})
-            return FileResponse(asset, headers={"Cache-Control": _ASSET_CACHE_CONTROL, **_NOSNIFF})
+            return FileResponse(
+                asset,
+                media_type=_ASSET_TYPES.get(asset.suffix.lower()),
+                headers={"Cache-Control": _ASSET_CACHE_CONTROL, **_NOSNIFF},
+            )
         root_file = _ROOT_FILES.get(path.lstrip("/"))
         if root_file is not None and "/" not in path.lstrip("/"):
             candidate = dist / path.lstrip("/")

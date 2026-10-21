@@ -168,6 +168,21 @@ def test_assets_carry_the_type_a_browser_demands(
     assert resp.headers["content-type"].startswith(content_type)
 
 
+@pytest.mark.parametrize(
+    ("name", "content_type"),
+    [("index-abc123.js", "text/javascript"), ("index-abc123.css", "text/css")],
+)
+def test_asset_types_do_not_come_from_the_platform_guess(
+    anonymous: TestClient, monkeypatch: pytest.MonkeyPatch, name: str, content_type: str
+) -> None:
+    # Windows answers mimetypes from the registry, where .js is often text/plain.
+    import starlette.responses
+
+    monkeypatch.setattr(starlette.responses, "guess_type", lambda *_a, **_k: ("text/plain", None))
+    resp = anonymous.get(f"/assets/{name}")
+    assert resp.headers["content-type"].startswith(content_type)
+
+
 def test_an_asset_opened_in_a_tab_is_the_asset_not_the_shell(anonymous: TestClient) -> None:
     resp = anonymous.get("/assets/index-abc123.js", headers=_NAVIGATE)
     assert resp.text == _ASSET_JS
