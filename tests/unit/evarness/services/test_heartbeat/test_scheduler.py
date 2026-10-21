@@ -253,3 +253,71 @@ def test_no_declared_owners_means_nothing_is_judged_a_typo(caplog) -> None:  # t
     with caplog.at_level("DEBUG", logger=_SCHED_LOGGER):
         scheduler.register_all([definition])
     assert not [r for r in caplog.records if r.levelname == "WARNING"]
+
+
+def test_a_registered_job_never_runs_beside_itself_whoever_asks() -> None:
+    import threading
+
+    started, release = threading.Event(), threading.Event()
+    calls: list[str] = []
+
+    def slow(definition: HeartbeatDefinition) -> HeartbeatRun:
+        calls.append(definition.name)
+        started.set()
+        release.wait(5)
+        return _ok(definition)
+
+    scheduler = HeartbeatScheduler(handlers={"job": slow})
+    scheduler.register(
+        HeartbeatDefinition(
+            name="job", handler="job", schedule="interval:60", retry_skipped_after_minutes=5
+        )
+    )
+    worker = threading.Thread(target=scheduler.trigger_by_name, args=("job",))
+    worker.start()
+    assert started.wait(5)
+
+    second = scheduler.trigger_by_name("job", trigger="manual")
+    release.set()
+    worker.join(5)
+
+    assert second is not None and second.already_running
+    assert second.status is HeartbeatStatus.SKIPPED
+    assert calls == ["job"]
+    # Not a run: neither in the process's runs nor owed a retry.
+    assert [run.already_running for run in scheduler.runs()] == [False]
+    assert scheduler.running_names() == frozenset()
+
+
+def test_an_ad_hoc_definition_is_not_held_to_one_run() -> None:
+    # A routine's one-off render shares its name across routines; the routine layer
+    # guards it, not the scheduler.
+    scheduler = HeartbeatScheduler(handlers={"brief": _ok})
+    run = scheduler.trigger_now(
+        HeartbeatDefinition(name="skill_brief", handler="brief", schedule="manual")
+    )
+    assert run.status is HeartbeatStatus.SUCCESS and not run.already_running
+
+
+def test_diagnose_does_not_call_a_running_job_overdue() -> None:
+    import threading
+    from datetime import timedelta
+
+    started, release = threading.Event(), threading.Event()
+
+    def slow(definition: HeartbeatDefinition) -> HeartbeatRun:
+        started.set()
+        release.wait(5)
+        return _ok(definition)
+
+    scheduler = HeartbeatScheduler(handlers={"job": slow})
+    scheduler.register(HeartbeatDefinition(name="job", handler="job", schedule="interval:60"))
+    later = datetime.now(UTC) + timedelta(minutes=10)
+    assert [d.reason for d in scheduler.diagnose(now=later)] == ["never_ran"]
+
+    worker = threading.Thread(target=scheduler.trigger_by_name, args=("job",))
+    worker.start()
+    assert started.wait(5)
+    assert scheduler.diagnose(now=later) == []
+    release.set()
+    worker.join(5)

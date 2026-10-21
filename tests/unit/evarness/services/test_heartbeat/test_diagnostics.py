@@ -83,3 +83,38 @@ def test_recent_interval_success_not_reported() -> None:
     )
 
     assert issues == []
+
+
+def test_a_running_job_is_neither_overdue_nor_failed() -> None:
+    created = datetime(2026, 10, 20, 20, 0, tzinfo=UTC)
+    defs = [
+        HeartbeatDefinition(name="routine_tick", handler="routine_tick", schedule="interval:60"),
+        HeartbeatDefinition(name="email_judge", handler="email_judge", schedule="*/30 * * * *"),
+    ]
+    runs = [
+        HeartbeatRun(
+            name="routine_tick",
+            status=HeartbeatStatus.SUCCESS,
+            started_at=created,
+            finished_at=created,
+        ),
+        HeartbeatRun(
+            name="email_judge",
+            status=HeartbeatStatus.FAILED,
+            started_at=created,
+            finished_at=created,
+            error="model unreachable",
+        ),
+    ]
+    now = created + timedelta(hours=2)
+
+    assert {d.name for d in diagnose_heartbeats(defs, runs, created_at=created, now=now)} == {
+        "routine_tick",
+        "email_judge",
+    }
+    assert (
+        diagnose_heartbeats(
+            defs, runs, created_at=created, now=now, running={"routine_tick", "email_judge"}
+        )
+        == []
+    )

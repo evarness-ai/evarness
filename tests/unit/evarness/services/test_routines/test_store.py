@@ -473,3 +473,24 @@ def test_unknown_pinned_zone_falls_back_to_machine_local(tmp_path) -> None:
     spec = store.save(_pinned_daily("09:00", zone="Mars/Olympus_Mons"))
 
     assert store.list_due(now=_local(2026, 5, 8, 9, 0)) == [spec]
+
+
+def test_claim_lets_one_of_two_callers_take_a_due_slot(tmp_path) -> None:
+    store = RoutineStore(tmp_path / "routines.db")
+    spec = create_routine_spec(
+        title="Digest",
+        goal="Send the digest",
+        schedule="interval:60",
+        template="morning-briefing",
+        approval_status=RoutineApprovalStatus.SCHEDULED,
+    )
+    store.save(spec)
+    at = datetime(2026, 10, 20, 20, 40, 16, tzinfo=UTC)
+    # Both read the routine as due before either ran it.
+    first_read, second_read = store.list_due(now=at), store.list_due(now=at)
+
+    assert store.claim(first_read[0], at=at) is True
+    assert store.claim(second_read[0], at=at) is False
+    assert store.list_due(now=at) == []
+    claimed = store.load(spec.id)
+    assert claimed is not None and claimed.last_run_at == at and claimed.run_count == 0

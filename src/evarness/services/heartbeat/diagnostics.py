@@ -6,6 +6,7 @@ provides a direct command the user can run to recover.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, tzinfo
 
@@ -53,6 +54,7 @@ def diagnose_heartbeats(
     created_at: datetime,
     now: datetime | None = None,
     tz: tzinfo | None = None,
+    running: Collection[str] = (),
 ) -> list[HeartbeatDiagnostic]:
     """Return heartbeat issues that need user action.
 
@@ -61,6 +63,9 @@ def diagnose_heartbeats(
     - Interval schedules: overdue when last run (or startup) is beyond cadence+grace.
     - Cron schedules: overdue when next scheduled fire after the last run/startup
       has already passed by a small grace window.
+    - A job in ``running`` (a run in progress now) is neither: its run decides. Judged
+      from the last *finished* run alone, a 60 s tick busy with a 3-minute digest read
+      as overdue, and the health watch re-ran it beside itself (the doubled digest).
     """
 
     now_utc = now or datetime.now(UTC)
@@ -80,6 +85,8 @@ def diagnose_heartbeats(
         if not definition.enabled:
             continue
 
+        if definition.name in running:
+            continue
         last = last_by_name.get(definition.name)
         last_finished = _finished_at(last)
         action = f"evarness heartbeats trigger {definition.name}"

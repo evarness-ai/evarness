@@ -21,6 +21,7 @@ from .schedule_text import validate_schedule
 if TYPE_CHECKING:
     from evarness.foundation.settings import SettingsStore
 
+    from .diagnostics import HeartbeatDiagnostic
     from .run_store import HeartbeatRunStore, StoredRun
     from .slots import JobStatus
 
@@ -515,6 +516,26 @@ class HeartbeatScheduler:
                 lambda: self._running.get(name, 0) == 0, timeout=max(timeout, 0.0)
             )
 
+    def running_names(self) -> frozenset[str]:
+        """The jobs with a run in progress right now."""
+        with self._idle:
+            return frozenset(name for name, count in self._running.items() if count > 0)
+
+    def diagnose(self, *, now: datetime | None = None) -> list[HeartbeatDiagnostic]:
+        """The scheduled jobs that need attention (``diagnose_heartbeats``), judged with
+        what is running now — a job in progress is not overdue. The one way every
+        surface (the health watch, ``/heartbeat``, ``/health``) asks."""
+        from .diagnostics import diagnose_heartbeats
+
+        return diagnose_heartbeats(
+            self.list_definitions(),
+            self.runs(),
+            created_at=self.created_at(),
+            now=now,
+            tz=self._tz,
+            running=self.running_names(),
+        )
+
     def runs(self) -> list[HeartbeatRun]:
         """This process's runs, in memory (every tick, lost on restart)."""
         return list(self._runs)
@@ -607,6 +628,29 @@ class HeartbeatScheduler:
     ) -> HeartbeatRun:
         started = datetime.now(UTC)
         with self._idle:
+            # One run of a registered job at a time, whoever asks: APScheduler's
+            # max_instances=1 covers only its own fires, while Run now, the health
+            # watch's re-run and the skipped-run retry come through here. A second run
+            # beside the first doubles its effects — the 2026-10 cloud trial delivered
+            # the digest twice on 13 of 25 days that way. Checked and claimed under one
+            # lock, so two callers cannot both see the job idle. An ad-hoc definition
+            # (a routine's one-off ``skill_brief`` render) is not a registered job;
+            # its caller owns that guard (``execute_routine``).
+            if self._running.get(definition.name, 0) > 0 and definition.name in self._definitions:
+                logger.info(
+                    "heartbeat %s is already running; not starting a second run (%s)",
+                    definition.name,
+                    trigger,
+                )
+                return HeartbeatRun(
+                    name=definition.name,
+                    status=HeartbeatStatus.SKIPPED,
+                    started_at=started,
+                    finished_at=started,
+                    output=f"{definition.name} is already running; not starting a second run",
+                    trigger=trigger,
+                    already_running=True,
+                )
             self._running[definition.name] = self._running.get(definition.name, 0) + 1
         try:
             run = handler(definition)

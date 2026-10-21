@@ -67,3 +67,7 @@ class HeartbeatRun:
     # ``schedule`` when the scheduler fired it, ``manual`` for a trigger (Run now, the
     # health watch's re-run, the API). Set by the scheduler, not the handler.
     trigger: str = "schedule"
+    # True when the scheduler did NOT start this run because one of the same job was
+    # already in progress (one run of a job at a time, whoever asks). Such a run is
+    # ``skipped``, is not kept and owes no retry: the run in progress is the job's run.
+    already_running: bool = False

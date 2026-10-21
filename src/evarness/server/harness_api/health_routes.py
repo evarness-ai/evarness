@@ -67,30 +67,17 @@ def install_health_routes(app: FastAPI, runtime: Callable[[], Any]) -> None:
         heartbeat), building one on a cold cache. Pure read — no governed call.
         Also backs the existing `evarness status` CLI, which calls this path."""
         from evarness.services.health.service import current_snapshot
-        from evarness.services.heartbeat.diagnostics import diagnose_heartbeats
 
         rt = runtime()
         heartbeats = getattr(rt, "heartbeats", None)
-        diagnostics = (
-            diagnose_heartbeats(
-                heartbeats.list_definitions(),
-                heartbeats.runs(),
-                created_at=heartbeats.created_at(),
-            )
-            if heartbeats is not None
-            else []
-        )
+        diagnostics = heartbeats.diagnose() if heartbeats is not None else []
         return current_snapshot(heartbeat_diagnostics=diagnostics).as_dict()
 
     def _heartbeat_diagnostics(rt: Any) -> list[Any]:
-        from evarness.services.heartbeat.diagnostics import diagnose_heartbeats
-
         heartbeats = getattr(rt, "heartbeats", None)
         if heartbeats is None:
             return []
-        return diagnose_heartbeats(
-            heartbeats.list_definitions(), heartbeats.runs(), created_at=heartbeats.created_at()
-        )
+        return heartbeats.diagnose()
 
     @app.get("/health/connectors")
     def health_connectors(live: bool = False) -> dict[str, Any]:

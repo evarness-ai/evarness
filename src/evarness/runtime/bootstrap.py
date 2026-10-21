@@ -256,7 +256,6 @@ def _mount_plugins(runtime: EvarnessRuntime, in_process: Sequence[InProcessPlugi
     from evarness.runtime.plugin_host import add_in_process, load_plugins, load_profile
     from evarness.runtime.plugin_host.harness_topics import GuardedEventBus
     from evarness.services.health.service import register_check_provider
-    from evarness.services.heartbeat.diagnostics import diagnose_heartbeats
 
     runtime.profile = add_in_process(load_profile(runtime.config_dir), in_process)
     runtime.tool_service = ToolService(
@@ -292,11 +291,7 @@ def _mount_plugins(runtime: EvarnessRuntime, in_process: Sequence[InProcessPlugi
         conversation_in_flight=runtime.routines.has_active_routine_conversation,
         default_channel=lambda: runtime.default_channel,
         tools=runtime.tool_service,
-        heartbeat_diagnostics=lambda: diagnose_heartbeats(
-            runtime.heartbeats.list_definitions(),
-            runtime.heartbeats.runs(),
-            created_at=runtime.heartbeats.created_at(),
-        ),
+        heartbeat_diagnostics=lambda: runtime.heartbeats.diagnose(),
     )
     # Capability calls are governed by the runtime's kernel (plugin-capabilities §4); read
     # per call, like the tool service's, and unbound they fail closed.

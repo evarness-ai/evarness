@@ -91,6 +91,11 @@ def heartbeat_retry_repairer(heartbeats: Any, *, skip: Sequence[str] = ()) -> Re
         run = heartbeats.trigger_by_name(name)
         if run is None:
             return RepairOutcome(f"re-run {name}", ok=False, detail="no such heartbeat")
+        if getattr(run, "already_running", False):
+            # The scheduler would not start it beside the run in progress, and nothing
+            # was repaired: not ok, not final. The diagnostics do not flag a running
+            # job, so the next pass reads it as it is once that run ends.
+            return RepairOutcome(f"re-run {name}", ok=False, detail="already running; left alone")
         status = getattr(getattr(run, "status", None), "value", str(getattr(run, "status", "")))
         ok = status == "success"
         detail = (getattr(run, "error", "") or getattr(run, "output", "") or status).strip()
