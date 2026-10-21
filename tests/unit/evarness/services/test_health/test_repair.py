@@ -146,3 +146,19 @@ def test_first_claiming_repairer_wins_and_errors_become_outcomes() -> None:
     assert outcome.detail == "OSError: network down"
     assert outcome.final is False  # a network blip is worth another try
     assert run_repairs(_red("governor"), [not_mine]) is None
+
+
+def test_heartbeat_retry_leaves_a_run_in_progress_alone() -> None:
+    class _Busy:
+        def trigger_by_name(self, name: str):
+            return SimpleNamespace(
+                status=SimpleNamespace(value="skipped"),
+                error="",
+                output=f"{name} is already running",
+                already_running=True,
+            )
+
+    outcome = heartbeat_retry_repairer(_Busy())(_red("heartbeat:routine_tick"))
+    assert outcome == RepairOutcome(
+        "re-run routine_tick", ok=False, detail="already running; left alone"
+    )

@@ -286,6 +286,24 @@ class RoutineStore:
         checked_at = _normalize_datetime(now)
         return [spec for spec in self.list_executable() if _routine_is_due(spec, checked_at)]
 
+    def claim(self, spec: RoutineSpec, *, at: datetime) -> bool:
+        """Take the slot ``spec`` is due for, before running it: True for the one
+        caller that moved ``last_run_at`` from what ``spec`` read to ``at``.
+
+        A compare-and-set in one UPDATE, so of two callers that both read the routine
+        as due, one wins and the other sees the slot taken — a run that outlives its
+        tick can no longer be fired a second time by a re-run of that tick (the
+        doubled digest). ``record_run`` writes the counters when the run ends.
+        """
+        previous = spec.last_run_at.isoformat() if spec.last_run_at else None
+        claimed_at = _normalize_datetime(at).isoformat()
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "UPDATE routines SET last_run_at = ? WHERE id = ? AND last_run_at IS ?",
+                (claimed_at, spec.id, previous),
+            )
+        return cursor.rowcount == 1
+
     def record_run(
         self,
         routine_id: str,

@@ -211,6 +211,12 @@ StatusSource = tuple[Any, ...]
 # read), so a revocation found by the health watch's one-off diagnosis stays red on the
 # local ticks that follow (ADR-0116). It is tied to the token it was taken on: a
 # re-login writes a new token (new expiry), and the stale verdict stops applying.
+# Only "connected" ages out after the hour (to re-probe). "Revoked" holds on the local
+# ticks for as long as the token is the same: a refused refresh token never recovers
+# by itself. When it aged out too, each local tick read the account as connected an
+# hour after the probe, the incident closed as fixed, and the next probe opened it
+# again with a new message (34 times in a month on the cloud trial). A live probe
+# after the hour does re-ask, so a verdict that was wrong cannot stick.
 _PROBE_INTERVAL = timedelta(hours=1)
 _probe_cache: dict[str, tuple[datetime, bool, str]] = {}
 
@@ -231,7 +237,7 @@ def _probe_credential(
     """Live-probe one credential. True = refresh ok, False = definitively failed
     (revoked), None = could not tell (transient/network) -- the caller must not
     override the local verdict on None. Definitive verdicts are cached an hour."""
-    cached = _cached_verdict(key, now=now, token=token)
+    cached = _cached_verdict(key, now=now, token=token, probing=True)
     if cached is not None:
         return cached
     try:
@@ -244,12 +250,20 @@ def _probe_credential(
     return ok
 
 
-def _cached_verdict(key: str, *, now: datetime, token: str) -> bool | None:
-    """A verdict from the last hour on this same token, else None. No egress."""
+def _cached_verdict(key: str, *, now: datetime, token: str, probing: bool = False) -> bool | None:
+    """The verdict on this same token, else None. No egress.
+
+    "Revoked" holds until the token changes, unless ``probing`` and it is older than
+    the probe interval (a live probe re-asks). "Connected" holds for the interval."""
     cached = _probe_cache.get(key)
-    if cached is None or now - cached[0] >= _PROBE_INTERVAL or cached[2] != token:
+    if cached is None or cached[2] != token:
         return None
-    return cached[1]
+    taken_at, ok, _ = cached
+    if ok is False and not probing:
+        return False
+    if now - taken_at >= _PROBE_INTERVAL:
+        return None
+    return ok
 
 
 def _ensure_aware(dt: datetime) -> datetime:

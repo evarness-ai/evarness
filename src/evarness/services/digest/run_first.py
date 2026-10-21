@@ -153,6 +153,15 @@ def run_first(
             if run is None:
                 _not_run(name, "not registered")
                 continue
+            if getattr(run, "already_running", False):
+                # Its schedule started it between the check above and the trigger: the
+                # scheduler refused a second run, so wait for that one, as above.
+                left = plan.budget_seconds - (monotonic() - started)
+                if scheduler.wait_until_idle(name, left):
+                    outcomes.append(RunFirstOutcome(name, JOINED, "waited for the run in progress"))
+                else:
+                    _not_run(name, "still running when the budget was spent")
+                continue
             status = getattr(run.status, "value", str(run.status))
             outcomes.append(RunFirstOutcome(name, status, run.error or run.output or ""))
             logger.info("digest run_first: %s %s", name, status)

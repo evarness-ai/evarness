@@ -26,6 +26,7 @@ file's.
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -47,6 +48,18 @@ if TYPE_CHECKING:
     from evarness.runtime.bootstrap import EvarnessRuntime
 
 logger = logging.getLogger(__name__)
+
+# The routines with a real run in progress in this process, by (routine store, id): one
+# run of a routine at a time, whether the schedule, Run now or the API started it. The
+# scheduler's own guard does not cover this — a brief renders through an ad-hoc
+# ``skill_brief`` definition that every brief routine shares.
+_routines_running: set[tuple[str, str]] = set()
+_routines_running_lock = threading.Lock()
+
+
+def _routine_key(runtime: EvarnessRuntime, routine: RoutineSpec) -> tuple[str, str]:
+    store = runtime.routine_store
+    return (str(getattr(store, "db_path", id(store))), routine.id)
 
 
 def build_notification_reminder_tick_handler(
@@ -354,7 +367,41 @@ def execute_routine(
     the on-demand ``/routines run`` path. When ``record`` is ``False`` the run
     counters, ``last_run_at`` and the Activity row are left untouched (used by dry
     surfaces). Never raises: failures are captured in the returned record.
+
+    A real run (``record=True``) of a routine already running here is not started: it
+    comes back ``skipped``, and the run in progress is that routine's run.
     """
+    if not record:
+        return _execute_routine_run(runtime, routine, checked_at=checked_at, record=False)
+    key = _routine_key(runtime, routine)
+    with _routines_running_lock:
+        if key in _routines_running:
+            logger.info("routine %s is already running; not starting a second run", routine.id)
+            return RoutineExecutionRecord(
+                routine_id=routine.id,
+                title=routine.title,
+                template=routine.template,
+                status=RoutineExecutionStatus.SKIPPED,
+                detail="already running; not starting a second run",
+            )
+        _routines_running.add(key)
+    try:
+        return _execute_routine_run(
+            runtime, routine, checked_at=checked_at, record=True, trigger=trigger
+        )
+    finally:
+        with _routines_running_lock:
+            _routines_running.discard(key)
+
+
+def _execute_routine_run(
+    runtime: EvarnessRuntime,
+    routine: RoutineSpec,
+    *,
+    checked_at: datetime,
+    record: bool,
+    trigger: str = "manual",
+) -> RoutineExecutionRecord:
     if routine.id == MORNING_DIGEST_ROUTINE_ID:
         # The digest's channel + sections are Settings → Digest's, read now — a manual
         # run between ticks must not render a stale section list.
@@ -460,10 +507,14 @@ def build_routine_tick_handler(runtime: EvarnessRuntime) -> HeartbeatHandler:
         # Settings → Digest drives the seeded digest's schedule: sync it BEFORE the due
         # check so a time change takes effect at this tick, not after a restart.
         digest_enabled, _ = sync_digest_routine(runtime)
+        # Claim each due slot BEFORE running it: a run outlives its tick (the digest's
+        # run-first jobs take minutes), and a slot read as due by two callers in that
+        # window fired twice. A slot another caller claimed first is not ours to run.
         due_routines = [
             routine
             for routine in runtime.routine_store.list_due(now=checked_at)
-            if digest_enabled or routine.id != MORNING_DIGEST_ROUTINE_ID
+            if (digest_enabled or routine.id != MORNING_DIGEST_ROUTINE_ID)
+            and runtime.routine_store.claim(routine, at=checked_at)
         ]
         executions: list[RoutineExecutionRecord] = [
             execute_routine(

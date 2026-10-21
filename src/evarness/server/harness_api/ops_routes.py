@@ -70,13 +70,7 @@ def install_ops_routes(app: FastAPI, runtime: Callable[[], Any]) -> None:
     @app.get("/heartbeat")
     def list_heartbeats() -> dict[str, Any]:
         rt = runtime()
-        from evarness.services.heartbeat.diagnostics import diagnose_heartbeats
-
-        diagnostics = diagnose_heartbeats(
-            rt.heartbeats.list_definitions(),
-            rt.heartbeats.runs(),
-            created_at=rt.heartbeats.created_at(),
-        )
+        diagnostics = rt.heartbeats.diagnose()
         # Every heartbeat, disabled ones included, so the app can turn one back on
         # (ADR-0120); diagnostics above still judge only the scheduled ones.
         return {
@@ -100,6 +94,7 @@ def install_ops_routes(app: FastAPI, runtime: Callable[[], Any]) -> None:
             "output": run.output,
             "error": run.error,
             "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "already_running": run.already_running,
         }
 
     @app.get("/heartbeat/runs")
