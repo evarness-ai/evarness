@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from evarness.playground.loader import discover_suites, load_suite
+from evarness.playground.loader import SuiteError, discover_suites, load_suite
 
 _SUITE_YAML = """
 name: sample
@@ -51,19 +51,28 @@ def test_load_suite_defaults_name_to_stem(tmp_path: Path) -> None:
 
 def test_load_suite_rejects_bad_yaml(tmp_path: Path) -> None:
     path = tmp_path / "bad.yaml"
-    path.write_text("name: [unclosed\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="bad.yaml"):
+    path.write_text("name: ok\nscenarios: @bad\n", encoding="utf-8")
+    with pytest.raises(SuiteError, match="bad.yaml") as info:
         load_suite(path)
+    assert info.value.message == f"{path}: invalid YAML at line 2"
 
 
 def test_load_suite_rejects_unknown_field(tmp_path: Path) -> None:
+    """The message names the file and each refused field in the loader's own words; the
+    validator's text (which echoes the input back and links its docs) stays out of it."""
     path = tmp_path / "typo.yaml"
     path.write_text(
-        "scenarios:\n  - name: a\n    message: hi\n    expect:\n      bogus_field: 1\n",
+        "scenarios:\n  - name: a\n    message: hi\n    expect:\n      bogus_field: 1\n"
+        "  - name: b\n",
         encoding="utf-8",
     )
-    with pytest.raises(ValueError, match="typo.yaml"):
+    with pytest.raises(SuiteError, match="typo.yaml") as info:
         load_suite(path)
+    assert info.value.message == (
+        f"{path}: scenarios[0].expect.bogus_field: Extra inputs are not permitted; "
+        "scenarios[1].message: Field required"
+    )
+    assert "pydantic" not in str(info.value)
 
 
 def test_discover_suites_finds_yaml(tmp_path: Path) -> None:

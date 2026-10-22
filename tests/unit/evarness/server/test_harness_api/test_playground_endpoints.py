@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -41,6 +42,25 @@ def test_suites_lists_committed_suite() -> None:
         body = client.get("/playground/suites").json()
     names = {s["name"] for s in body["suites"]}
     assert "core-deterministic" in names
+
+
+def test_suites_lists_a_broken_suite_with_the_loaders_message(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A suite that does not load is listed with where it is wrong, in the loader's words,
+    not with the parser's own text."""
+    (tmp_path / "typo.yaml").write_text(
+        "scenarios:\n  - name: a\n    message: hi\n    expect:\n      bogus_field: 1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("EVARNESS_PLAYGROUND_DIR", str(tmp_path))
+    for client in _client():
+        body = client.get("/playground/suites").json()
+    [broken] = body["suites"]
+    assert broken["name"] == "typo" and broken["path"] == str(tmp_path / "typo.yaml")
+    assert broken["error"] == (
+        f"{tmp_path / 'typo.yaml'}: scenarios[0].expect.bogus_field: Extra inputs are not permitted"
+    )
 
 
 def test_drift_reports_surfaces() -> None:

@@ -6,10 +6,25 @@ import os
 from pathlib import Path
 
 import yaml
+from pydantic import ValidationError
 
 from evarness.foundation.paths import config_path
 
 from .models import ScenarioSuite
+
+
+class SuiteError(ValueError):
+    """A suite file that does not parse or does not fit the schema.
+
+    ``message`` names the file and what is wrong with it, in text written here for the
+    person fixing the file: a YAML problem with its line, or each field the schema
+    refused. It never carries the parser's own text (which dumps the input back), so a
+    surface shows it as it is.
+    """
+
+    @property
+    def message(self) -> str:
+        return str(self.args[0]) if self.args else ""
 
 
 def default_scenario_dir() -> Path:
@@ -36,20 +51,35 @@ def discover_suites(scenario_dir: Path | None = None) -> list[Path]:
 def load_suite(path: Path) -> ScenarioSuite:
     """Parse one YAML file into a validated ``ScenarioSuite``.
 
-    Raises ``ValueError`` with the file path on malformed YAML or schema
-    violations, so a bad suite fails loudly instead of silently skipping cases.
+    Raises :class:`SuiteError` (a ``ValueError``) naming the file on malformed YAML or a
+    schema violation, so a bad suite fails loudly instead of silently skipping cases.
     """
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except yaml.YAMLError as exc:
-        raise ValueError(f"{path}: invalid YAML: {exc}") from exc
+        raise SuiteError(f"{path}: invalid YAML{_yaml_where(exc)}") from exc
     if not isinstance(raw, dict):
-        raise ValueError(f"{path}: expected a mapping at the top level")
+        raise SuiteError(f"{path}: expected a mapping at the top level")
     raw.setdefault("name", path.stem)
     try:
         return ScenarioSuite.model_validate(raw)
-    except Exception as exc:  # re-raise with the offending file
-        raise ValueError(f"{path}: {exc}") from exc
+    except ValidationError as exc:
+        raise SuiteError(f"{path}: {_schema_problems(exc)}") from exc
+
+
+def _yaml_where(exc: yaml.YAMLError) -> str:
+    """`` at line N`` when the parser marked where it stopped, else nothing."""
+    mark = getattr(exc, "problem_mark", None)
+    return f" at line {mark.line + 1}" if mark is not None else ""
+
+
+def _schema_problems(exc: ValidationError) -> str:
+    """Each refused field as ``where: why``, e.g. ``scenarios[0].message: Field required``."""
+    problems = []
+    for error in exc.errors():
+        where = "".join(f"[{p}]" if isinstance(p, int) else f".{p}" for p in error["loc"])
+        problems.append(f"{where.lstrip('.') or 'suite'}: {error['msg']}")
+    return "; ".join(problems) or "does not fit the suite schema"
 
 
 def load_all_suites(scenario_dir: Path | None = None) -> list[ScenarioSuite]:

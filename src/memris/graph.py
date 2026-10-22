@@ -36,7 +36,15 @@ Direction = Literal["out", "in", "both"]
 
 
 class StatementError(ValueError):
-    """A write the ontology or the current state does not allow."""
+    """A write the ontology or the current state does not allow.
+
+    ``message`` is the text written for the person reading it; it never carries another
+    exception's text, so a surface shows it as it is.
+    """
+
+    @property
+    def message(self) -> str:
+        return str(self.args[0]) if self.args else ""
 
 
 def _now() -> datetime:

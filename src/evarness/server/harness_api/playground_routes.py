@@ -33,14 +33,14 @@ def install_playground_routes(app: FastAPI, runtime: Callable[[], Any]) -> None:
     # drive chat) so it is write-gated like other active operations.
     @app.get("/playground/suites")
     def playground_suites() -> dict[str, Any]:
-        from evarness.playground.loader import discover_suites, load_suite
+        from evarness.playground.loader import SuiteError, discover_suites, load_suite
 
         suites: list[dict[str, Any]] = []
         for path in discover_suites():
             try:
                 suite = load_suite(path)
-            except ValueError as exc:
-                suites.append({"name": path.stem, "error": str(exc), "path": str(path)})
+            except SuiteError as exc:
+                suites.append({"name": path.stem, "error": exc.message, "path": str(path)})
                 continue
             suites.append(
                 {
