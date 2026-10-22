@@ -208,5 +208,18 @@ def test_the_registered_count_is_what_system_status_shows(
         )
         # Inactive accounts count too, as they did when the core read the store itself.
         assert status.accounts == {"gmail": 2, "gdrive": 1}
+        assert status_module.connected_accounts() == {"gmail": 2, "gdrive": 1}
     finally:
         status_module.register_account_counter(None)
+    assert status_module.connected_accounts() is None
+
+
+def test_counting_creates_no_database_in_a_fresh_home(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``evarness doctor`` reads only: its Accounts row must not leave a database behind."""
+    from evarness_personal.email.accounts import count_by_provider
+
+    monkeypatch.setenv("EVARNESS_DATA_DIR", str(tmp_path / "fresh"))
+    assert count_by_provider() == {}
+    assert not (tmp_path / "fresh").exists()

@@ -8,7 +8,8 @@ Progress is recorded in ``$EVARNESS_HOME/setup.json`` (``services/system/setup_s
 so re-running ``evarness setup`` resumes at the first step with no record; ``--reset``
 clears it, ``--status`` reports it without running anything.
 
-Steps run in a fixed order: two mandatory (preflight, home & secret), then three
+Steps run in a fixed order: two mandatory (preflight; home & secret, which asks where
+the home and the data go and writes the answers to the settings ``.env``), then three
 optional, skippable ones (services, Telegram pairing, email) — each offered with
 its own yes/skip prompt, never a menu. Services is optional because it isn't
 actually needed for core CLI use: `evarness` (the REPL)/`evarness email setup`/`evarness doctor` all
@@ -30,6 +31,7 @@ from typing import TYPE_CHECKING, Annotated
 import typer
 
 from evarness.cli.render import console
+from evarness.foundation.docs_site import docs_url
 from evarness.services.system.telegram_pairing import (
     get_telegram_bot_username,
     poll_telegram_chat_id,
@@ -66,12 +68,13 @@ def _interactive() -> bool:
 
 
 def _env_path() -> Path:
-    """The ``.env`` file ``evarness setup`` writes to -- the same one ``main.py``'s
-    ``load_dotenv()`` and ``scripts/start_evarness.sh`` already read."""
-    from dotenv import find_dotenv
+    """The ``.env`` file ``evarness setup`` writes to: the one every ``evarness`` command
+    reads back (``foundation/env_files.py``): the checkout's in a checkout, else the
+    Evarness home's. Used to be whatever ``.env`` sat in the current directory, which an
+    installed ``evarness`` run from anywhere else never read."""
+    from evarness.foundation.env_files import settings_env_path
 
-    found = find_dotenv(usecwd=True)
-    return Path(found) if found else Path.cwd() / ".env"
+    return settings_env_path()
 
 
 def _evarness_argv() -> list[str]:
@@ -117,6 +120,7 @@ def _ensure_auth_secret() -> None:
         return
     secret = secrets.token_urlsafe(32)
     env_path = _env_path()
+    env_path.parent.mkdir(parents=True, exist_ok=True)
     env_path.touch(exist_ok=True)
     set_key(str(env_path), "EVARNESS_AUTH_SECRET", secret)
     os.environ["EVARNESS_AUTH_SECRET"] = secret
@@ -125,12 +129,121 @@ def _ensure_auth_secret() -> None:
     console.print(f"    {secret}")
 
 
-def _step_home_secret() -> None:
+def _usable_directory(path: Path) -> str | None:
+    """Create ``path`` if needed and say why it cannot be used, or ``None`` when it can."""
+    try:
+        path.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return f"cannot create {path}: {exc.strerror or exc}"
+    if not os.access(path, os.W_OK):
+        return f"{path} is not writable"
+    return None
+
+
+def _write_setting(name: str, value: str, env_path: Path) -> None:
+    """Persist one setting where every later ``evarness`` command reads it, and apply it
+    to this process so the steps that follow see it."""
+    from dotenv import set_key
+
+    env_path.parent.mkdir(parents=True, exist_ok=True)
+    env_path.touch(exist_ok=True)
+    set_key(str(env_path), name, value)
+    os.environ[name] = value
+    console.print(f"  [green]wrote {name}={value} to {env_path}[/green]")
+
+
+def _choose_home(*, interactive: bool) -> None:
+    """Ask where the Evarness home goes, and make the answer stick.
+
+    The home is where everything Evarness stores lives: the workspace (identity files,
+    credentials), the data (mail stores, indexes), the audit ledger, the logs. A shell
+    that exports ``EVARNESS_HOME`` has decided already; otherwise the owner is asked
+    once, with the current resolution as the default. A different answer is written to
+    the settings file read *before* the change (the default home's ``.env``, or the
+    checkout's), which is how the next ``evarness`` command finds the chosen home again
+    without a shell profile edit; the ``export`` line is printed too for shells that
+    should see it directly.
+    """
+    from evarness.foundation.env_files import HOME_ENV, home_is_from_shell
     from evarness.foundation.paths import evarness_home
 
-    console.print(f"  EVARNESS_HOME ready at {evarness_home()}")
-    console.print("  [dim](workspace/, data/, SOUL.md, USER.md already seeded)[/dim]")
+    current = evarness_home()
+    if home_is_from_shell():
+        console.print(f"  {HOME_ENV} is set by your shell: {current}")
+        return
+    if not interactive:
+        console.print(f"  Evarness home: {current}")
+        return
+    console.print(
+        "  Evarness keeps everything it stores under one directory, its home: the\n"
+        "  workspace (identity files, credentials), the data (mail stores, indexes), the\n"
+        "  audit ledger and the logs."
+    )
+    while True:
+        answer = typer.prompt("  Where should the Evarness home be", default=str(current)).strip()
+        chosen = Path(answer).expanduser()
+        if not chosen.is_absolute():
+            chosen = Path.cwd() / chosen
+        chosen = chosen.resolve()
+        if chosen == current.expanduser().resolve():
+            console.print(f"  Evarness home: {current}")
+            return
+        problem = _usable_directory(chosen)
+        if problem is None:
+            break
+        console.print(f"  [yellow]{problem}[/yellow]")
+    pointer = _env_path()  # resolved before the change: where the next run looks first
+    _write_setting(HOME_ENV, str(chosen), pointer)
+    console.print(
+        "  [dim]Every evarness command reads that file. For a shell that should see the\n"
+        f"  home directly, add this line to your shell profile:[/dim]\n"
+        f"    export {HOME_ENV}={chosen}"
+    )
+
+
+def _choose_data_dir(*, interactive: bool) -> None:
+    """Where the data goes: under the home unless ``EVARNESS_DATA_DIR`` says otherwise.
+    Offered, not asked for: the default is right for nearly everyone, and a bigger
+    disk is the one reason to move only the data."""
+    from evarness.foundation.paths import DATA_DIR_ENV, data_dir
+
+    current = data_dir()
+    if os.environ.get(DATA_DIR_ENV):
+        console.print(f"  data ({DATA_DIR_ENV}): {current}")
+        return
+    console.print(f"  data (mail stores, indexes, the memory graph): {current}")
+    if not interactive:
+        return
+    if not typer.confirm(
+        "  Keep the data somewhere else (a bigger disk, for example)?", default=False
+    ):
+        return
+    while True:
+        answer = typer.prompt("  Data directory", default=str(current)).strip()
+        chosen = Path(answer).expanduser()
+        if not chosen.is_absolute():
+            chosen = Path.cwd() / chosen
+        chosen = chosen.resolve()
+        if chosen == current.expanduser().resolve():
+            return
+        problem = _usable_directory(chosen)
+        if problem is None:
+            break
+        console.print(f"  [yellow]{problem}[/yellow]")
+    _write_setting(DATA_DIR_ENV, str(chosen), _env_path())
+
+
+def _step_home_secret(*, interactive: bool = False) -> None:
+    from evarness.foundation.paths import evarness_home
+
+    _choose_home(interactive=interactive)
+    _choose_data_dir(interactive=interactive)
     _ensure_auth_secret()
+    console.print(
+        f"  [dim]settings file: {_env_path()} (read by every evarness command; a variable\n"
+        "  your shell exports wins over it). The workspace, data and identity files are\n"
+        f"  created under {evarness_home()} on first use.[/dim]"
+    )
 
 
 def _step_services(*, interactive: bool) -> tuple[StepStatus, str]:
@@ -198,6 +311,7 @@ def _step_telegram(*, interactive: bool) -> tuple[StepStatus, str]:
         )
         return "failed", "no message received"
     env_path = _env_path()
+    env_path.parent.mkdir(parents=True, exist_ok=True)
     env_path.touch(exist_ok=True)
     set_key(str(env_path), "TELEGRAM_BOT_TOKEN", token)
     set_key(str(env_path), "TELEGRAM_ALLOWED_CHAT_IDS", chat_id)
@@ -263,7 +377,7 @@ def _step_email(*, interactive: bool) -> tuple[StepStatus, str]:
             )
             console.print(f"    [dim]{client_secrets}[/dim]")
             console.print(
-                "  [dim]Full walkthrough:[/dim] [cyan]docs/usage-guides/gmail-auth.md[/cyan]"
+                f"  [dim]Full walkthrough:[/dim] [cyan]{docs_url('getting-started/gmail-oauth-client')}[/cyan]"
             )
             if not typer.confirm("  Continue anyway?", default=False):
                 return "skipped", "no Google OAuth client configured yet"
@@ -276,7 +390,7 @@ def _step_email(*, interactive: bool) -> tuple[StepStatus, str]:
         )
         console.print(
             "  [dim]Provider-by-provider steps:[/dim] "
-            "[cyan]docs/getting-started/connect-your-mailbox.md[/cyan]"
+            f"[cyan]{docs_url('getting-started/connect-your-mailbox')}[/cyan]"
         )
 
     address = typer.prompt("  Email address", default="", show_default=False).strip()
@@ -335,7 +449,10 @@ def _render_summary(state: SetupState) -> None:
     console.print(f"  -> open the web UI:     http://{webui_host}:{webui_port}")
     console.print("  -> re-run / add more:   evarness setup")
     console.print()
+    from evarness.foundation.paths import data_dir, evarness_home
     from evarness.services.system import setup_state
+
+    console.print(f"[dim]home {evarness_home()}, data {data_dir()}, settings {_env_path()}[/dim]")
 
     console.print(f"[dim]saved to {setup_state.setup_marker_path()}[/dim]")
     welcome_mod.mark_shown_by_setup()
@@ -384,7 +501,7 @@ def cmd_setup(
                 raise typer.Exit(1)
             state = setup_state.record_step(name, "done")
         elif name == "home_secret":
-            _step_home_secret()
+            _step_home_secret(interactive=interactive)
             state = setup_state.record_step(name, "done")
         elif name == "services":
             services_status, detail = _step_services(interactive=interactive)

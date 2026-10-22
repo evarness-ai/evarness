@@ -25,7 +25,8 @@ const STEP_LABEL: Record<SetupStepName, string> = {
 
 const STEP_DESCRIPTION: Record<SetupStepName, string> = {
   preflight: "Can Evarness run here — the same checks as `evarness doctor`.",
-  home_secret: "$EVARNESS_HOME seeded, and EVARNESS_AUTH_SECRET generated if it wasn't set.",
+  home_secret:
+    "Where the Evarness home and its data go (written to the settings .env), and EVARNESS_AUTH_SECRET generated if it wasn't set.",
   services: "The background services (web UI, API, Telegram) — optional.",
   telegram: "Pair a Telegram bot so you can chat with Evarness from your phone — optional.",
   email: "Connect a mailbox — optional.",

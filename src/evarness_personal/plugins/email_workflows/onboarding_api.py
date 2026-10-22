@@ -13,7 +13,8 @@ translate. The web Setup screen (L2) is built on them::
     POST /api/v1/email/onboarding/{account_id}/approve-writes  {"approve", "actor"?} -> state
     POST /api/v1/email/onboarding/{account_id}/restart         -> {"restarted": bool}
 
-The overview also carries ``connect_hints`` (each provider's login command, for an owner
+The overview also carries ``connect_hints`` (each provider's login command, what the
+owner needs before it works and the docs page for that, for an owner
 with no mailbox yet) and ``demo_account`` (the synthetic mailbox's id inside a demo home,
 else null). A state is ``OnboardingState.as_dict`` plus ``sweep``
 (``Onboarding.sweep_status``: does the scheduled sweep take the account yet, and why),

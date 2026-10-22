@@ -574,6 +574,24 @@ function StartPanel({
             <div key={h.provider} className="mt-2">
               <p className="text-xs font-semibold text-fg-muted">{h.provider}</p>
               <CopyCommand command={h.command} label={`${h.provider} connect command`} />
+              {h.before && (
+                <p className="mt-1 text-xs text-fg-muted">
+                  Needs first: {h.before}
+                  {h.docs && (
+                    <>
+                      {" "}
+                      <a
+                        className="underline"
+                        href={h.docs}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        How
+                      </a>
+                    </>
+                  )}
+                </p>
+              )}
             </div>
           ))}
         </div>

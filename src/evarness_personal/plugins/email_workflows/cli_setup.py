@@ -105,6 +105,10 @@ def _pick_account(
         console.print("No mailbox is connected yet. Connect one, then run setup again:")
         for hint in machine.connect_hints():
             console.print(f"  {hint['provider']}: {hint['command']}")
+            if hint["before"]:
+                _print(f"      needs first: {hint['before']}")
+            if hint["docs"]:
+                _print(f"      how: {hint['docs']}")
         console.print("  or try the synthetic mailbox: evarness email demo")
         return None
     if yes:

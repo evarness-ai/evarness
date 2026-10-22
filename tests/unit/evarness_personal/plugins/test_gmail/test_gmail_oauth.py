@@ -105,8 +105,13 @@ def test_login_missing_client_secrets_raises(
     tmp_evarness: Path, mock_keyring, stub_email_store
 ) -> None:
     missing = tmp_evarness / "no_such_file.json"
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError) as excinfo:
         gmail_oauth.login("user@example.com", client_secrets_path=missing)
+    # The message says what to do: the path looked at, the published guide, the IMAP way.
+    message = str(excinfo.value)
+    assert str(missing) in message
+    assert "https://evarness-ai.github.io/evarness/getting-started/gmail-oauth-client/" in message
+    assert "evarness auth imap login" in message
 
 
 def test_login_authorized_email_mismatch_raises(

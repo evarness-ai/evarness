@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from evarness import __version__
 from evarness.cli.web_commands import ModelOverrides
+from evarness.foundation.env_files import load_env_files
 from evarness.foundation.paths import config_root, repo_root
 
 # Load the repo-root .env before importing evarness.runtime so provider profiles
@@ -26,6 +27,9 @@ from evarness.foundation.paths import config_root, repo_root
 # every key as missing and every cloud LLM call returns 401.
 _REPO_ROOT_ENV = repo_root() / ".env"
 load_dotenv(_REPO_ROOT_ENV)
+# ...and the Evarness home's .env, the file `evarness setup` writes on an installed
+# wheel (foundation/env_files.py); the shell and the repo-root file win over it.
+load_env_files()
 
 # Install the root log handler (EVARNESS_LOG_LEVEL, default INFO) before anything else imports
 # so every evarness.* INFO line — including the ingress/egress audit trail — actually appears

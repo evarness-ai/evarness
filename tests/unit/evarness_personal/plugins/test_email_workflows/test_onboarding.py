@@ -944,6 +944,12 @@ def test_the_overview_offers_each_providers_login_and_the_demo_in_a_demo_home(
         "gmail": "evarness auth gmail login --user you@example.com",
         "imap": "evarness auth imap login --user you@example.com",
     }
+    # Beside each command: what the owner needs before it works, and the page for it.
+    by_provider = {h["provider"]: h for h in overview["connect_hints"]}
+    assert "OAuth client" in by_provider["gmail"]["before"]
+    assert by_provider["gmail"]["docs"].endswith("/getting-started/gmail-oauth-client/")
+    assert "app password" in by_provider["imap"]["before"]
+    assert by_provider["imap"]["docs"].endswith("/getting-started/connect-your-mailbox/")
     assert overview["demo_account"] == DEMO_ACCOUNT  # the fixture runs in a demo home
 
     monkeypatch.setenv("EVARNESS_HOME", str(tmp_path / "owner-home"))

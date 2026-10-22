@@ -122,9 +122,35 @@ The demo is unaffected either way, since it runs on a scripted model.
 ## Guided setup: `evarness setup`
 
 The steps above can also run as one guided wizard: `evarness setup` walks through the
-preflight, the auth secret, and the optional add-ons (the background services, a
-Telegram pairing, email) in order, resuming where you left off if you stop partway.
-`evarness setup --status` shows progress; `evarness setup --reset` starts over.
+preflight, where the home and the data go, the auth secret, and the optional add-ons
+(the background services, a Telegram pairing, email) in order, resuming where you left
+off if you stop partway. `evarness setup --status` shows progress; `evarness setup
+--reset` starts over.
+
+## Where Evarness keeps its files
+
+Everything Evarness stores lives under one directory, its **home**: the workspace
+(identity files, the Gmail OAuth client), the data (mail stores, indexes, the memory
+graph), the audit ledger and the logs. The default is `~/.evarness`. `evarness setup`
+asks where the home should be, and whether the data alone should go somewhere else (a
+bigger disk, for example), and writes the answers to the settings file:
+
+| Variable | What it moves | Default |
+|---|---|---|
+| `EVARNESS_HOME` | the whole home | `~/.evarness` |
+| `EVARNESS_DATA_DIR` | only the data | `data/` under the home |
+
+Nothing else needs a variable for a first run; `evarness setup` generates
+`EVARNESS_AUTH_SECRET`, which the API and the web console need, and writes it to the same
+file.
+
+**The settings file.** Every `evarness` command reads the Evarness home's `.env`
+(`~/.evarness/.env` unless `EVARNESS_HOME` says otherwise), and in a source checkout the
+checkout's `.env` first. A variable your shell exports always wins over both. That is the
+file `evarness setup` writes, so a setting made there holds in every directory and every
+terminal. A home chosen at setup is recorded in the default home's `.env`, which is how
+the next command finds it; the wizard also prints the `export EVARNESS_HOME=...` line for
+your shell profile if you prefer that.
 
 ## Next
 

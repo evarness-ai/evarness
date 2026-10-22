@@ -14,7 +14,7 @@ The ``client_secret.json`` (OAuth 2.0 Desktop-app client downloaded
 from Google Cloud Console) lives at
 ``$EVARNESS_HOME/workspace/credentials/google_oauth_client.json`` by default;
 ``--client-secrets PATH`` overrides. See
-``docs/usage-guides/gmail-auth.md`` for the one-time Google Cloud
+the Gmail page of the docs site (``docs/getting-started/gmail-oauth-client.md``) for the one-time Google Cloud
 setup walkthrough.
 """
 
@@ -36,6 +36,7 @@ from googleapiclient.discovery import build
 from evarness.sdk import vault as _credentials
 from evarness.sdk.config import workspace_dir
 from evarness_personal.email.accounts import EmailAccount, EmailAccountStore
+from evarness_personal.email.docs_site import GMAIL_OAUTH_CLIENT_GUIDE
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +94,11 @@ def login(
     if not secrets.is_file():
         raise FileNotFoundError(
             f"OAuth client secrets not found at {secrets}. "
-            "See docs/usage-guides/gmail-auth.md for one-time setup."
+            "Gmail needs a one-time Google Cloud OAuth client of your own (about ten "
+            "minutes): create it and save its JSON at that path, following "
+            f"{GMAIL_OAUTH_CLIENT_GUIDE} (or pass --client-secrets PATH). "
+            "An IMAP app password needs none of this: "
+            "evarness auth imap login --user <address>."
         )
     active_scopes = list(scopes) if scopes else list(DEFAULT_SCOPES)
 

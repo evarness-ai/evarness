@@ -48,6 +48,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from evarness.foundation.docs_site import docs_url
 from evarness.foundation.observability.logging_setup import log_egress
 from evarness.foundation.paths import config_path
 from evarness.foundation.plugin_dirs import evarness_home
@@ -861,6 +862,40 @@ def check_extra(extra: OptionalExtra, installed: bool) -> DoctorCheck:
 # ── the run ─────────────────────────────────────────────────────────────────────
 
 
+def connected_accounts() -> Mapping[str, int] | None:
+    """Connected accounts by provider, or ``None`` when no plugin counts them here."""
+    from evarness.services.system.status import connected_accounts as _connected
+
+    return _connected()
+
+
+def check_accounts(accounts: Mapping[str, int] | None) -> DoctorCheck | None:
+    """Information: what is connected, and how to connect a mailbox when nothing is.
+
+    ``None`` (no mail plugin mounted) adds no row; the extras row already says the
+    email assistant is not installed. No account is a warning with the two logins and
+    what each needs first, since that is the step a fresh install stops at. Never
+    changes the verdict: a mailbox is the owner's choice, not a property of the machine.
+    """
+    if accounts is None:
+        return None
+    total = sum(accounts.values())
+    if total:
+        by_provider = ", ".join(f"{n} {name}" for name, n in sorted(accounts.items()))
+        return DoctorCheck("Accounts", HealthState.GREEN, f"{total} connected ({by_provider})")
+    return DoctorCheck(
+        "Accounts",
+        HealthState.YELLOW,
+        "no mailbox connected yet",
+        fix=(
+            "evarness auth imap login --user you@example.com (needs an app password from "
+            "your provider), or evarness auth gmail login --user you@gmail.com (needs a "
+            "Google OAuth client first); both are explained at "
+            + docs_url("getting-started/connect-your-mailbox")
+        ),
+    )
+
+
 def http_client() -> Any:
     """The HTTP client doctor talks to Ollama with (one place for a test to replace)."""
     import httpx
@@ -926,6 +961,9 @@ def run_doctor(
     if tier_row is not None:
         checks.append(tier_row)
     checks.extend(check_extra(e, extra_installed(e.module)) for e in cfg.optional_extras)
+    accounts_row = check_accounts(connected_accounts())
+    if accounts_row is not None:
+        checks.append(accounts_row)
     return DoctorReport(
         checks=tuple(checks),
         verdict=verdict_for(checks),

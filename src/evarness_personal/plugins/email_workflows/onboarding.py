@@ -123,6 +123,9 @@ class OnboardingConfig:
 
     titles: Mapping[str, str]
     connect_commands: Mapping[str, str]
+    #: Per provider, what the owner needs before its login works, and the docs page.
+    connect_before: Mapping[str, str] = field(default_factory=dict)
+    connect_docs: Mapping[str, str] = field(default_factory=dict)
     fetch_max_messages: int = 500
     fetch_cold_start_days: int = 90
     discover_min_corpus: int = 40
@@ -159,6 +162,12 @@ class OnboardingConfig:
             titles=titles,
             connect_commands={
                 str(k): str((v or {}).get("connect") or "") for k, v in providers.items()
+            },
+            connect_before={
+                str(k): str((v or {}).get("before") or "").strip() for k, v in providers.items()
+            },
+            connect_docs={
+                str(k): str((v or {}).get("docs") or "").strip() for k, v in providers.items()
             },
             fetch_max_messages=int(fetch.get("max_messages", 500)),
             fetch_cold_start_days=int(fetch.get("cold_start_days", 90)),
@@ -873,6 +882,11 @@ class Onboarding:
         command = self.connect_command(state.account_id)
         if account is None or not account.active:
             how = f"run `{command}`" if command else f"connect it with the {provider} plugin"
+            before = self.config.connect_before.get(provider, "")
+            docs = self.config.connect_docs.get(provider, "")
+            if before:
+                how += f" (needs first: {before}"
+                how += f"; see {docs})" if docs else ")"
             return StepOutcome.blocked(
                 f"{state.account_id} is not connected yet: {how}, then run setup again"
             )
@@ -891,9 +905,16 @@ class Onboarding:
         return self.config.connect_commands.get(provider, "").format(address=address)
 
     def connect_hints(self, address: str = "you@example.com") -> list[dict[str, str]]:
-        """How each provider is connected, for an owner with no mailbox yet."""
+        """How each provider is connected, for an owner with no mailbox yet: the login
+        command, what the owner needs in hand before it works (``before``) and the docs
+        page that explains getting it (``docs``), both "" when the YAML names none."""
         return [
-            {"provider": name, "command": command.format(address=address)}
+            {
+                "provider": name,
+                "command": command.format(address=address),
+                "before": self.config.connect_before.get(name, ""),
+                "docs": self.config.connect_docs.get(name, ""),
+            }
             for name, command in self.config.connect_commands.items()
             if command
         ]

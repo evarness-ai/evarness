@@ -45,7 +45,7 @@ DOCS = ROOT / "docs" / "getting-started"
 # The pages, in the order a reader takes them (and mkdocs.yml's nav lists them). A page
 # on disk missing here, or listed here and missing on disk, fails: a new page cannot
 # slip past CI by not being named.
-PAGE_ORDER = ("install.md", "demo.md", "connect-your-mailbox.md")
+PAGE_ORDER = ("install.md", "demo.md", "connect-your-mailbox.md", "gmail-oauth-client.md")
 
 SHELL_LANGS = frozenset({"bash", "sh", "shell"})
 _FENCE = re.compile(r"^(\s*)(```+|~~~+)\s*([\w+-]*)\s*$")

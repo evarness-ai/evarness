@@ -12,16 +12,22 @@ below. Coding agents working on the repo: read [`AGENTS.md`](AGENTS.md) as well.
 
 ## Dev setup
 
-Python 3.12 or 3.13 (`.python-version` pins 3.12), [Poetry](https://python-poetry.org/) 2.x.
+Python 3.12 or 3.13 (`.python-version` says 3.12 for tools that read it), [Poetry](https://python-poetry.org/) 2.x.
 
 ```bash
-poetry install                 # add `-E ml` for the torch-backed embedders
+poetry install --extras email  # add `-E ml` for the torch-backed embedders
 poetry run evarness --help
 ```
 
-Or run `./install.sh`, which does the `poetry install` above and hands off to
-`evarness setup` — a guided wizard for the auth secret and the optional add-ons
+Or run `./install.sh`, which finds a supported Python (Homebrew's `python3` is often
+newer), does the `poetry install` above and hands off to `evarness setup`: a guided
+wizard for where the home and the data go, the auth secret and the optional add-ons
 (background services, Telegram pairing, email).
+
+Let Poetry or `uv sync` create the environment. A `venv` made by hand on another Python
+and then pointed at by `uv` or Poetry is where "Python version mismatch" errors come
+from. To only try Evarness, do not clone at all: `uv tool install "evarness[email]"
+--upgrade` ([Install](https://evarness-ai.github.io/evarness/getting-started/install/)).
 
 ## Start with a plugin
 

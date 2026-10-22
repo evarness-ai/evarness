@@ -80,6 +80,7 @@ nav:
       - Install: getting-started/install.md
       - Try the demo: getting-started/demo.md
       - Connect your mailbox: getting-started/connect-your-mailbox.md
+      - Gmail, the OAuth client: getting-started/gmail-oauth-client.md
   - Guides:
       - Write a plugin: guides/write-a-plugin.md
       - Test your plugin: guides/test-your-plugin.md

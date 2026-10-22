@@ -188,7 +188,11 @@ scripts/ci_local.sh --fast               # ruff, black, mypy, import contracts, 
 
 `uv sync` in a clone installs the package and the `evarness` command too
 (`uv run evarness doctor`); the gate's tools are Poetry's dev group, so `poetry install`
-is the step to work on the code.
+is the step to work on the code. To **test** Evarness rather than change it, do not clone:
+the `uv tool install` line above is the whole install, and it fetches its own Python. In
+a clone, pick one route (`uv sync`, or Poetry via `./install.sh`) and let it create the
+environment; a hand-made `venv` on another Python version is what the Python mismatch
+errors come from.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the governance rules every change keeps, the DCO
 sign-off, the stable-tier rule and **where help is wanted**. Read the
