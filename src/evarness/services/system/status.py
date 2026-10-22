@@ -88,6 +88,15 @@ def register_account_counter(counter: Callable[[], dict[str, int]] | None) -> No
     _account_counter = counter
 
 
+def connected_accounts() -> dict[str, int] | None:
+    """Connected accounts by provider from the registered counter, or ``None`` when no
+    plugin registered one (a core-only install, or a process that mounted no domain):
+    what ``evarness doctor`` reports as its Accounts row."""
+    if _account_counter is None:
+        return None
+    return _count_accounts(None)
+
+
 def _count_accounts(accounts_store: object | None) -> dict[str, int]:
     """An injected store wins; then the registered counter; then nothing mounted."""
     if accounts_store is not None:

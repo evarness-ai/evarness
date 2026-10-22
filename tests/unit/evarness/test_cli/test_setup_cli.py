@@ -43,7 +43,7 @@ def mandatory_steps_ok(monkeypatch: pytest.MonkeyPatch) -> dict[str, int]:
         calls["preflight"] += 1
         return True
 
-    def home_secret() -> None:
+    def home_secret(*, interactive: bool) -> None:
         calls["home_secret"] += 1
 
     monkeypatch.setattr(setup_cli, "_step_preflight", preflight)
@@ -462,7 +462,7 @@ def test_email_gmail_choice_declines_continuing_without_oauth_client(
     monkeypatch.setattr(setup_cli.subprocess, "run", boom)
     result = runner.invoke(app, ["setup"], input="n\nn\ny\n2\nn\n")
     assert result.exit_code == 0, result.output
-    assert "docs/usage-guides/gmail-auth.md" in result.output
+    assert "evarness-ai.github.io/evarness/getting-started/gmail-oauth-client/" in result.output
     state = _state_after()
     assert state.steps["email"].status == "skipped"
     assert state.steps["email"].detail == "no Google OAuth client configured yet"
@@ -486,7 +486,7 @@ def test_email_imap_choice_runs_auth_login_then_setup(
     result = runner.invoke(app, ["setup"], input="n\nn\ny\n3\nowner@example.com\n")
     assert result.exit_code == 0, result.output
     assert "app password" in result.output
-    assert "docs/getting-started/connect-your-mailbox.md" in result.output
+    assert "evarness-ai.github.io/evarness/getting-started/connect-your-mailbox/" in result.output
     assert captured == [
         ["evarness", "auth", "imap", "login", "--user", "owner@example.com"],
         ["evarness", "email", "setup"],
@@ -630,3 +630,136 @@ def test_ensure_auth_secret_noop_when_already_set(
     monkeypatch.setattr(setup_cli, "_env_path", lambda: env_path)
     setup_cli._ensure_auth_secret()
     assert not env_path.exists()
+
+
+# ── the home & secret step ───────────────────────────────────────────────────────
+
+
+@pytest.fixture()
+def unset_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
+    """No EVARNESS_HOME from the shell: the default home is a fixture directory, and the
+    settings file is that home's ``.env`` (what an installed tool reads)."""
+    default = tmp_path / "default-home"
+    monkeypatch.delenv("EVARNESS_HOME", raising=False)
+    monkeypatch.delenv("EVARNESS_DATA_DIR", raising=False)
+    monkeypatch.setattr(
+        "evarness.foundation.legacy.legacy_fallback_dir",
+        lambda primary, legacy, what: default,
+    )
+    monkeypatch.setattr("evarness.foundation.env_files._checkout_root", lambda: None)
+    monkeypatch.setattr("evarness.foundation.paths._checkout_root", lambda: None)
+    monkeypatch.setenv("EVARNESS_AUTH_SECRET", "already-set-secret")
+    return default
+
+
+def _env_values(path: Path) -> dict[str, str | None]:
+    from dotenv import dotenv_values
+
+    return dict(dotenv_values(path))
+
+
+def _squashed(out: str) -> str:
+    """Console output with every space and line break removed: rich wraps a long path at
+    the 80-column width of a non-terminal, wherever it likes."""
+    return "".join(out.split())
+
+
+def test_a_chosen_home_is_written_where_the_next_run_looks_first(
+    unset_home: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    chosen = tmp_path / "disk" / "evarness"
+    answers = iter([str(chosen)])
+    monkeypatch.setattr(setup_cli.typer, "prompt", lambda *a, **kw: next(answers))
+    monkeypatch.setattr(setup_cli.typer, "confirm", lambda *a, **kw: False)
+    setup_cli._step_home_secret(interactive=True)
+    # The pointer sits in the default home's .env, the file read before the change...
+    assert _env_values(unset_home / ".env")["EVARNESS_HOME"] == str(chosen.resolve())
+    # ...and this process already runs on the chosen home, so later steps use it.
+    assert os.environ["EVARNESS_HOME"] == str(chosen.resolve())
+    assert chosen.is_dir()
+    assert f"exportEVARNESS_HOME={chosen.resolve()}" in _squashed(capsys.readouterr().out)
+
+
+def test_keeping_the_default_home_writes_nothing(
+    unset_home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(setup_cli.typer, "prompt", lambda *a, **kw: kw.get("default", ""))
+    monkeypatch.setattr(setup_cli.typer, "confirm", lambda *a, **kw: False)
+    setup_cli._step_home_secret(interactive=True)
+    assert "EVARNESS_HOME" not in os.environ
+    assert not (unset_home / ".env").exists()
+
+
+def test_a_home_set_by_the_shell_is_not_asked_about(
+    home: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def no_prompt(*a: Any, **kw: Any) -> str:
+        raise AssertionError("the shell decided the home; nothing to ask")
+
+    monkeypatch.setenv("EVARNESS_AUTH_SECRET", "already-set-secret")
+    monkeypatch.setattr(setup_cli.typer, "prompt", no_prompt)
+    monkeypatch.setattr(setup_cli.typer, "confirm", lambda *a, **kw: False)
+    setup_cli._step_home_secret(interactive=True)
+    assert "EVARNESS_HOMEissetbyyourshell" in _squashed(capsys.readouterr().out)
+
+
+def test_the_data_can_go_on_another_disk(
+    unset_home: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from evarness.foundation.paths import data_dir
+
+    elsewhere = tmp_path / "bigdisk" / "evarness-data"
+    prompts = iter([str(unset_home), str(elsewhere)])  # keep the home; move the data
+    monkeypatch.setattr(setup_cli.typer, "prompt", lambda *a, **kw: next(prompts))
+    monkeypatch.setattr(setup_cli.typer, "confirm", lambda *a, **kw: True)
+    setup_cli._step_home_secret(interactive=True)
+    assert _env_values(unset_home / ".env")["EVARNESS_DATA_DIR"] == str(elsewhere.resolve())
+    assert os.environ["EVARNESS_DATA_DIR"] == str(elsewhere.resolve())
+    assert data_dir() == elsewhere.resolve()
+    assert elsewhere.is_dir()
+
+
+def test_an_unusable_home_is_refused_and_asked_again(
+    unset_home: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    blocker = tmp_path / "a-file"
+    blocker.write_text("not a directory", encoding="utf-8")
+    good = tmp_path / "good"
+    prompts = iter([str(blocker / "home"), str(good)])
+    monkeypatch.setattr(setup_cli.typer, "prompt", lambda *a, **kw: next(prompts))
+    monkeypatch.setattr(setup_cli.typer, "confirm", lambda *a, **kw: False)
+    setup_cli._step_home_secret(interactive=True)
+    assert "cannotcreate" in _squashed(capsys.readouterr().out)
+    assert os.environ["EVARNESS_HOME"] == str(good.resolve())
+
+
+def test_non_interactive_names_the_home_and_asks_nothing(
+    unset_home: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    def no_prompt(*a: Any, **kw: Any) -> str:
+        raise AssertionError("not a terminal: nothing to ask")
+
+    monkeypatch.setattr(setup_cli.typer, "prompt", no_prompt)
+    monkeypatch.setattr(setup_cli.typer, "confirm", no_prompt)
+    setup_cli._step_home_secret(interactive=False)
+    out = _squashed(capsys.readouterr().out)
+    assert f"Evarnesshome:{unset_home}" in out
+    assert "settingsfile:" in out
+    assert "EVARNESS_HOME" not in os.environ
+
+
+def test_the_summary_names_home_data_and_the_settings_file(
+    home: Path, mandatory_steps_ok: dict[str, int], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(setup_cli, "_interactive", lambda: False)
+    monkeypatch.setattr(setup_cli, "_env_path", lambda: home / ".env")
+    result = runner.invoke(app, ["setup"])
+    assert result.exit_code == 0, result.output
+    assert f"home{home}" in _squashed(result.output)
+    assert f"settings{home / '.env'}" in _squashed(result.output)

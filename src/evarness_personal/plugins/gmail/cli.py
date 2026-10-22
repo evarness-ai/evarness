@@ -19,6 +19,7 @@ import typer
 
 from evarness.sdk.cli import console, print_error
 from evarness.sdk.persistence import data_path
+from evarness_personal.email.docs_site import GMAIL_OAUTH_CLIENT_GUIDE
 
 if TYPE_CHECKING:
     from evarness.sdk import PluginCLI
@@ -29,7 +30,10 @@ if TYPE_CHECKING:
 def register(cli: PluginCLI) -> None:
     gmail_app = typer.Typer(
         name="gmail",
-        help="Gmail OAuth (installed-app flow). See docs/usage-guides/gmail-auth.md for one-time setup.",
+        help=(
+            "Gmail OAuth (installed-app flow). Needs a one-time Google Cloud OAuth client: "
+            f"{GMAIL_OAUTH_CLIENT_GUIDE}"
+        ),
         no_args_is_help=True,
     )
     gmail_app.command("login")(cmd_auth_gmail_login)
@@ -93,7 +97,8 @@ def cmd_auth_gmail_login(
         f" [dim](provider={account.provider})[/dim]"
     )
     console.print(
-        "  [dim]Tokens stored in macOS Keychain. Account registered in data/evarness.db.[/dim]"
+        "  [dim]Tokens stored in the OS keyring; the account is registered in Evarness's "
+        "database under its home. Next: evarness email setup[/dim]"
     )
 
 

@@ -18,11 +18,22 @@ steps:
 
 # How an account of each provider is connected. Setup never asks for a password or runs
 # an OAuth flow itself: each provider plugin owns its login, and setup resumes after it.
+# `before` is what the owner must have in hand before the login works, and `docs` the
+# page of the documentation site that walks through getting it; the CLI, the API's
+# overview and the web console's Setup screen all print them beside the command.
 providers:
   gmail:
     connect: evarness auth gmail login --user {address}
+    before: >-
+      a Google Cloud OAuth client of your own (one time, about ten minutes), its JSON saved
+      as workspace/credentials/google_oauth_client.json under your Evarness home
+    docs: https://evarness-ai.github.io/evarness/getting-started/gmail-oauth-client/
   imap:
     connect: evarness auth imap login --user {address}
+    before: >-
+      an app password from your provider's security settings (iCloud, Yahoo, Fastmail and
+      Gmail with 2-Step Verification offer one; Outlook.com and Microsoft 365 do not)
+    docs: https://evarness-ai.github.io/evarness/getting-started/connect-your-mailbox/
   # The synthetic mailbox (`evarness email demo`); only inside a demo home, never the
   # owner's own profile.
   demo:

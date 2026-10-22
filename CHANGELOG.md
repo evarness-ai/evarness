@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `evarness setup` asks where the Evarness home goes and whether the data alone should go elsewhere, creates the directory, writes `EVARNESS_HOME` and `EVARNESS_DATA_DIR` to the settings `.env` and prints the `export` line for the shell profile. Before, the wizard printed the resolved home and set neither variable anywhere, and a tester who wanted the data on another disk had nothing to go on.
+- The Gmail OAuth client guide is on the documentation site, under Getting started ([Gmail: the OAuth client](https://evarness-ai.github.io/evarness/getting-started/gmail-oauth-client/)). It lived only in the repository (`docs/usage-guides/gmail-auth.md`), which the site excluded.
+- `evarness email setup` with no mailbox connected says, for each provider, what the login needs first (an app password; a Google OAuth client) and the page that explains it, beside the login command; `onboarding.yaml` carries both. The API's overview and the web console's Setup screen show the same.
+- `evarness doctor` reports an Accounts row: what is connected, or, with nothing connected, the two login commands and what each needs first. Information only; it never changes the verdict.
+
+### Changed
+
+- Every `evarness` command reads its settings from named files, in order: the checkout's `.env` in a source checkout, then the Evarness home's `.env` (`foundation/env_files.py`); the shell wins over both. An installed `evarness` used to search upward from its own site-packages directory, so the `.env` that `evarness setup` wrote in the current directory was read only from that directory. The wizard now writes to the home's file, and its closing lines name the home, the data directory and the file.
+- `install.sh` accepts Python 3.12 or 3.13, looks for `python3.12` and `python3.13` by name when `python3` is another version, and points Poetry at the one it found. It used to require exactly 3.12 from `python3`, and so refused a supported 3.13. `.python-version` says `3.12` rather than a patch release.
+- Every CLI message that pointed at a file under `docs/` (the Gmail login's "client secrets not found", `evarness setup`'s email step, `evarness auth gmail --help`) names the page's address on the documentation site instead; an installed `evarness` has no `docs/` tree.
+- Counting connected accounts (`evarness system status`, doctor) no longer creates the database in a home that has none.
+
+### Fixed
+
+- `evarness auth gmail login`'s success line said the account was registered in `data/evarness.db`, a checkout path; it names the Evarness home's database and the next command.
+
 ## [0.2.3] - 2026-10-20
 
 ### Added

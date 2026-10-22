@@ -27,19 +27,20 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import typer
-from dotenv import load_dotenv
 
 from evarness import __version__
 from evarness.cli.render import console, print_error, print_sessions
 from evarness.cli.session import Session as _Session
 from evarness.cli.session import SessionManager
+from evarness.foundation.env_files import load_env_files
 from evarness.foundation.paths import data_dir
 from evarness.foundation.settings.env_overrides import apply_env_overrides
 
-# Load .env from the user's cwd before any subcommand runs so flags like
-# EVARNESS_ENABLE_COPILOT_BACKEND, EVARNESS_API_URL, and provider keys are visible to
-# `evarness ...` invocations the same way they are to the FastAPI services.
-load_dotenv()
+# Read the settings files before any subcommand runs (the checkout's .env, then the
+# Evarness home's: foundation/env_files.py), so flags like EVARNESS_ENABLE_COPILOT_BACKEND,
+# EVARNESS_API_URL, and provider keys are visible to `evarness ...` invocations the same
+# way they are to the FastAPI services, whatever directory the command runs from.
+load_env_files()
 # The owner's saved setting changes win over .env, as they do in the servers (ADR-0120).
 apply_env_overrides()
 

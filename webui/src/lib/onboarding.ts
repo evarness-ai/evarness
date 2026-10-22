@@ -62,6 +62,10 @@ export interface SetupState {
 export interface ConnectHint {
   provider: string;
   command: string;
+  /** What the owner needs in hand before the command works; "" when nothing special. */
+  before: string;
+  /** The docs page that walks through getting it; "" when there is none. */
+  docs: string;
 }
 
 export interface SetupOverview {

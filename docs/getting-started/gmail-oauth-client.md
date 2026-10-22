@@ -1,19 +1,25 @@
-# Gmail authentication — one-time setup
+# Gmail: the OAuth client
 
-Evarness reads your Gmail via Google's standard OAuth 2.0 *installed-app
-flow*. Tokens live in the macOS Keychain (per ADR-0003); only the
-non-secret OAuth client config sits on disk.
+`evarness auth gmail login` reads your Gmail through Google's API with the standard OAuth 2.0
+installed-app flow. Before the first login you create a small Google Cloud OAuth client of
+your own, once per machine; this page walks through it in about ten minutes. Tokens then
+live in the OS keyring (macOS Keychain; ADR-0003), and only the non-secret client
+configuration sits on disk.
 
-The user-facing CLI commands are:
+If your Gmail account can create an app password, IMAP needs none of this: see
+[Connect your mailbox](connect-your-mailbox.md#imap-with-an-app-password).
 
+The commands, once the client exists:
+
+<!-- ci: skip the login opens a browser for Google's consent screen -->
 ```bash
 evarness auth gmail login --user <your-address@gmail.com>
 evarness auth gmail status
 evarness auth gmail logout --user <your-address@gmail.com>
 ```
 
-`login` requires a one-time Google Cloud setup — about ten minutes. The
-rest of this doc walks through it.
+Without the client, `login` stops with `OAuth client secrets not found at ...` and names
+this page.
 
 ## Why you have to do this manually
 
@@ -23,7 +29,9 @@ you'd get from us. The setup is identical to what `gcloud`,
 `google-cloud-sdk`, or any installed Google client tool needs.
 
 You do it **once per machine**. Subsequent `evarness auth gmail login`
-runs reuse the same client to authorize additional addresses.
+runs reuse the same client to authorize additional addresses. It also needs the
+`[email]` extra, which `uv tool install "evarness[email]"` includes; `evarness doctor`'s
+extras row says whether it is installed.
 
 ## Setup (≈10 minutes)
 
@@ -61,6 +69,10 @@ runs reuse the same client to authorize additional addresses.
 
 ### 5. Place the client secrets file where Evarness expects it
 
+The paths below assume the default Evarness home, `~/.evarness`. If `evarness setup`
+put your home elsewhere (`EVARNESS_HOME`), use that directory instead; the login's
+error message prints the exact path it looked at.
+
 **Run these commands one at a time** — do not paste them as a single
 block. Some Markdown viewers strip newlines on copy, which collapses
 the four commands into one `mkdir` invocation that then fails on the
@@ -69,6 +81,7 @@ to create and chokes on the existing Downloads file).
 
 Create the credentials directory:
 
+<!-- ci: skip creates the credentials directory under your own home -->
 ```bash
 mkdir -p ~/.evarness/workspace/credentials
 ```
@@ -76,18 +89,21 @@ mkdir -p ~/.evarness/workspace/credentials
 Move the downloaded file to the canonical name (your filename will
 include a long client-id hash):
 
+<!-- ci: skip moves the JSON you downloaded from Google Cloud -->
 ```bash
 mv ~/Downloads/client_secret_*.json ~/.evarness/workspace/credentials/google_oauth_client.json
 ```
 
 Lock down read/write permissions to your user only:
 
+<!-- ci: skip needs the JSON from the step above -->
 ```bash
 chmod 600 ~/.evarness/workspace/credentials/google_oauth_client.json
 ```
 
 Verify the file landed at the expected path with the right mode:
 
+<!-- ci: skip needs the JSON from the step above -->
 ```bash
 ls -la ~/.evarness/workspace/credentials/google_oauth_client.json
 ```
@@ -99,15 +115,17 @@ the default Evarness looks for; pass `--client-secrets PATH` to
 
 ### 6. Run the Evarness login
 
+<!-- ci: skip opens a browser for Google's consent screen -->
 ```bash
 evarness auth gmail login --user your-address@gmail.com
 ```
 
 Evarness opens your default browser to Google's auth screen. Pick the
-account (must match `--user` — Evarness rejects mismatches), grant
-read access, and the callback returns to a transient localhost
-port. Tokens land in the Keychain; the `email_accounts` row is
-created in `data/evarness.db`.
+account (must match `--user`; Evarness rejects mismatches), allow the
+permission it asks for, and the callback returns to a transient localhost
+port. Tokens land in the keyring, and the account is registered in
+Evarness's own database under its home. Then run `evarness email setup`; see
+[Connect your mailbox](connect-your-mailbox.md#2-run-setup).
 
 On macOS the first Keychain write triggers a system prompt
 ("`evarness` wants to access your keychain"). Choose **"Always Allow"**
@@ -126,6 +144,7 @@ You should see your address with `✓`, an expiry timestamp, and
 
 Repeat steps 5 (path overrides if you like) and 6 with each address:
 
+<!-- ci: skip opens a browser for Google's consent screen -->
 ```bash
 evarness auth gmail login --user user.in@example.com
 evarness auth gmail login --user user.us@example.com
@@ -144,6 +163,7 @@ answers "connected read-only" until you grant `gmail.modify`. Do this **in this 
    read-only again.
 2. In the consent screen's Scopes (step 3.4 above), add `.../auth/gmail.modify`.
 3. On the Mac, once per address:
+   <!-- ci: skip opens a browser for Google's consent screen -->
    ```bash
    evarness auth gmail login --user you@gmail.com
    ```
@@ -188,7 +208,7 @@ governance audit ledger. Code: `src/evarness_personal/connections/google.py`.
 
 ## Troubleshooting
 
-**"OAuth client secrets not found at …"** — step 5 wasn't done, or the file is at a non-default path. Re-run with `--client-secrets <path>`. If you pasted step 5 as a single block and saw `mkdir: …client_secret_…json: File exists`, the newlines got stripped on copy — the `mv` never ran. Run each step-5 command on its own line.
+**"OAuth client secrets not found at …"** — step 5 wasn't done, or the file is at a non-default path (the message prints the path it looked at). Re-run with `--client-secrets <path>`. If you pasted step 5 as a single block and saw `mkdir: …client_secret_…json: File exists`, the newlines got stripped on copy — the `mv` never ran. Run each step-5 command on its own line.
 
 **"OAuth authorized 'other@gmail.com' but CLI requested 'user@gmail.com'"** — you picked a different account in the browser than you passed to `--user`. Re-run with the matching address, or sign out of the other account in the browser first.
 
@@ -202,7 +222,7 @@ governance audit ledger. Code: `src/evarness_personal/connections/google.py`.
 |---|---|---|
 | OAuth `client_id` + `client_secret` | `~/.evarness/workspace/credentials/google_oauth_client.json` | plain JSON (chmod 600) |
 | OAuth access + refresh tokens | macOS Keychain (`evarness-gmail` service, account = email address) | JSON blob matching `google.oauth2.credentials.Credentials.to_json()` |
-| Account registration row | `data/evarness.db.email_accounts` | row with `provider='gmail'`, `address`, `active=1` |
+| Account registration row | `email_accounts` in Evarness's database (`data/evarness.db` under the Evarness home) | row with `provider='gmail'`, `address`, `active=1` |
 
 Nothing in this flow involves Evarness sending data to a third party other
 than Google itself for the OAuth handshake.
@@ -212,4 +232,4 @@ than Google itself for the OAuth handshake.
 - ADR-0003 — Keychain over vault (credential storage rationale).
 - ADR-0011 — Keychain credentials module implementation shape.
 - ADR-0016 — Email accounts registry shape.
-- `src/evarness/memory/identity/gmail_oauth.py` — the implementation.
+- `src/evarness_personal/plugins/gmail/gmail_oauth.py` — the implementation.

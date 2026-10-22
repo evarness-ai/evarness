@@ -11,7 +11,8 @@ your mail is personal data, so Evarness reads and sorts it on the local model on
 
 Setup never asks for a password or runs a login itself. Each mail provider plugin owns
 its login, and setup takes over once the account is connected. With no account
-connected yet, setup says how to connect one:
+connected yet, setup says how to connect one, what each login needs first (an app
+password for IMAP, a Google OAuth client for Gmail) and where that is explained:
 
 ```bash
 evarness email setup
@@ -98,12 +99,13 @@ change these; if a login fails, check the linked page first.
 
 ### Gmail with OAuth
 
-Gmail through its API is the full-fidelity option. It needs a one-time Google Cloud
-OAuth client of your own (about ten minutes: a project, the Gmail API, a consent
-screen with you as the test user, and a "Desktop app" client whose JSON you save as
-`~/.evarness/workspace/credentials/google_oauth_client.json`). The
-[Gmail setup guide](https://github.com/evarness-ai/evarness/blob/main/docs/usage-guides/gmail-auth.md)
-walks through it. Then:
+Gmail through its API is the full-fidelity option. **Before the login works** you need a
+one-time Google Cloud OAuth client of your own (about ten minutes: a project, the Gmail
+API, a consent screen with you as the test user, and a "Desktop app" client whose JSON
+you save as `~/.evarness/workspace/credentials/google_oauth_client.json`, or the same path
+under your `EVARNESS_HOME`). [Gmail: the OAuth client](gmail-oauth-client.md) walks through
+it step by step. Without the file, the login stops with `OAuth client secrets not found`
+and prints that page's address. Then:
 
 <!-- ci: skip opens a browser for Google's consent screen -->
 ```bash

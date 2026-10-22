@@ -473,6 +473,40 @@ def test_extras_are_information_only() -> None:
     assert dr.check_extra(extra, True).state is HealthState.GREY
 
 
+def test_accounts_row_is_absent_when_no_plugin_counts_them() -> None:
+    assert dr.check_accounts(None) is None
+
+
+def test_accounts_row_names_what_is_connected() -> None:
+    row = dr.check_accounts({"gmail": 1, "imap": 2})
+    assert row is not None
+    assert row.state is HealthState.GREEN
+    assert row.detail == "3 connected (1 gmail, 2 imap)"
+    assert row.blocks == "none"
+
+
+def test_no_mailbox_is_a_warning_with_both_logins_and_what_each_needs() -> None:
+    row = dr.check_accounts({})
+    assert row is not None
+    assert row.state is HealthState.YELLOW
+    assert row.blocks == "none"
+    assert row.fix is not None
+    assert "evarness auth imap login" in row.fix and "app password" in row.fix
+    assert "evarness auth gmail login" in row.fix and "OAuth client" in row.fix
+    assert "https://evarness-ai.github.io/evarness/getting-started/connect-your-mailbox/" in row.fix
+
+
+def test_the_report_carries_the_accounts_row_and_the_verdict_ignores_it(
+    facts: dict[str, Any], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(dr, "connected_accounts", lambda: {})
+    report = _run(tmp_path, _ollama(["qwen2.5:7b-instruct"]))
+    assert _row(report, "Accounts").state is HealthState.YELLOW
+    assert report.verdict is dr.Verdict.READY
+    monkeypatch.setattr(dr, "connected_accounts", lambda: None)
+    assert "Accounts" not in {c.name for c in _run(tmp_path, _ollama([])).checks}
+
+
 # ── verdict ─────────────────────────────────────────────────────────────────────
 
 

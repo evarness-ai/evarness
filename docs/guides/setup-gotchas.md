@@ -22,7 +22,15 @@ installed it then keeps it: a later `uv tool install "evarness[email]"` answers
 `uv tool install "evarness[email]" --upgrade` (or `pipx install --force "evarness[email]"`);
 `evarness --version` then says `Evarness 0.2.x`.
 
-**The wrong Python.** Evarness needs Python 3.12 or 3.13. A plain `uv tool install` fetches
+**A Python version mismatch in a clone.** Evarness needs Python 3.12 or 3.13. To try
+Evarness, do not clone: `uv tool install "evarness[email]" --upgrade` fetches a supported
+Python itself. In a clone, let one tool make the environment: `uv sync` (it reads
+`.python-version` and fetches 3.12 if needed) or `./install.sh`, which finds a 3.12 or
+3.13 on the machine and points Poetry at it. A `venv` made by hand on Homebrew's newest
+Python, then handed to `uv` or Poetry, is what "mismatch" errors describe: delete it and
+let the tool create its own.
+
+**The wrong Python.** A plain `uv tool install` fetches
 one for you, so it works whatever Python the machine has. If it stops with
 `No solution found ... evarness depends on Python>=3.12,<3.14`, uv is pinned to another
 Python: a `--python` flag, the `UV_PYTHON` variable, or a `python` setting in your uv
@@ -95,7 +103,14 @@ server and port for each, are in
 
 **There is no app-password option for Gmail.** App passwords need 2-Step Verification, and
 are not offered for work or school accounts, Advanced Protection, or security-key-only
-2SV. Use Gmail with OAuth instead, which takes a one-time Google Cloud client of your own.
+2SV. Use Gmail with OAuth instead, which takes a one-time Google Cloud client of your own:
+[Gmail: the OAuth client](../getting-started/gmail-oauth-client.md).
+
+**`evarness auth gmail login` says `OAuth client secrets not found at ...`.** The one-time
+Google Cloud client has not been created, or its JSON is not at the path the message
+prints (`workspace/credentials/google_oauth_client.json` under your Evarness home).
+[Gmail: the OAuth client](../getting-started/gmail-oauth-client.md) has the steps;
+`--client-secrets PATH` points the login at a file kept elsewhere.
 
 **Setup stopped and exited 3.** That means it is waiting, for your decision or for
 something outside setup, not that it failed. Run `evarness email setup` again and it picks up
@@ -104,6 +119,21 @@ where it stopped. Exit 2 is bad input.
 **Nothing changed in my mailbox.** That is by design: every write is refused until you
 approve it once per account. `evarness email writes status` shows where you stand and
 `evarness email writes approve --account <id>` gives the approval.
+
+## Settings and the `.env` file
+
+**A setting in `.env` is ignored, or `evarness setup` wrote one I cannot find.** Every
+`evarness` command reads the Evarness home's `.env` (`~/.evarness/.env` unless
+`EVARNESS_HOME` points elsewhere), and in a source checkout the checkout's `.env` first;
+a variable the shell exports wins over both. An installed `evarness` does not read a
+`.env` in the directory you happen to run it from. `evarness setup` writes to the file
+that is read, and its closing lines name the home, the data directory and that file. See
+[Where Evarness keeps its files](../getting-started/install.md#where-evarness-keeps-its-files).
+
+**Where is the data, and how do I move it?** Under the home (`data/`), or where
+`EVARNESS_DATA_DIR` points. `evarness setup` asks; `evarness setup --reset` asks again.
+Moving the home or the data after setup means moving the directory and changing the
+variable; nothing else records the path.
 
 ## Running the services
 

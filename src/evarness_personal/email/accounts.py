@@ -310,8 +310,12 @@ INSERT INTO email_accounts (
 
 
 def count_by_provider() -> dict[str, int]:
-    """Connected accounts by provider, inactive ones included: ``evarness system status``."""
+    """Connected accounts by provider, inactive ones included: ``evarness system status``
+    and ``evarness doctor``'s Accounts row. A home with no database yet has no accounts,
+    and counting creates nothing (doctor reads only)."""
     store = EmailAccountStore()
+    if not store.db_path.exists():
+        return {}
     store.ensure_schema()
     counts: dict[str, int] = {}
     for account in store.list(active_only=False):
