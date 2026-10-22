@@ -21,7 +21,7 @@ from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 import pytest
 
@@ -55,8 +55,12 @@ SCOPE = EgressScope(run_id="r1", agent_type="chat", tool="research", tool_plugin
 
 
 class _Server:
+    """A loopback origin. A redirect's target is registered by the test (``redirect_to``)
+    and picked by number, so nothing from a request is ever written into a header."""
+
     def __init__(self) -> None:
         self.seen: list[str] = []
+        self.redirects: list[str] = []
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -68,8 +72,8 @@ class _Server:
             def do_GET(self) -> None:
                 outer.seen.append(self.path)
                 parsed = urlparse(self.path)
-                if parsed.path == "/redirect":
-                    self._redirect(parse_qs(parsed.query)["to"][0])
+                if parsed.path.startswith("/redirect/"):
+                    self._redirect(outer.redirects[int(parsed.path.rsplit("/", 1)[1])])
                 elif parsed.path == "/loop":
                     self._redirect("/loop")
                 elif parsed.path.startswith("/chain/"):
@@ -82,9 +86,6 @@ class _Server:
                     self._send(200, b"<html><body>hello</body></html>")
 
             def _redirect(self, to: str) -> None:
-                if "\r" in to or "\n" in to:
-                    self.send_error(400, "bad redirect target")
-                    return
                 self.send_response(302)
                 self.send_header("Location", to)
                 self.send_header("Content-Length", "0")
@@ -100,6 +101,11 @@ class _Server:
         self.httpd.daemon_threads = True
         self.port = int(self.httpd.server_address[1])
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
+
+    def redirect_to(self, target: str) -> str:
+        """A URL on this server that answers 302 to ``target``."""
+        self.redirects.append(target)
+        return _url(self, f"/redirect/{len(self.redirects) - 1}")
 
     def close(self) -> None:
         self.httpd.shutdown()
@@ -184,7 +190,7 @@ def test_a_redirect_is_followed_one_governed_request_per_hop(
     server: _Server, ledger: AuditLog, in_a_research_call: None
 ) -> None:
     target = _url(server, "/page/boilerplate")
-    body = _fetch(_url(server, f"/redirect?to={target}"), timeout=8.0)
+    body = _fetch(server.redirect_to(target), timeout=8.0)
     assert body is not None and b"slow travel" in body.lower()
     assert len(_rows(ledger, "pre_egress")) == 2
     calls = {r.call_id for r in _rows(ledger, "pre_egress")}
@@ -208,7 +214,7 @@ def test_a_redirect_to_a_non_public_address_is_refused_and_never_connected_to(
     address: str, server: _Server, dns: _Dns, ledger: AuditLog, in_a_research_call: None
 ) -> None:
     dns.answers["inner.test"] = [address]
-    assert _fetch_and_extract(_url(server, "/redirect?to=http://inner.test/admin"), 8.0) is None
+    assert _fetch_and_extract(server.redirect_to("http://inner.test/admin"), 8.0) is None
     assert [p for p in server.seen if p.startswith("/admin")] == []
     # The refused hop is a recorded request that failed, and no connection was made for it.
     posts = _rows(ledger, "post_egress")
@@ -222,7 +228,7 @@ def test_an_ip_literal_in_a_redirect_is_denied_by_policy_before_any_lookup(
     included) is a recorded denial at the pre-egress hook, never resolved or connected to.
     This also means a result that links a bare public IP is no longer fetched (it was)."""
     to = "http://169.254.169.254/latest/meta-data/"
-    assert _fetch_and_extract(_url(server, f"/redirect?to={to}"), 8.0) is None
+    assert _fetch_and_extract(server.redirect_to(to), 8.0) is None
     denied = [r for r in _rows(ledger, "pre_egress") if r.decision == "deny"]
     assert len(denied) == 1 and "IP address" in denied[0].reason
     assert json.loads(denied[0].payload_json)["egress"]["host"] == "169.254.169.254"
@@ -232,7 +238,7 @@ def test_an_ip_literal_in_a_redirect_is_denied_by_policy_before_any_lookup(
 def test_a_redirect_to_a_non_http_scheme_is_refused_before_any_request(
     target: str, server: _Server, ledger: AuditLog, in_a_research_call: None
 ) -> None:
-    assert _fetch_and_extract(_url(server, f"/redirect?to={target}"), 8.0) is None
+    assert _fetch_and_extract(server.redirect_to(target), 8.0) is None
     assert len(_rows(ledger, "pre_egress")) == 1  # only the first hop was ever requested
 
 
@@ -313,8 +319,8 @@ def test_a_chain_within_the_cap_is_followed(
     server: _Server, ledger: AuditLog, in_a_research_call: None
 ) -> None:
     target = _url(server, "/page/article")
-    hop = _url(server, f"/redirect?to={target}")
-    chain = _url(server, f"/redirect?to={hop}")
+    hop = server.redirect_to(target)
+    chain = server.redirect_to(hop)
     assert _fetch(chain, 8.0) is not None
     assert len(server.seen) == 3
 

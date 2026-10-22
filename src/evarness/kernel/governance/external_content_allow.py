@@ -69,7 +69,14 @@ def scope_for_label(label: str) -> str:
 
 
 class AllowListError(ValueError):
-    """The allow-list file, or an entry for it, is refused."""
+    """The allow-list file, or an entry for it, is refused.
+
+    ``message`` is the text written for the owner; a surface shows it as it is.
+    """
+
+    @property
+    def message(self) -> str:
+        return str(self.args[0]) if self.args else ""
 
 
 @dataclass(frozen=True)
@@ -250,7 +257,7 @@ def allow_status() -> tuple[int, str | None]:
     try:
         entries = load_allow()
     except AllowListError as exc:
-        return 0, str(exc)
+        return 0, exc.message
     today = datetime.now(UTC).date()
     return sum(1 for e in entries if not e.expired(today)), None
 

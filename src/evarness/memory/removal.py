@@ -331,7 +331,7 @@ class MemoryRemoval:
         try:
             self.graph.reinstate(s.id, status="confirmed", reason="restored")
         except StatementError as exc:
-            raise RemovalError(str(exc)) from exc
+            raise RemovalError(exc.message) from exc
         key = self.store.fact_statements().key_of(s)
         if key is not None and self._rederive is not None:
             self._rederive(key)
@@ -362,7 +362,7 @@ class MemoryRemoval:
             try:
                 self.graph.purge([s.id])
             except StatementError as exc:
-                return str(exc)
+                return exc.message
             return None
         if row["permanent"]:
             return "already deleted"
@@ -372,7 +372,7 @@ class MemoryRemoval:
             try:
                 self.graph.delete_entity(row["target_id"])
             except StatementError as exc:
-                return str(exc)
+                return exc.message
         elif row["kind"] == "session":
             if self._purge_session is not None:
                 self._purge_session(row["target_id"])
