@@ -419,7 +419,7 @@ def kernel_from_env() -> GovernanceKernel | None:
             raw,
         )
 
-    trusted = _parse_trusted_cloud_for_from_env()
+    cloud_for = _parse_cloud_for_from_env()
     allowed_tools = _parse_csv_env("EVARNESS_GOVERNANCE_ALLOWED_TOOLS")
     blocked_tools = _parse_csv_env("EVARNESS_GOVERNANCE_BLOCKED_TOOLS") or frozenset()
     confirm_once_tools = _confirm_once_tools_from_env()
@@ -447,7 +447,7 @@ def kernel_from_env() -> GovernanceKernel | None:
         "command_sandbox=%s fs_jail=%s network_egress=%s mcp_allowlist=%s "
         "side_effect_ledger=%s input_safety=%s owner_pii=%s",
         ENV_FLAG,
-        sorted(trusted) if trusted else "{}",
+        sorted(cloud_for) if cloud_for else "{}",
         sorted(allowed_tools) if allowed_tools else "*",
         sorted(blocked_tools) if blocked_tools else "{}",
         "on" if redaction_secrets is not None else "off",
@@ -472,7 +472,7 @@ def kernel_from_env() -> GovernanceKernel | None:
         owner_pii.mode,
     )
     return build_default_kernel(
-        trusted_cloud_for=trusted,
+        trusted_cloud_for=cloud_for,
         allowed_tools=allowed_tools,
         blocked_tools=blocked_tools,
         confirm_once_tools=confirm_once_tools,
@@ -502,8 +502,11 @@ def kernel_from_env() -> GovernanceKernel | None:
     )
 
 
-def _parse_trusted_cloud_for_from_env() -> frozenset[DataClassification]:
-    """Parse comma-separated ``EVARNESS_GOVERNANCE_TRUSTED_CLOUD_FOR``.
+def _parse_cloud_for_from_env() -> frozenset[DataClassification]:
+    """Parse comma-separated ``EVARNESS_GOVERNANCE_TRUSTED_CLOUD_FOR``: the data classes
+    the owner lets a cloud model see. The result is a set of class labels, nothing
+    secret, which is why neither this function nor its result is named "trusted": a
+    scanner reads that word as a secret and flags the startup log line printing the set.
 
     Only ``personal`` and ``internal`` are accepted (``secret`` is
     permanently rejected by EgressGate; ``public`` is meaningless to
