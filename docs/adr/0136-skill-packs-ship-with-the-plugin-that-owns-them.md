@@ -15,26 +15,43 @@ skills were the odd one out.
 
 ## Decision
 
-The skill registry also discovers `skills/**/manifest.yaml` under every installed plugin
-directory (builtin, entry point, `$EVARNESS_HOME/plugins/<name>`), through the same
-`installed_plugin_dirs()` seam. A plugin's skill packs are package data beside its
-manifest.
+A plugin's skill packs are package data beside its manifest, under `skills/`. The skill
+registry loads `skills/**/manifest.yaml` from a plugin only when the plugin host has
+**mounted** that plugin and it runs **in-process**. A pack's `tools.py` is code imported
+into the harness, so the plugin host's mount and trust decisions apply to it: the profile,
+`EVARNESS_PLUGINS_DISABLE`, a failed mount and unmet `requires` all keep a plugin's packs
+out, and a `trust: mcp` plugin, which runs as its own server, never has pack code imported
+here (brief packs included; one rule, no per-kind exceptions).
 
-Packs in `config/skills` are discovered first. The registry keeps the first pack of a
-manifest `name`, so an owner's copy in `config/skills` overrides a plugin's; the displaced
-pack is not loaded (its tools module is never imported) and the collision is logged once.
-Between two plugins, the one `installed_plugin_dirs()` lists first wins, the same rule it
-applies to plugin names.
+The registry never scans what is installed. It is handed a provider of plugin sources:
+the runtime binds the plugin host's own records once the profile is mounted
+(`runtime/plugin_host/skill_sources.py`, `mounted_skill_sources`); callers that boot no
+runtime (`evarness skills list`, the REPL `/skills`, `evarness mcp serve`) pass
+`profile_skill_sources`, which takes the resolved profile and applies the loader's own
+pre-setup checks (found, `requires` met) and the effective trust. A plugin that would fail
+inside `setup` is only known to a booted host. With no provider the registry loads no
+plugin packs.
+
+A pack of an installed plugin that is not loaded is still listed, from its manifest alone
+and with the reason (`plugin not mounted`, `trust: mcp, packs run in-process`); none of its
+code runs.
+
+Packs in `config/skills` are discovered first. Among plugin packs the registry keeps the
+first pack of a manifest `name`, and a pack in `config/skills` overrides a plugin's: the
+name is held from the moment the manifest reads, so an owner's copy that then fails to
+load still keeps it, and the displaced pack's tools module is never imported. The
+collision is logged once. Two packs of one name inside `config/skills` both load, as they
+always did; the rule is scoped to plugin packs.
 
 A pack's `requires.config_files`, when relative, resolves against the plugin directory the
-pack ships in, not the checkout's `config/`: the config a plugin's pack needs is package data
-of that plugin. Packs in `config/skills` keep the existing rule. `~` and absolute paths are
-unchanged for both.
+pack ships in, not the checkout's `config/`: the config a plugin's pack needs is package
+data of that plugin. Packs in `config/skills` keep the existing rule. `~` and absolute
+paths are unchanged for both.
 
-`evarness skills list [--json]` prints every discovered pack with its source (`config/skills`
-or `plugin:<name>`), its `missing_prerequisites` and how many tools it registered, so a check
-can assert that a pack loaded and not only that it was found. The REPL's `/skills` names the
-same source.
+`evarness skills list [--json]` prints every discovered pack with its source
+(`config/skills` or `plugin:<name>`), its kind, its `missing_prerequisites` and how many
+tools it registered, so a check can assert that a pack loaded and not only that it was
+found. The REPL's `/skills` names the same source.
 
 ## Alternatives
 
@@ -46,7 +63,7 @@ same source.
 ## Consequences
 
 - A brief manifest's references to a plugin's pack ids resolve as soon as the owning
-  plugin is installed, with no config change.
+  plugin is mounted, with no config change.
 - Nothing assumes a skill directory lives under the repo root: the listing falls back to
   the absolute path.
 - A plugin pack cannot name a core `config/` file as a prerequisite by a bare relative
@@ -55,5 +72,6 @@ same source.
 - Hot reload still watches only `config/skills`. A plugin's packs are installed package
   data and change with the package, so they are picked up on the next `discover()`, not
   on a file edit.
-- A plugin's pack can run code (a `tools.py`), as the plugin itself can; installing a
-  plugin was already the trust decision.
+- A plugin's pack runs code (a `tools.py`) in the harness process, exactly when the
+  plugin itself does: mounting an in-process plugin was already the trust decision, and
+  an unmounted or out-of-process plugin gets none.

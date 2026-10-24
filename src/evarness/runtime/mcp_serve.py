@@ -70,6 +70,7 @@ from evarness.foundation.paths import config_dir, default_config_dir, evarness_h
 from evarness.kernel.governance.caller_policy import MCP_CALLER_PREFIX
 from evarness.kernel.governance.mcp_clients import register_local_mcp_clients
 from evarness.kernel.governance.turn_label import turn_label_scope
+from evarness.runtime.plugin_host.skill_sources import profile_skill_sources
 from evarness.tools.mcp.server import (
     EvarnessMCPServer,
     McpReply,
@@ -246,7 +247,11 @@ def select_tools(
     served = [ServedTool(spec, dict(_PLUGIN_TOOL_SCHEMA), "plugin") for spec in chosen]
 
     wanted_skills = tuple(skills or ())
-    loaded = list(skill_tools) if skill_tools is not None else load_skill_tools(wanted_skills)
+    loaded = (
+        list(skill_tools)
+        if skill_tools is not None
+        else load_skill_tools(wanted_skills, plugin_sources=profile_skill_sources(config_dir()))
+    )
     names = {tool.spec.name for tool in served}
     for skill_tool in loaded:
         where = f"skill {skill_tool.skill!r} tool {skill_tool.name!r}"

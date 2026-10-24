@@ -31,6 +31,7 @@ from pydantic import BaseModel
 
 from evarness import __version__
 from evarness.foundation.paths import config_root
+from evarness.tools.skills.loader import PluginSkillSource
 
 logger = logging.getLogger(__name__)
 
@@ -114,14 +115,19 @@ def load_skill_tools(
     skills: Iterable[str],
     *,
     repo_root: Path | None = None,
+    plugin_sources: Callable[[], Iterable[PluginSkillSource]] | None = None,
 ) -> list[SkillTool]:
-    """The tools of the named skill packages, each with its declared governor route."""
+    """The tools of the named skill packages, each with its declared governor route.
+
+    ``plugin_sources`` says which plugins' packs may be served (ADR-0136); none by default,
+    because this layer cannot see which plugins the host would mount.
+    """
     from evarness.tools.skills.registry import SkillRegistry
 
     wanted = set(skills)
     if not wanted:
         return []
-    registry = SkillRegistry(repo_root or default_repo_root())
+    registry = SkillRegistry(repo_root or default_repo_root(), plugin_sources=plugin_sources)
     registry.discover()
 
     tools: list[SkillTool] = []
