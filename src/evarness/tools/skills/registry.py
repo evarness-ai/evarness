@@ -8,10 +8,18 @@ from pathlib import Path
 
 from langchain_core.tools import BaseTool
 
-from .loader import discover_skill_dirs, load_skill_manifest, load_skill_package
+from .loader import (
+    discover_config_skill_dirs,
+    discover_plugin_skill_dirs,
+    load_skill_manifest,
+    load_skill_package,
+)
 from .models import SkillPackage
 
 logger = logging.getLogger(__name__)
+
+
+CONFIG_SOURCE = "config/skills"
 
 
 class SkillRegistry:
@@ -32,6 +40,7 @@ class SkillRegistry:
         self._reported_failures: set[tuple[Path, str]] = set()
         self._reported_unavailable: set[tuple[str, tuple[str, ...]]] = set()
         self._reported_shadowed: set[tuple[Path, Path]] = set()
+        self._sources: dict[Path, str] = {}
 
     @property
     def load_failures(self) -> dict[Path, str]:
@@ -50,7 +59,18 @@ class SkillRegistry:
         packages: list[SkillPackage] = []
         failures: dict[Path, str] = {}
         taken: dict[str, Path] = {}
-        for skill_dir in discover_skill_dirs(self.repo_root):
+        sources: dict[Path, str] = {}
+        # config/skills first: the registry keeps the first pack of a name (ADR-0136).
+        ordered: list[tuple[Path, str, Path | None]] = [
+            (skill_dir, CONFIG_SOURCE, None)
+            for skill_dir in discover_config_skill_dirs(self.repo_root)
+        ]
+        ordered.extend(
+            (pack.skill_dir, f"plugin:{pack.plugin}", pack.plugin_dir)
+            for pack in discover_plugin_skill_dirs()
+        )
+        for skill_dir, source, plugin_dir in ordered:
+            sources[skill_dir] = source
             try:
                 # Decided on the manifest alone: a displaced pack's tools module is never
                 # imported.
@@ -60,7 +80,12 @@ class SkillRegistry:
                     self._note_shadowed(name, skill_dir, first)
                     continue
                 packages.append(
-                    load_skill_package(self.repo_root, skill_dir, environment=self.environment)
+                    load_skill_package(
+                        self.repo_root,
+                        skill_dir,
+                        environment=self.environment,
+                        plugin_dir=plugin_dir,
+                    )
                 )
                 taken[name] = skill_dir
             except Exception as exc:  # isolate one skill's fault from the rest
@@ -77,7 +102,12 @@ class SkillRegistry:
                 self._note_unavailable(packages[-1])
         self._packages = tuple(packages)
         self._load_failures = failures
+        self._sources = sources
         return self._packages
+
+    def source_of(self, skill_dir: Path) -> str:
+        """Where the last :meth:`discover` found a pack: ``config/skills`` or ``plugin:<name>``."""
+        return self._sources.get(skill_dir.resolve(), CONFIG_SOURCE)
 
     def _note_shadowed(self, name: str, skill_dir: Path, winner: Path) -> None:
         """One INFO line for a pack another pack of the same name displaces.

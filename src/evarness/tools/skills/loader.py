@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
-from typing import Any
+from typing import Any, NamedTuple
 
 import yaml
 from langchain_core.tools import BaseTool
@@ -43,8 +43,16 @@ def resolve_auto_skills_root(repo_root: Path) -> Path:
 PLUGIN_SKILLS_DIR = "skills"
 
 
-def discover_plugin_skill_dirs() -> tuple[tuple[str, Path], ...]:
-    """``(plugin name, skill directory)`` for every pack an installed plugin ships.
+class PluginSkill(NamedTuple):
+    """One skill pack an installed plugin ships, and the plugin directory it lives under."""
+
+    plugin: str
+    plugin_dir: Path
+    skill_dir: Path
+
+
+def discover_plugin_skill_dirs() -> tuple[PluginSkill, ...]:
+    """Every pack an installed plugin ships, with the plugin that owns it.
 
     A plugin keeps its packs as package data beside its manifest, under ``skills/``
     (ADR-0136). The plugin directories are the ones the ontology, nav and expiry
@@ -53,16 +61,31 @@ def discover_plugin_skill_dirs() -> tuple[tuple[str, Path], ...]:
     """
     from evarness.foundation.plugin_dirs import installed_plugin_dirs
 
-    found: list[tuple[str, Path]] = []
+    found: list[PluginSkill] = []
     for plugin_name, plugin_dir in installed_plugin_dirs():
         skills_dir = plugin_dir / PLUGIN_SKILLS_DIR
         if not skills_dir.is_dir():
             continue
         found.extend(
-            (plugin_name, manifest_path.parent.resolve())
+            PluginSkill(plugin_name, plugin_dir.resolve(), manifest_path.parent.resolve())
             for manifest_path in sorted(skills_dir.rglob(MANIFEST_FILE))
         )
     return tuple(found)
+
+
+def discover_config_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
+    """The packs under ``config/skills`` (not the quarantined ``auto/`` tree)."""
+    skills_root = resolve_skills_root(repo_root)
+    auto_root = resolve_auto_skills_root(repo_root)
+    if not skills_root.exists():
+        return ()
+    return tuple(
+        sorted(
+            manifest_path.parent.resolve()
+            for manifest_path in skills_root.rglob(MANIFEST_FILE)
+            if auto_root.resolve() not in manifest_path.resolve().parents
+        )
+    )
 
 
 def discover_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
@@ -72,18 +95,10 @@ def discover_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
     ship. Order matters: the registry keeps the first pack of a name, so a pack in
     ``config/skills`` overrides a plugin's of the same name.
     """
-    skills_root = resolve_skills_root(repo_root)
-    auto_root = resolve_auto_skills_root(repo_root)
-    configured: tuple[Path, ...] = ()
-    if skills_root.exists():
-        configured = tuple(
-            sorted(
-                manifest_path.parent.resolve()
-                for manifest_path in skills_root.rglob(MANIFEST_FILE)
-                if auto_root.resolve() not in manifest_path.resolve().parents
-            )
-        )
-    return (*configured, *(directory for _name, directory in discover_plugin_skill_dirs()))
+    return (
+        *discover_config_skill_dirs(repo_root),
+        *(pack.skill_dir for pack in discover_plugin_skill_dirs()),
+    )
 
 
 def load_skill_manifest(skill_dir: Path) -> SkillManifest:
@@ -100,8 +115,13 @@ def validate_skill_prerequisites(
     manifest: SkillManifest,
     *,
     environment: Mapping[str, str] | None = None,
+    plugin_dir: Path | None = None,
 ) -> tuple[str, ...]:
-    """Return missing skill prerequisites without raising for runtime discovery."""
+    """Return missing skill prerequisites without raising for runtime discovery.
+
+    ``plugin_dir`` is the installed plugin a pack ships in, if any: its relative
+    ``config_files`` resolve against that directory (see :func:`_resolve_config_path`).
+    """
     missing: list[str] = []
     if not _python_requirement_satisfied(manifest.requires.python):
         missing.append(f"python:{manifest.requires.python}")
@@ -121,7 +141,7 @@ def validate_skill_prerequisites(
             missing.append(f"env:{env_var}")
 
     for config_file in manifest.requires.config_files:
-        if not _resolve_config_path(repo_root, config_file).exists():
+        if not _resolve_config_path(repo_root, config_file, plugin_dir=plugin_dir).exists():
             missing.append(f"config:{config_file}")
 
     for credential in manifest.requires.required_credentials:
@@ -156,6 +176,7 @@ def load_skill_package(
     skill_dir: Path,
     *,
     environment: Mapping[str, str] | None = None,
+    plugin_dir: Path | None = None,
 ) -> SkillPackage:
     """Load one skill package, preserving prerequisite failures for registry reporting."""
     manifest = load_skill_manifest(skill_dir)
@@ -163,6 +184,7 @@ def load_skill_package(
         repo_root,
         manifest,
         environment=environment,
+        plugin_dir=plugin_dir,
     )
     tool_classes: tuple[type[BaseTool], ...] = ()
     if not missing_prerequisites and manifest.kind != "brief":
@@ -421,7 +443,9 @@ _REPO_TOP_LEVEL_DIRS: frozenset[str] = frozenset(
 )
 
 
-def _resolve_config_path(repo_root: Path, config_file: str) -> Path:
+def _resolve_config_path(
+    repo_root: Path, config_file: str, *, plugin_dir: Path | None = None
+) -> Path:
     """Resolve a manifest ``config_files`` entry to a concrete filesystem path.
 
     Resolution rules, in order:
@@ -437,10 +461,17 @@ def _resolve_config_path(repo_root: Path, config_file: str) -> Path:
     4. All other relative paths fall back to ``<repo>/config/<path>``
        for backward compatibility with bare-filename skill prereqs
        (e.g. ``message_templates.yaml``).
+
+    A pack an installed plugin ships (``plugin_dir`` given) is the exception to 3 and 4:
+    every relative path is the plugin's own file, ``<plugin_dir>/<path>``, because the
+    config a plugin's pack needs is package data of that plugin, not of the checkout
+    (ADR-0136). ``~`` and absolute paths keep rules 1 and 2.
     """
     expanded = Path(config_file).expanduser()
     if expanded.is_absolute():
         return expanded
+    if plugin_dir is not None:
+        return plugin_dir / expanded
     if expanded.parts and expanded.parts[0] in _REPO_TOP_LEVEL_DIRS:
         return repo_root / expanded
     return repo_root / "config" / expanded

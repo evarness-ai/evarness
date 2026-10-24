@@ -312,6 +312,10 @@ from evarness.cli.ontology import ontology_app  # noqa: E402
 
 app.add_typer(ontology_app, name="ontology")
 
+from evarness.cli.skills import skills_app  # noqa: E402
+
+app.add_typer(skills_app, name="skills")
+
 from evarness.cli.behaviors import behaviors_app  # noqa: E402
 
 app.add_typer(behaviors_app, name="behaviors")

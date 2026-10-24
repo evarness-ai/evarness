@@ -149,7 +149,7 @@ mkdir -p config/skills/builtin/unit-converter
 ```
 
 The `SkillRegistry` discovers every `manifest.yaml` under `config/skills/` (except the
-quarantined `auto/` tree) on `EvarnessRuntime.startup()`. It also discovers `skills/**/manifest.yaml` under every installed plugin's directory, so a plugin ships its packs as package data beside its manifest and they load with no config ([ADR-0136](../adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)). A pack in `config/skills` wins a name collision with a plugin's. To test a skill, load it the way
+quarantined `auto/` tree) on `EvarnessRuntime.startup()`. It also discovers `skills/**/manifest.yaml` under every installed plugin's directory, so a plugin ships its packs as package data beside its manifest and they load with no config ([ADR-0136](../adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)). A pack in `config/skills` wins a name collision with a plugin's, and a plugin pack's relative `requires.config_files` resolve against its plugin directory. `evarness skills list` prints each pack's source, missing prerequisites and tool count. To test a skill, load it the way
 the registry does and call each tool's `_run`:
 
 ```python

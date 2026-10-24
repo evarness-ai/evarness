@@ -26,7 +26,15 @@ pack is not loaded (its tools module is never imported) and the collision is log
 Between two plugins, the one `installed_plugin_dirs()` lists first wins, the same rule it
 applies to plugin names.
 
-`evarness skills list` labels such a pack `plugin:<name>` in its source column.
+A pack's `requires.config_files`, when relative, resolves against the plugin directory the
+pack ships in, not the checkout's `config/`: the config a plugin's pack needs is package data
+of that plugin. Packs in `config/skills` keep the existing rule. `~` and absolute paths are
+unchanged for both.
+
+`evarness skills list [--json]` prints every discovered pack with its source (`config/skills`
+or `plugin:<name>`), its `missing_prerequisites` and how many tools it registered, so a check
+can assert that a pack loaded and not only that it was found. The REPL's `/skills` names the
+same source.
 
 ## Alternatives
 
@@ -39,8 +47,11 @@ applies to plugin names.
 
 - A brief manifest's references to a plugin's pack ids resolve as soon as the owning
   plugin is installed, with no config change.
-- Nothing assumes a skill directory lives under the repo root: `evarness skills list`
-  already falls back to the absolute path.
+- Nothing assumes a skill directory lives under the repo root: the listing falls back to
+  the absolute path.
+- A plugin pack cannot name a core `config/` file as a prerequisite by a bare relative
+  path; it would be looked for in the plugin. A pack that needs a core file spells it
+  with an absolute or `~` path.
 - Hot reload still watches only `config/skills`. A plugin's packs are installed package
   data and change with the package, so they are picked up on the next `discover()`, not
   on a file edit.
