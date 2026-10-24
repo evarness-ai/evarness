@@ -706,7 +706,8 @@ tools:
   `evarness.testing.plugin(manifest=PATH)` with no setup. A home-directory plugin
   (`$EVARNESS_HOME/plugins/<name>/manifest.yaml`) works when its `impl` module is importable.
 - Not the `config/skills/` skill system (code-first skills, the semantic router): that
-  is a separate, older mechanism and is unchanged.
+  is a separate, older mechanism. A python plugin can ship skill packs under its own
+  `skills/` directory ([ADR-0136](../adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)).
 
 ## Out-of-process plugins (`trust: mcp`)
 

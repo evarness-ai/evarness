@@ -1002,10 +1002,17 @@ def _repo_relative_display(repo_root: Path, path: Path) -> str:
 
 
 def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
+    from evarness.tools.skills.loader import discover_plugin_skill_dirs
     from evarness.tools.skills.registry import SkillRegistry
 
     registry = SkillRegistry(repo_root=repo_root)
     packages = registry.discover()
+    plugin_of = {directory: name for name, directory in discover_plugin_skill_dirs()}
+
+    def _source(skill_dir: Path) -> str:
+        plugin = plugin_of.get(skill_dir.resolve())
+        return f"plugin:{plugin}" if plugin else "config/skills"
+
     entries: list[SkillListEntry] = []
     for package in packages:
         manifest = package.manifest
@@ -1017,7 +1024,7 @@ def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
         entries.append(
             SkillListEntry(
                 name=manifest.name,
-                source="config/skills",
+                source=_source(package.skill_dir),
                 status=status,
                 tools=", ".join(tool.name for tool in manifest.tools) or "-",
                 agents=", ".join(manifest.requires.agents) or "all",
@@ -1028,7 +1035,7 @@ def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
         entries.append(
             SkillListEntry(
                 name=skill_dir.name,
-                source="config/skills",
+                source=_source(skill_dir),
                 status=f"failed: {reason}",
                 tools="-",
                 agents="-",

@@ -40,19 +40,50 @@ def resolve_auto_skills_root(repo_root: Path) -> Path:
     return resolve_skills_root(repo_root) / AUTO_SKILLS_DIR
 
 
+PLUGIN_SKILLS_DIR = "skills"
+
+
+def discover_plugin_skill_dirs() -> tuple[tuple[str, Path], ...]:
+    """``(plugin name, skill directory)`` for every pack an installed plugin ships.
+
+    A plugin keeps its packs as package data beside its manifest, under ``skills/``
+    (ADR-0136). The plugin directories are the ones the ontology, nav and expiry
+    subsystems already read (``installed_plugin_dirs``), so a pack is found as soon as
+    its plugin is installed and needs no config.
+    """
+    from evarness.foundation.plugin_dirs import installed_plugin_dirs
+
+    found: list[tuple[str, Path]] = []
+    for plugin_name, plugin_dir in installed_plugin_dirs():
+        skills_dir = plugin_dir / PLUGIN_SKILLS_DIR
+        if not skills_dir.is_dir():
+            continue
+        found.extend(
+            (plugin_name, manifest_path.parent.resolve())
+            for manifest_path in sorted(skills_dir.rglob(MANIFEST_FILE))
+        )
+    return tuple(found)
+
+
 def discover_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
-    """Discover all skill package directories containing a manifest."""
+    """Discover all skill package directories containing a manifest.
+
+    The packs under ``config/skills`` come first, then the packs installed plugins
+    ship. Order matters: the registry keeps the first pack of a name, so a pack in
+    ``config/skills`` overrides a plugin's of the same name.
+    """
     skills_root = resolve_skills_root(repo_root)
     auto_root = resolve_auto_skills_root(repo_root)
-    if not skills_root.exists():
-        return ()
-    return tuple(
-        sorted(
-            manifest_path.parent.resolve()
-            for manifest_path in skills_root.rglob(MANIFEST_FILE)
-            if auto_root.resolve() not in manifest_path.resolve().parents
+    configured: tuple[Path, ...] = ()
+    if skills_root.exists():
+        configured = tuple(
+            sorted(
+                manifest_path.parent.resolve()
+                for manifest_path in skills_root.rglob(MANIFEST_FILE)
+                if auto_root.resolve() not in manifest_path.resolve().parents
+            )
         )
-    )
+    return (*configured, *(directory for _name, directory in discover_plugin_skill_dirs()))
 
 
 def load_skill_manifest(skill_dir: Path) -> SkillManifest:
