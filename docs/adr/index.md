@@ -10,7 +10,7 @@ Read it with three things in mind.
 
 **Status pass, 2026-10-18.** Every record cited by the code whose named files no longer existed, and every Proposed record, was checked against the code. Where something changed, a dated *Status pass* line sits under the record's own status and the *Where* column below says where the code lives now, or that it is superseded, private, implemented or not implemented. A record without that line was not re-checked and reads as written.
 
-Records numbered 0001 to 0134 were written between May and October 2026. Thirteen of them (0078 to 0086, 0092, 0097, 0101 to 0103) were sections of the project decisions log rather than standalone files and were extracted on 2026-10-18; each says so under its title. Two records share the number 0123; both are kept. Numbers with no record were never written.
+Records numbered 0001 to 0136 were written between May and October 2026. Thirteen of them (0078 to 0086, 0092, 0097, 0101 to 0103) were sections of the project decisions log rather than standalone files and were extracted on 2026-10-18; each says so under its title. Two records share the number 0123; both are kept. Numbers with no record were never written.
 
 | # | Title | Status | Where | Cited by code |
 |---|---|---|---|---|
@@ -134,3 +134,4 @@ Records numbered 0001 to 0134 were written between May and October 2026. Thirtee
 | [0132](0132-pre-tool-use-intent-record-for-high-risk-actions.md) | A durable PRE_TOOL_USE intent record for high-risk/destructive actions | Accepted |  |  |
 | [0133](0133-plugin-manifest-party-field.md) | A `party` field on PluginManifest, distinct from the existing `trust` field | Accepted |  |  |
 | [0134](0134-plugin-party-defaults-to-untrusted.md) | `PluginManifest.party` defaults to `untrusted` | Accepted |  | yes |
+| [0136](0136-skill-packs-ship-with-the-plugin-that-owns-them.md) | Skill packs ship with the plugin that owns them | Accepted |  |  |

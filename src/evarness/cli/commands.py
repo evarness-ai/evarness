@@ -1017,7 +1017,7 @@ def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
         entries.append(
             SkillListEntry(
                 name=manifest.name,
-                source="config/skills",
+                source=registry.source_of(package.skill_dir),
                 status=status,
                 tools=", ".join(tool.name for tool in manifest.tools) or "-",
                 agents=", ".join(manifest.requires.agents) or "all",
@@ -1028,7 +1028,7 @@ def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
         entries.append(
             SkillListEntry(
                 name=skill_dir.name,
-                source="config/skills",
+                source=registry.source_of(skill_dir),
                 status=f"failed: {reason}",
                 tools="-",
                 agents="-",
