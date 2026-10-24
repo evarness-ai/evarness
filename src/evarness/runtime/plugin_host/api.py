@@ -331,11 +331,21 @@ class PluginAPI:
         schedule: str | None = None,
         description: str = "",
         enabled: bool = True,
+        platforms: tuple[str, ...] = (),
+        params: dict[str, object] | None = None,
+        record_runs: bool | None = None,
+        retry_skipped_after_minutes: int | None = None,
     ) -> None:
         """Register a handler under ``name``; with ``schedule`` also register the definition.
 
         Without ``schedule`` the handler only backs a definition declared in
-        ``config/heartbeats.yaml`` (the core's own pattern).
+        ``config/heartbeats.yaml`` (the core's own pattern). With it the plugin owns the
+        schedule, and the keywords after ``enabled`` are the definition's other fields
+        (``platforms``, ``params``, ``record_runs``, ``retry_skipped_after_minutes``),
+        meaning what they mean in ``heartbeats.yaml``.
+
+        If ``heartbeats.yaml`` also declares ``name``, its row wins and a difference is
+        logged as drift: the owner's file stays the one place a schedule is changed.
         """
         definition = (
             HeartbeatDefinition(
@@ -344,6 +354,13 @@ class PluginAPI:
                 schedule=schedule,
                 enabled=enabled,
                 description=description,
+                params=dict(params or {}),
+                platforms=tuple(platforms),
+                record_runs=record_runs,
+                retry_skipped_after_minutes=retry_skipped_after_minutes,
+                # Owned by this plugin: a handler that is missing is then "its plugin is
+                # not mounted", not a typo.
+                plugin=self.plugin,
             )
             if schedule is not None
             else None
@@ -351,7 +368,7 @@ class PluginAPI:
         guarded = self._registry.add_heartbeat(self.plugin, name, handler, definition)
         self.services.heartbeats.register_handler(name, guarded)
         if definition is not None:
-            self.services.heartbeats.register(definition)
+            self.services.heartbeats.register(definition, origin="plugin")
 
     # -- channel: a delivery connector on the gateway -----------------------------
     def register_channel(self, connector: Any) -> None:
