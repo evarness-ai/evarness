@@ -34,7 +34,11 @@ plugin packs.
 
 A pack of an installed plugin that is not loaded is still listed, from its manifest alone
 and with the reason (`plugin not mounted`, `trust: mcp, packs run in-process`); none of its
-code runs.
+code runs. Finding a plugin's directory runs none of it either: `installed_plugin_dirs` resolves an
+entry point's dotted module from the files (the top-level name through `find_spec`, which
+imports nothing, then directories), because `find_spec` on a dotted name imports the parent
+packages and so executes their `__init__.py`. A plugin with no `manifest.yaml` (the host
+synthesizes one) has no place to keep packs and contributes none.
 
 Packs in `config/skills` are discovered first. Among plugin packs the registry keeps the
 first pack of a manifest `name`, and a pack in `config/skills` overrides a plugin's: the

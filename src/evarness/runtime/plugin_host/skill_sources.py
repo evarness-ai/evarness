@@ -24,12 +24,12 @@ from pathlib import Path
 
 from evarness.foundation.plugin_dirs import (
     MANIFEST_FILENAME,
-    evarness_home,
     installed_plugin_dirs,
 )
 from evarness.tools.skills.loader import PluginSkillSource
 
-from .loader import _requirements_problem, discover_plugin
+from .loader import _requirements_problem
+from .manifest import load_manifest
 from .profile import PluginRef, load_profile
 from .registry import MOUNTED, PluginRecord, PluginRegistry
 
@@ -40,19 +40,17 @@ def mounted_skill_sources(registry: PluginRegistry) -> Callable[[], list[PluginS
     """A provider over the live plugin registry: mounted plugins, by their own records."""
     # A plugin the host did not set up (disabled) has no directory on its record, because
     # loading stops before discovery. Where it lives does not change while the process
-    # runs, so look it up once, not on every turn's ``discover()``.
-    located: dict[str, Path | None] = {}
+    # runs, so ask once, from the files (``installed_plugin_dirs`` imports nothing), and
+    # not on every turn's ``discover()``.
+    located: dict[str, Path] | None = None
 
     def directory_of(record: PluginRecord) -> Path | None:
+        nonlocal located
         if record.directory is not None:
             return record.directory
-        if record.name not in located:
-            try:
-                source = discover_plugin(record.name)
-            except Exception:  # noqa: BLE001 -- a plugin that cannot be located has no packs
-                source = None
-            located[record.name] = source.directory if source is not None else None
-        return located[record.name]
+        if located is None:  # None, not empty: no installed plugin must not mean a rescan
+            located = dict(installed_plugin_dirs())
+        return located.get(record.name)
 
     def sources() -> list[PluginSkillSource]:
         found: list[PluginSkillSource] = []
@@ -74,20 +72,24 @@ def mounted_skill_sources(registry: PluginRegistry) -> Callable[[], list[PluginS
     return sources
 
 
-def _profile_verdict(ref: PluginRef | None, name: str, home: Path) -> str | None:
-    """Why the plugin ``name`` would not contribute packs from a profile, else ``None``."""
+def _profile_verdict(ref: PluginRef | None, directory: Path) -> str | None:
+    """Why the plugin in ``directory`` would not contribute packs from a profile, else ``None``.
+
+    Reads the manifest from its directory: ``discover_plugin`` would resolve a dotted entry
+    point with ``find_spec`` and so import the plugin's parent packages.
+    """
     if ref is None:
         return "plugin not mounted (not in the resolved profile)"
+    if not (directory / MANIFEST_FILENAME).is_file():
+        return f"no {MANIFEST_FILENAME}: plugins without one ship no skill packs"
     try:
-        source = discover_plugin(name, home_dir=home)
+        manifest = load_manifest(directory / MANIFEST_FILENAME)
     except Exception as exc:  # noqa: BLE001 -- a broken manifest is "would not mount"
         return f"plugin would not mount: {exc}"
-    if source is None:
-        return "plugin would not mount: not found"
-    problem = _requirements_problem(source.manifest)
+    problem = _requirements_problem(manifest)
     if problem is not None:
         return f"plugin would not mount: {problem}"
-    if (ref.trust or source.manifest.trust) != "in-process":
+    if (ref.trust or manifest.trust) != "in-process":
         return MCP_REASON
     return None
 
@@ -96,11 +98,10 @@ def profile_skill_sources(config_dir: Path) -> Callable[[], list[PluginSkillSour
     """A provider over the resolved profile, for callers that do not boot a runtime."""
 
     def sources() -> list[PluginSkillSource]:
-        home = evarness_home()
         refs = {ref.name: ref for ref in load_profile(config_dir).enabled_plugins()}
         found: list[PluginSkillSource] = []
         for name, directory in installed_plugin_dirs():
-            reason = _profile_verdict(refs.get(name), name, home)
+            reason = _profile_verdict(refs.get(name), directory)
             found.append(PluginSkillSource(name, directory, reason is None, reason))
         return found
 
