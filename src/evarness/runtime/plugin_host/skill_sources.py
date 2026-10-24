@@ -31,18 +31,33 @@ from evarness.tools.skills.loader import PluginSkillSource
 
 from .loader import _requirements_problem, discover_plugin
 from .profile import PluginRef, load_profile
-from .registry import MOUNTED, PluginRegistry
+from .registry import MOUNTED, PluginRecord, PluginRegistry
 
 MCP_REASON = "trust: mcp, packs run in-process"
 
 
 def mounted_skill_sources(registry: PluginRegistry) -> Callable[[], list[PluginSkillSource]]:
     """A provider over the live plugin registry: mounted plugins, by their own records."""
+    # A plugin the host did not set up (disabled) has no directory on its record, because
+    # loading stops before discovery. Where it lives does not change while the process
+    # runs, so look it up once, not on every turn's ``discover()``.
+    located: dict[str, Path | None] = {}
+
+    def directory_of(record: PluginRecord) -> Path | None:
+        if record.directory is not None:
+            return record.directory
+        if record.name not in located:
+            try:
+                source = discover_plugin(record.name)
+            except Exception:  # noqa: BLE001 -- a plugin that cannot be located has no packs
+                source = None
+            located[record.name] = source.directory if source is not None else None
+        return located[record.name]
 
     def sources() -> list[PluginSkillSource]:
         found: list[PluginSkillSource] = []
         for record in registry.plugins():
-            directory = record.directory
+            directory = directory_of(record)
             # A bare-module entry point resolves to its parent (site-packages): not a
             # plugin directory, so it has no packs to look in.
             if directory is None or not (directory / MANIFEST_FILENAME).is_file():
