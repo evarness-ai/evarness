@@ -302,6 +302,11 @@ def _mount_plugins(runtime: EvarnessRuntime, in_process: Sequence[InProcessPlugi
         registry=runtime.plugin_registry,
         in_process=in_process,
     )
+    # Skill packs a plugin ships load only for a plugin the host just mounted (ADR-0136):
+    # a pack's tools.py is code, and an installed-but-unmounted plugin must not run any.
+    from evarness.runtime.plugin_host.skill_sources import mounted_skill_sources
+
+    runtime.skill_registry.bind_plugin_sources(mounted_skill_sources(runtime.plugin_registry))
     _reassert_loop_intents(runtime)
     # A heartbeat whose handler a plugin registers is only a fault when that plugin is
     # mounted and still did not register it (or no plugin owns it); if the plugin is

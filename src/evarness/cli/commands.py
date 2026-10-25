@@ -1002,9 +1002,13 @@ def _repo_relative_display(repo_root: Path, path: Path) -> str:
 
 
 def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
+    from evarness.foundation.paths import config_dir
+    from evarness.runtime.plugin_host.skill_sources import profile_skill_sources
     from evarness.tools.skills.registry import SkillRegistry
 
-    registry = SkillRegistry(repo_root=repo_root)
+    registry = SkillRegistry(
+        repo_root=repo_root, plugin_sources=profile_skill_sources(config_dir())
+    )
     packages = registry.discover()
     entries: list[SkillListEntry] = []
     for package in packages:
@@ -1022,6 +1026,17 @@ def _list_skill_entries(repo_root: Path) -> tuple[SkillListEntry, ...]:
                 tools=", ".join(tool.name for tool in manifest.tools) or "-",
                 agents=", ".join(manifest.requires.agents) or "all",
                 location=_repo_relative_display(repo_root, package.skill_dir),
+            )
+        )
+    for pack in registry.unmounted:
+        entries.append(
+            SkillListEntry(
+                name=pack.name,
+                source=f"plugin:{pack.plugin}",
+                status=f"not loaded: {pack.reason}",
+                tools="-",
+                agents="-",
+                location=_repo_relative_display(repo_root, pack.skill_dir),
             )
         )
     for skill_dir, reason in registry.load_failures.items():
