@@ -16,7 +16,7 @@ import typer
 from rich.table import Table
 
 from evarness.cli.render import console
-from evarness.foundation.paths import config_root
+from evarness.foundation.paths import config_dir, config_root
 
 skills_app = typer.Typer(
     name="skills",
@@ -27,9 +27,12 @@ skills_app = typer.Typer(
 
 def skill_rows(repo_root: Path) -> list[dict[str, Any]]:
     """One row per discovered pack, loaded or not, sorted by source then name."""
+    from evarness.runtime.plugin_host.skill_sources import profile_skill_sources
     from evarness.tools.skills.registry import SkillRegistry
 
-    registry = SkillRegistry(repo_root=repo_root)
+    registry = SkillRegistry(
+        repo_root=repo_root, plugin_sources=profile_skill_sources(config_dir())
+    )
     rows: list[dict[str, Any]] = []
     for package in registry.discover():
         rows.append(
@@ -41,6 +44,19 @@ def skill_rows(repo_root: Path) -> list[dict[str, Any]]:
                 "missing_prerequisites": list(package.missing_prerequisites),
                 "tool_count": len(package.tool_classes),
                 "location": str(package.skill_dir),
+            }
+        )
+    for pack in registry.unmounted:
+        rows.append(
+            {
+                "name": pack.name,
+                "source": f"plugin:{pack.plugin}",
+                "kind": pack.kind,
+                "loadable": False,
+                "missing_prerequisites": [],
+                "tool_count": 0,
+                "not_loaded": pack.reason,
+                "location": str(pack.skill_dir),
             }
         )
     for skill_dir, reason in registry.load_failures.items():
@@ -74,7 +90,9 @@ def cmd_list(
     for column in ("name", "source", "status", "tools"):
         table.add_column(column)
     for row in rows:
-        if "failed" in row:
+        if "not_loaded" in row:
+            status = f"not loaded: {row['not_loaded']}"
+        elif "failed" in row:
             status = f"failed: {row['failed']}"
         elif row["missing_prerequisites"]:
             status = "blocked: " + ", ".join(row["missing_prerequisites"])

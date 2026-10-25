@@ -172,3 +172,83 @@ def test_drift_panel_sees_plugin_intercept_as_wired(runtime) -> None:  # type: i
     intercepts = next(s for s in report.surfaces if s.surface == "intercepts")
     assert "time_date" in intercepts.in_sync
     assert "time_date" not in intercepts.declared_only
+
+
+# --- skill packs a plugin ships follow the plugin's mount (ADR-0136) ---------------------
+
+
+def _plugin_with_a_pack(home: Path, marker: Path) -> None:
+    """An in-process home plugin, ``demo``, shipping one tool pack whose import leaves ``marker``."""
+    plugin = home / "plugins" / "demo"
+    pack = plugin / "skills" / "demo-pack"
+    pack.mkdir(parents=True)
+    (plugin / "manifest.yaml").write_text("name: demo\n", encoding="utf-8")
+    (plugin / "plugin.py").write_text("def setup(api):\n    pass\n", encoding="utf-8")
+    (pack / "manifest.yaml").write_text(
+        "name: demo-pack\nversion: 1.0.0\ndescription: Demo pack\nauthor: tests\n"
+        "license: Apache-2.0\ntools:\n  - name: demo_pack_tool\n    description: t\n"
+        "    governor_route: system/read\n",
+        encoding="utf-8",
+    )
+    (pack / "tools.py").write_text(
+        "from pathlib import Path\n"
+        "from langchain_core.tools import BaseTool\n"
+        "from pydantic import BaseModel\n\n"
+        f"Path({str(marker)!r}).write_text('imported')\n\n"
+        "class Args(BaseModel):\n    pass\n\n"
+        "class T(BaseTool):\n"
+        "    name: str = 'demo_pack_tool'\n"
+        "    description: str = 't'\n"
+        "    args_schema: type[BaseModel] = Args\n"
+        "    def _run(self) -> str:\n        return 'ok'\n"
+        "    async def _arun(self) -> str:\n        return 'ok'\n\n"
+        "SKILL_TOOLS = [T]\n",
+        encoding="utf-8",
+    )
+    (home / "profile.yaml").write_text("plugins:\n  - name: demo\n", encoding="utf-8")
+
+
+@pytest.mark.parametrize("disabled", [False, True], ids=["mounted", "disabled"])
+def test_a_plugins_skill_packs_load_only_while_it_is_mounted(
+    disabled: bool, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The one line that wires this in production is ``bind_plugin_sources`` in
+    ``_mount_plugins``; the provider is unit-tested, this boots the runtime."""
+    home, marker = tmp_path / "home", tmp_path / "imported.marker"
+    _plugin_with_a_pack(home, marker)
+    monkeypatch.setenv("EVARNESS_HOME", str(home))
+    monkeypatch.setenv("EVARNESS_DISABLE_ARBITER", "1")
+    monkeypatch.setenv("EVARNESS_DISABLE_WARMUP", "1")
+    monkeypatch.setenv("EVARNESS_PROFILE", "default")
+    monkeypatch.delenv("EVARNESS_PLUGINS_ENABLE", raising=False)
+    if disabled:
+        monkeypatch.setenv("EVARNESS_PLUGINS_DISABLE", "demo")
+    else:
+        monkeypatch.delenv("EVARNESS_PLUGINS_DISABLE", raising=False)
+    clear_check_providers()
+    try:
+        rt = build_runtime(
+            config_dir=Path(__file__).resolve().parents[5] / "config",
+            data_dir=tmp_path / "data",
+            use_background_scheduler=False,
+        )
+        record = rt.plugin_registry.get("demo")
+        assert record is not None
+        registry = rt.skill_registry
+        packages = {p.manifest.name: p for p in registry.discover()}
+
+        if disabled:
+            assert record.status is PluginStatus.DISABLED
+            assert "demo-pack" not in packages
+            assert not marker.exists()
+            (pack,) = [p for p in registry.unmounted if p.name == "demo-pack"]
+            assert pack.plugin == "demo"
+        else:
+            assert record.status is PluginStatus.LOADED
+            package = packages["demo-pack"]
+            assert registry.source_of(package.skill_dir) == "plugin:demo"
+            assert marker.exists()
+            assert package.is_loadable and len(package.tool_classes) == 1
+            assert not [p for p in registry.unmounted if p.name == "demo-pack"]
+    finally:
+        clear_check_providers()
