@@ -262,14 +262,22 @@ def test_dependabot_moves_react_with_its_types_and_holds_majors_until_launch() -
     assert held in pip["ignore"]
 
 
-def test_the_webui_job_lints_typechecks_and_builds_on_every_pr() -> None:
+def test_hosted_ci_runs_only_when_started_by_hand() -> None:
+    """Owner's instruction, 2026-10: hosted ``ci`` is manual (at the final phase of a piece of
+    work and before a release). The gate for a change is ``scripts/ci_local.sh``, in full, pasted
+    into the pull request. security.yml and pr.yml keep running on pull requests."""
+    triggers = _triggers(_load(WORKFLOWS / "ci.yml"))
+    assert set(triggers) == {"workflow_dispatch"}, (
+        "ci.yml must not run on pull_request or push: the local gate is the gate. "
+        "Change this test with the policy, not around it."
+    )
+    assert "full" in triggers["workflow_dispatch"]["inputs"]
+
+
+def test_the_webui_job_lints_typechecks_and_builds() -> None:
     workflow = _load(WORKFLOWS / "ci.yml")
-    # A `paths:` filter would leave the required `webui` check pending on a PR that does
-    # not touch webui/, so the workflow carries none. The job skips itself instead, and a
-    # skipped job is reported as passing; it runs unless `changes` says `false`.
-    triggers = _triggers(workflow)
-    for event in ("pull_request", "push"):
-        assert not {"paths", "paths-ignore"} & set(triggers[event] or {})
+    # The job skips itself when `changes` says webui/ is untouched; it runs unless `changes`
+    # says `false` (on a manual run `changes` has no PR base, so it runs).
     job = workflow["jobs"]["webui"]
     assert job["needs"] == "changes"
     assert job["if"] == "${{ !cancelled() && needs.changes.outputs.webui != 'false' }}"
