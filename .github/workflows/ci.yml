@@ -173,10 +173,13 @@ jobs:
   # suite on demand, on windows-latest. A separate job, so `test (3.12)` keeps its name.
   # The steps run in the runner's Git Bash, as a contributor runs scripts/ci_local.sh.
   # Tests that assert POSIX-only behaviour are marked `posix` and skip here with the reason.
+  # The full suite takes about an hour on the hosted Windows runner (the first full run, on
+  # 4bec02e, was cancelled at 60 minutes with 98% done and nothing failed), so a full run
+  # gets 90 minutes; the changed scope keeps 60.
   test-windows:
     name: test (windows, 3.12)
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: ${{ (github.event_name == 'workflow_dispatch' && inputs.full) && 90 || 60 }}
     env:
       FULL_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.full }}
       PYTHONIOENCODING: utf-8
