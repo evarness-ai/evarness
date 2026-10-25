@@ -70,16 +70,32 @@ def evarness_home() -> Path:
 
 
 def _package_dir(package: str) -> Path | None:
+    """Where the dotted ``package`` lives on disk, found without importing any of it.
+
+    ``importlib.util.find_spec("a.b.c")`` imports ``a`` and ``a.b`` to learn ``a.b``'s
+    search path, which runs their ``__init__.py``. A plugin the owner switched off must
+    not run, and locating a directory is a question about files, so only the top-level
+    name goes to ``find_spec`` (a lookup that imports nothing) and the rest is walked as
+    directories under each of its locations. A namespace package is fine (``find_spec`` of
+    the top-level name returns every portion). A package that extends its own ``__path__``
+    when it is imported (``pkgutil.extend_path``) is not followed: that needs the import.
+    """
+    top, _, rest = package.partition(".")
     try:
-        spec = importlib.util.find_spec(package)
+        spec = importlib.util.find_spec(top)
     except (ImportError, ValueError):
         return None
     if spec is None:
         return None
-    locations = list(spec.submodule_search_locations or [])
-    if locations:
-        return Path(locations[0])
-    return Path(spec.origin).parent if spec.origin else None
+    locations = [Path(location) for location in spec.submodule_search_locations or []]
+    if not locations:
+        # A single-module top-level name: its directory, when nothing is below it.
+        return Path(spec.origin).parent if spec.origin and not rest else None
+    for location in locations:
+        candidate = location.joinpath(*rest.split(".")) if rest else location
+        if candidate.is_dir():
+            return candidate
+    return None
 
 
 def _builtin_dirs() -> list[tuple[str, Path]]:

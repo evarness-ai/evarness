@@ -233,6 +233,7 @@ evarness.sdk.tools:ToolResult
 evarness.sdk.types:ActivityChunk
 evarness.sdk.types:AgentResult
 evarness.sdk.types:AgentTask
+evarness.sdk.types:ChatResult
 evarness.sdk.types:HandlerResult
 evarness.sdk.types:HeartbeatDefinition
 evarness.sdk.types:HeartbeatHandler

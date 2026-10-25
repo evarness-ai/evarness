@@ -8,7 +8,7 @@ import json
 import os
 import re
 import sys
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from types import ModuleType
@@ -43,31 +43,50 @@ def resolve_auto_skills_root(repo_root: Path) -> Path:
 PLUGIN_SKILLS_DIR = "skills"
 
 
+class PluginSkillSource(NamedTuple):
+    """An installed plugin the registry may take skill packs from, and whether it is mounted.
+
+    Only a *mounted* plugin's packs are loaded -- their ``tools.py`` imported and their
+    tools registered. A plugin that is installed but not mounted (not in the resolved
+    profile, disabled, failed to mount) has its packs listed from the manifest alone, with
+    ``reason`` why, and no code of the plugin or its packs runs (ADR-0136).
+    """
+
+    plugin: str
+    plugin_dir: Path
+    mounted: bool = True
+    reason: str | None = None
+
+
 class PluginSkill(NamedTuple):
-    """One skill pack an installed plugin ships, and the plugin directory it lives under."""
+    """One skill pack a plugin ships, the plugin it belongs to, and whether it may load."""
 
     plugin: str
     plugin_dir: Path
     skill_dir: Path
+    mounted: bool
+    reason: str | None
 
 
-def discover_plugin_skill_dirs() -> tuple[PluginSkill, ...]:
-    """Every pack an installed plugin ships, with the plugin that owns it.
+def discover_plugin_skill_dirs(sources: Iterable[PluginSkillSource]) -> tuple[PluginSkill, ...]:
+    """Every pack the given plugins ship under ``skills/`` (ADR-0136).
 
-    A plugin keeps its packs as package data beside its manifest, under ``skills/``
-    (ADR-0136). The plugin directories are the ones the ontology, nav and expiry
-    subsystems already read (``installed_plugin_dirs``), so a pack is found as soon as
-    its plugin is installed and needs no config.
+    A plugin keeps its packs as package data beside its manifest. The caller says which
+    plugins to look in and which are mounted; nothing here scans what is installed.
     """
-    from evarness.foundation.plugin_dirs import installed_plugin_dirs
-
     found: list[PluginSkill] = []
-    for plugin_name, plugin_dir in installed_plugin_dirs():
-        skills_dir = plugin_dir / PLUGIN_SKILLS_DIR
+    for source in sources:
+        skills_dir = source.plugin_dir / PLUGIN_SKILLS_DIR
         if not skills_dir.is_dir():
             continue
         found.extend(
-            PluginSkill(plugin_name, plugin_dir.resolve(), manifest_path.parent.resolve())
+            PluginSkill(
+                source.plugin,
+                source.plugin_dir.resolve(),
+                manifest_path.parent.resolve(),
+                source.mounted,
+                source.reason,
+            )
             for manifest_path in sorted(skills_dir.rglob(MANIFEST_FILE))
         )
     return tuple(found)
@@ -88,16 +107,18 @@ def discover_config_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
     )
 
 
-def discover_skill_dirs(repo_root: Path) -> tuple[Path, ...]:
-    """Discover all skill package directories containing a manifest.
+def discover_skill_dirs(
+    repo_root: Path, plugin_sources: Iterable[PluginSkillSource] = ()
+) -> tuple[Path, ...]:
+    """Discover the skill package directories that may load, ``config/skills`` first.
 
-    The packs under ``config/skills`` come first, then the packs installed plugins
-    ship. Order matters: the registry keeps the first pack of a name, so a pack in
+    Then the packs of the *mounted* plugins in ``plugin_sources`` (none by default). Order
+    matters: the registry keeps the first pack of a name among plugin packs, and a pack in
     ``config/skills`` overrides a plugin's of the same name.
     """
     return (
         *discover_config_skill_dirs(repo_root),
-        *(pack.skill_dir for pack in discover_plugin_skill_dirs()),
+        *(pack.skill_dir for pack in discover_plugin_skill_dirs(plugin_sources) if pack.mounted),
     )
 
 
