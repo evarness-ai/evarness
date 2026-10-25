@@ -65,7 +65,7 @@ reference plugins to this with no exceptions. The reference plugin
 
 | Kind | Call | Handler shape | On failure |
 |---|---|---|---|
-| intercept | `api.register_intercept(name, fn, trace_text=..., trace_fields=(), passes_channel=False, activity_hint=None, guard_output=False)` | `fn(message, *, session_id, span[, channel]) -> ChatResult \| None` | returns `None`: the chain falls through |
+| intercept | `api.register_intercept(name, fn, trace_text=..., trace_fields=(), passes_channel=False, activity_hint=None, guard_output=False, resolves_confirmation=False)` | `fn(message, *, session_id, span[, channel]) -> ChatResult \| None` | returns `None`: the chain falls through |
 | tool | `api.register_tool(name, description, call)` — the tool must be declared under `tools:` in the manifest (ADR-0110) | `call(args: dict) -> str` | the model gets an error observation; an undeclared tool is refused at mount |
 | intent handler | `api.register_intent_handler(agent_type, fn, stream_handler=...)` | `fn(task: AgentTask) -> str \| (str, dict)` | an apology answer; streams re-raise |
 | heartbeat | `api.register_heartbeat(name, fn, schedule="interval:60", description=..., platforms=, params=, record_runs=, retry_skipped_after_minutes=)` | `fn(definition) -> HeartbeatRun` | a `FAILED` run, reported not lost. With `schedule` the plugin owns the definition; a row of the same name in `heartbeats.yaml` wins whichever registers first, and a difference is logged as drift |

@@ -189,6 +189,7 @@ class PluginAPI:
         passes_channel: bool = False,
         activity_hint: Callable[[str], str | None] | None = None,
         guard_output: bool = False,
+        resolves_confirmation: bool = False,
     ) -> None:
         """``handler(message, *, session_id, span[, channel]) -> ChatResult | None``
         (``ChatResult`` is ``evarness.sdk.types.ChatResult``).
@@ -209,6 +210,14 @@ class PluginAPI:
         response check; when the model-based output guard is enabled it also runs on
         this intercept's answers. ``config/intercepts.yaml`` can set it too — either side
         saying yes is enough.
+
+        ``resolves_confirmation=True`` declares that a bare "yes" is in this intercept's
+        vocabulary (it approves or rejects something it proposed). While the session's open
+        question belongs to a different owner, dispatch shields it, so it cannot claim
+        an answer meant for someone else (ADR-0106). It can answer when it owns the pending
+        question, which a plugin opens under its own intercept name. Declare it here, in the
+        code that handles the answer, rather than in ``config/intercepts.yaml``; either
+        side saying yes is enough.
         """
         spec = InterceptSpec(
             name=name,
@@ -217,6 +226,7 @@ class PluginAPI:
             trace_text=trace_text,
             trace_fields=tuple(trace_fields),
             guard_output=guard_output,
+            resolves_confirmation=resolves_confirmation,
         )
         self._registry.add_intercept(self.plugin, spec, handler, activity_hint)
 
