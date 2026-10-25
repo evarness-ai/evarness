@@ -15,6 +15,11 @@ A heartbeat handler is handed a ``HeartbeatDefinition`` and returns a ``Heartbea
 carrying a ``HeartbeatStatus``; ``HeartbeatHandler`` is that callable's Protocol, for the
 factory that builds one.
 
+A chat intercept (``PluginAPI.register_intercept``) answers with a ``ChatResult``: the
+frozen record of one finished turn (response, intent, agent type, sources, error state,
+metadata). It is exported so a plugin builds the type its handler is documented to return,
+not a copy of it.
+
 ``Principal`` is who is calling a plugin's API route (the owner's bearer token, or a
 paired device), so a route can refuse what a device may not do.
 
@@ -43,6 +48,7 @@ from evarness.agent.task_spec import (
     verify,
 )
 from evarness.foundation.auth import Principal
+from evarness.runtime.types import ChatResult
 from evarness.services.heartbeat.models import (
     HeartbeatDefinition,
     HeartbeatRun,
@@ -55,6 +61,7 @@ __all__ = [
     "ActivityChunk",
     "AgentResult",
     "AgentTask",
+    "ChatResult",
     "HandlerResult",
     "HeartbeatDefinition",
     "HeartbeatHandler",
