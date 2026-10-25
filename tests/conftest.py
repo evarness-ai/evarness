@@ -45,6 +45,14 @@ _KEEP_EVARNESS_ENV = {
 for _key in [k for k in os.environ if k.startswith("EVARNESS_") and k not in _KEEP_EVARNESS_ENV]:
     del os.environ[_key]
 
+# The same strip for the LEGACY prefix, before anything imports evarness. ``import evarness`` copies every
+# IRIS_* variable to EVARNESS_* where the new name is unset (foundation/legacy.py, until 0.3.0),
+# so stripping only EVARNESS_* above hands a developer's old-style flags straight back under the
+# new names -- a live IRIS_SPIKE_GMAIL_PASSWORD became visible as EVARNESS_SPIKE_GMAIL_PASSWORD.
+# Nothing here is kept: a test that needs a legacy name sets it itself (issue #386).
+for _key in [k for k in os.environ if k.startswith("IRIS_")]:
+    del os.environ[_key]
+
 
 # CRITICAL test isolation — git's own environment. A git hook runs with GIT_DIR,
 # GIT_INDEX_FILE, GIT_WORK_TREE (and GIT_PREFIX, GIT_COMMON_DIR, GIT_OBJECT_DIRECTORY, ...)
