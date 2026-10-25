@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
+from typing import NamedTuple
 
 from langchain_core.tools import BaseTool
 
 from .loader import (
+    PluginSkill,
+    PluginSkillSource,
     discover_config_skill_dirs,
     discover_plugin_skill_dirs,
     load_skill_manifest,
@@ -22,6 +25,16 @@ logger = logging.getLogger(__name__)
 CONFIG_SOURCE = "config/skills"
 
 
+class UnmountedPack(NamedTuple):
+    """A pack of an installed plugin that is not mounted, read from its manifest only."""
+
+    name: str
+    plugin: str
+    skill_dir: Path
+    reason: str
+    kind: str = "unknown"
+
+
 class SkillRegistry:
     """Discover and index skill packages available in the repository."""
 
@@ -30,7 +43,12 @@ class SkillRegistry:
         repo_root: Path,
         *,
         environment: Mapping[str, str] | None = None,
+        plugin_sources: Callable[[], Iterable[PluginSkillSource]] | None = None,
     ) -> None:
+        # Where the plugins' packs come from (ADR-0136). None = no plugin packs: the
+        # registry never scans what is installed, because a pack's tools.py is code, and
+        # only a plugin the host has mounted may run code here.
+        self._plugin_sources = plugin_sources
         self.repo_root = Path(repo_root).resolve()
         # None = the process environment, read at each discover() (a hot reload sees a
         # variable set since startup); a mapping is what the caller says the environment is.
@@ -41,6 +59,22 @@ class SkillRegistry:
         self._reported_unavailable: set[tuple[str, tuple[str, ...]]] = set()
         self._reported_shadowed: set[tuple[Path, Path]] = set()
         self._sources: dict[Path, str] = {}
+        self._unmounted: tuple[UnmountedPack, ...] = ()
+
+    def bind_plugin_sources(
+        self, plugin_sources: Callable[[], Iterable[PluginSkillSource]]
+    ) -> None:
+        """Say where the plugins' packs come from; the next :meth:`discover` uses it.
+
+        The runtime binds this once its plugin host has mounted the profile, after the
+        registry was built.
+        """
+        self._plugin_sources = plugin_sources
+
+    @property
+    def unmounted(self) -> tuple[UnmountedPack, ...]:
+        """Packs of installed plugins that are not mounted: listed, never imported."""
+        return self._unmounted
 
     @property
     def load_failures(self) -> dict[Path, str]:
@@ -60,25 +94,34 @@ class SkillRegistry:
         failures: dict[Path, str] = {}
         taken: dict[str, Path] = {}
         sources: dict[Path, str] = {}
-        # config/skills first: the registry keeps the first pack of a name (ADR-0136).
+        unmounted: list[UnmountedPack] = []
+        plugin_packs = discover_plugin_skill_dirs(
+            self._plugin_sources() if self._plugin_sources is not None else ()
+        )
+        # config/skills first: among plugin packs the registry keeps the first of a name,
+        # and a pack in config/skills overrides a plugin's (ADR-0136). Two packs inside
+        # config/skills both load, as they always did.
         ordered: list[tuple[Path, str, Path | None]] = [
             (skill_dir, CONFIG_SOURCE, None)
             for skill_dir in discover_config_skill_dirs(self.repo_root)
         ]
-        ordered.extend(
-            (pack.skill_dir, f"plugin:{pack.plugin}", pack.plugin_dir)
-            for pack in discover_plugin_skill_dirs()
-        )
+        for pack in plugin_packs:
+            if pack.mounted:
+                ordered.append((pack.skill_dir, f"plugin:{pack.plugin}", pack.plugin_dir))
+            else:
+                unmounted.append(self._unmounted_pack(pack))
         for skill_dir, source, plugin_dir in ordered:
             sources[skill_dir] = source
             try:
-                # Decided on the manifest alone: a displaced pack's tools module is never
-                # imported.
+                # Decided on the manifest alone, and the name is held from the moment it
+                # reads: a displaced pack's tools module is never imported, and a
+                # config pack that then fails to load still keeps its name.
                 name = load_skill_manifest(skill_dir).name
                 first = taken.get(name)
-                if first is not None:
+                if plugin_dir is not None and first is not None:
                     self._note_shadowed(name, skill_dir, first)
                     continue
+                taken.setdefault(name, skill_dir)
                 packages.append(
                     load_skill_package(
                         self.repo_root,
@@ -87,7 +130,6 @@ class SkillRegistry:
                         plugin_dir=plugin_dir,
                     )
                 )
-                taken[name] = skill_dir
             except Exception as exc:  # isolate one skill's fault from the rest
                 reason = _one_line_reason(exc)
                 failures[skill_dir] = reason
@@ -103,7 +145,24 @@ class SkillRegistry:
         self._packages = tuple(packages)
         self._load_failures = failures
         self._sources = sources
+        self._unmounted = tuple(unmounted)
         return self._packages
+
+    @staticmethod
+    def _unmounted_pack(pack: PluginSkill) -> UnmountedPack:
+        """Describe a pack of a plugin that is not mounted, from its manifest alone."""
+        try:
+            manifest = load_skill_manifest(pack.skill_dir)
+            name, kind = manifest.name, manifest.kind or "skill"
+        except Exception:  # noqa: BLE001 -- a bad manifest is still a row, never an abort
+            name, kind = pack.skill_dir.name, "unknown"
+        return UnmountedPack(
+            name=name,
+            plugin=pack.plugin,
+            skill_dir=pack.skill_dir,
+            reason=pack.reason or "plugin not mounted",
+            kind=kind,
+        )
 
     def source_of(self, skill_dir: Path) -> str:
         """Where the last :meth:`discover` found a pack: ``config/skills`` or ``plugin:<name>``."""

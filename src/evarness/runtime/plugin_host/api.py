@@ -191,7 +191,8 @@ class PluginAPI:
         guard_output: bool = False,
         resolves_confirmation: bool = False,
     ) -> None:
-        """``handler(message, *, session_id, span[, channel]) -> ChatResult | None``.
+        """``handler(message, *, session_id, span[, channel]) -> ChatResult | None``
+        (``ChatResult`` is ``evarness.sdk.types.ChatResult``).
 
         Return ``None`` to fall through. The chain position comes from the
         profile / ``config/intercepts.yaml``; unlisted plugin intercepts run after

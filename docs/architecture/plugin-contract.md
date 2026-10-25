@@ -444,6 +444,7 @@ core object:
 | `evarness.sdk.config` | + `evarness_home`, `workspace_dir` | Where this Evarness lives (`$EVARNESS_HOME`, else `~/.evarness`) and the owner's workspace in it, for what a plugin keeps beside the identity files. Never `Path.home() / ".evarness"`, which ignores a relocated home. |
 | `evarness.sdk.health` | + `register_account_counter`, `register_file_root_counter` | The counts `evarness system status` shows. |
 | `evarness.sdk.memory` | + `WIKI_INGEST_REQUESTED`, `WikiIngestEvent`, `WikiEngine`, `subscribe_wiki_ingest_consumer` | Feeding the knowledge wiki; a backfill command wiring its own engine. |
+| `evarness.sdk.types` | + `ChatResult` | What a chat intercept (`register_intercept`) returns: the record of one finished turn. Build this, not a copy. |
 | `evarness.sdk.types` | + `Principal` | Who is calling your API route (owner or paired device). |
 | `evarness.sdk.types` | + `HeartbeatRun`, `HeartbeatStatus`, `HeartbeatHandler` | A heartbeat handler's return value and Protocol, beside `HeartbeatDefinition` (step 2). |
 | `evarness.sdk.llm` | + `JsonReply`, `LLMUnreachable`, `LLMBadReply` | The governed structured call, `CodingLLMClient.invoke_json(system_prompt=, user_prompt=, schema=)` (a classifier, a judge; Ollama tiers): stop a batch on `LLMUnreachable`, skip the item on `LLMBadReply`. |
@@ -707,7 +708,7 @@ tools:
   (`$EVARNESS_HOME/plugins/<name>/manifest.yaml`) works when its `impl` module is importable.
 - Not the `config/skills/` skill system (code-first skills, the semantic router): that
   is a separate, older mechanism. A python plugin can ship skill packs under its own
-  `skills/` directory ([ADR-0136](../adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)).
+  `skills/` directory, loaded only while the plugin is mounted and in-process ([ADR-0136](../adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)).
 
 ## Out-of-process plugins (`trust: mcp`)
 
