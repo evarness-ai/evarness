@@ -6,7 +6,7 @@ import logging
 import sys
 import threading
 from collections.abc import Callable
-from dataclasses import replace
+from dataclasses import fields, replace
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -15,7 +15,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from .models import HeartbeatDefinition, HeartbeatRun, HeartbeatStatus
+from .models import HeartbeatDefinition, HeartbeatRun, HeartbeatStatus, Origin
 from .schedule_text import validate_schedule
 
 if TYPE_CHECKING:
@@ -127,6 +127,9 @@ class HeartbeatScheduler:
         self._runs: list[HeartbeatRun] = []
         self._definitions: dict[str, HeartbeatDefinition] = {}
         self._declared: dict[str, HeartbeatDefinition] = {}
+        # Who declared each name: ``config`` (heartbeats.yaml) or ``plugin`` (a plugin's
+        # ``register_heartbeat(schedule=...)``). A config row wins a name, whichever arrives first.
+        self._origin: dict[str, Origin] = {}
         self._effective: dict[str, HeartbeatDefinition] = {}
         self._settings = settings
         # Updates come from API threads while APScheduler's own thread runs jobs; the
@@ -182,19 +185,54 @@ class HeartbeatScheduler:
     # Scheduling
     # ------------------------------------------------------------------
 
-    def register(self, definition: HeartbeatDefinition) -> bool:
+    def register(self, definition: HeartbeatDefinition, *, origin: Origin = "config") -> bool:
         """Register a definition, with the owner's saved override applied.
 
         Returns False when the effective definition is disabled or no handler is bound;
         it is still listed by :meth:`all_definitions`, so the app can turn it on.
+
+        A name is declared once. When ``config`` (a row of ``heartbeats.yaml``) and a
+        ``plugin`` both declare it, the config row wins, in whichever order they arrive:
+        the owner's file is the one place a schedule is changed, and a plugin's own copy
+        is only its default. If the two differ, the difference is logged as drift.
         """
         with self._lock:
+            held = self._declared.get(definition.name)
+            held_origin = self._origin.get(definition.name)
+            if held is not None and held_origin is not None and held_origin != origin:
+                config_row, plugin_row = (
+                    (held, definition) if held_origin == "config" else (definition, held)
+                )
+                self._note_drift(config_row, plugin_row)
+                if origin == "plugin":
+                    # The config row stays. Re-apply it: the plugin's handler may be the
+                    # one it was waiting for.
+                    return self._apply(self._effective[definition.name])
+            self._origin[definition.name] = origin
             self._declared[definition.name] = definition
             effective = self._with_override(definition)
             self._effective[definition.name] = effective
             if self._run_store is not None:
                 self._run_store.note_job(definition.name)
             return self._apply(effective)
+
+    @staticmethod
+    def _note_drift(config_row: HeartbeatDefinition, plugin_row: HeartbeatDefinition) -> None:
+        """Log how a plugin's copy of a heartbeat differs from the config row that won."""
+        differing = [
+            f.name
+            for f in fields(HeartbeatDefinition)
+            if f.name != "description"
+            and getattr(config_row, f.name) != getattr(plugin_row, f.name)
+        ]
+        if differing:
+            logger.warning(
+                "heartbeat %s is declared by config/heartbeats.yaml and by plugin %s and they "
+                "differ in %s; the config row wins",
+                config_row.name,
+                plugin_row.plugin or "?",
+                ", ".join(differing),
+            )
 
     def unavailable_reason(self, definition: HeartbeatDefinition) -> str | None:
         """Why ``definition`` cannot run on this harness, or None when it can.
