@@ -86,8 +86,9 @@ scripts/ci_local.sh --fast   # while iterating: ruff, black, mypy, lint-imports,
 scripts/ci_local.sh          # before a PR: full suite, playground smoke, secret + PII scan
 ```
 
-Hosted CI runs changed-scope tests on Python 3.12 for PRs and pushes; the full suite on 3.12
-and 3.13 is on demand (`gh workflow run ci -f full=true`).
+Hosted CI does not run on PRs or pushes: it is started by hand (`gh workflow run ci`, or
+`-f full=true` for the full suite on 3.12 and 3.13) at the final phase of a piece of work and before
+a release. `scripts/ci_local.sh`, in full, is the gate for a PR.
 
 Style: Black (100 columns), Ruff, MyPy strict with the Pydantic plugin.
 

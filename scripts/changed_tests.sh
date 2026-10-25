@@ -25,7 +25,7 @@
 #   FULL=1 scripts/changed_tests.sh       # force the full suite (what CI runs)
 #   EVARNESS_PYTEST_WORKERS=4 scripts/changed_tests.sh   # cap xdist workers (default auto)
 #   CHANGED_OVERRIDE=$'a.py\nb.py' ...     # bypass git: map these paths (tests use this)
-#   NO_FULL=1 scripts/changed_tests.sh    # hosted PR policy: never escalate to the full suite.
+#   NO_FULL=1 scripts/changed_tests.sh    # the hosted changed-scope run: never escalate to the full suite.
 #                                         # Where it would, run `-m smoke` plus the tests the
 #                                         # changed paths DO map to, and say so. BASE=<sha> names
 #                                         # the comparison point (CI passes the PR base / push before).
