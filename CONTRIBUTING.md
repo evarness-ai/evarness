@@ -102,11 +102,27 @@ scripts/ci_local.sh --fast     # ruff, black, mypy, import contracts, changed-sc
 scripts/ci_local.sh            # the full gate (full suite, playground smoke, secret scan)
 ```
 
-Hosted CI runs the **changed-scope** tests on Python 3.12 for every pull request and push
-to `main` (`scripts/changed_tests.sh`, which never escalates to the whole suite there: when a
-core file such as `pyproject.toml` changes it runs `-m smoke` plus the mapped tests and says
-so in the job summary). The entire suite on 3.12 and 3.13 runs on demand:
-`gh workflow run ci -f full=true`, or Actions, ci, Run workflow, full.
+**`scripts/ci_local.sh`, in full, is the gate for a pull request.** Hosted `ci` does not run on
+pull requests or on pushes to `main`; it runs only when started by hand, at the final phase of
+a piece of work and before a release. Paste the gate's summary into the pull request's "How it
+was tested" (`--fast` is for iterating and does not count). `security` (secrets, dependency
+audit), `dco` and `pr-title` still run on every pull request, and CodeQL scans on its schedule.
+
+Start the hosted run with `gh workflow run ci` (changed-scope tests on Python 3.12) or
+`gh workflow run ci -f full=true` (the entire suite on 3.12 and 3.13), or Actions, ci, Run
+workflow, full. Changed-scope selection is `scripts/changed_tests.sh`, which never escalates to
+the whole suite on the hosted runner: when a core file such as `pyproject.toml` changes it runs
+`-m smoke` plus the mapped tests and says so in the job summary.
+
+### Releasing
+
+A release is a `v<version>` tag (see `.github/workflows/release.yml`; the `pypi` environment
+needs the maintainer's approval, so a pushed tag alone never publishes). Because hosted `ci`
+no longer runs on every change, **the full run is the release checklist's first step**:
+
+1. On the commit to be tagged, run `gh workflow run ci -f full=true` and wait for it to pass
+   (whole suite on 3.12 and 3.13, lint, quickstart, docs, licenses, webui).
+2. Only then tag and push `v<version>`; `release.yml` does not check for step 1 itself.
 
 The `test` job also runs the smoke tests (`-m smoke`, the deterministic playground suite on a
 real in-process runtime). The `webui` job skips itself when a pull request touches nothing

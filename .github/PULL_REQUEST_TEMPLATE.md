@@ -9,7 +9,9 @@ ci, perf, build). The PR is squash-merged and the title becomes the commit messa
 
 ## How it was tested
 
-<!-- Commands you ran and their results. -->
+<!-- Paste the summary of `scripts/ci_local.sh` run IN FULL (not --fast) in a clean shell, e.g.
+`env -i PATH="$PATH" HOME="$HOME" scripts/ci_local.sh`. Hosted CI does not run on pull requests;
+this is the gate. Add the narrow commands you ran for the change itself. -->
 
 ## Stable-tier impact
 
@@ -20,7 +22,7 @@ deprecation (docs/reference/stable-api.md). -->
 ## Checklist
 
 - [ ] Every commit is signed off (`git commit -s`, DCO)
-- [ ] `scripts/ci_local.sh --fast` passes
+- [ ] `scripts/ci_local.sh` passes **in full** (required gate: hosted CI does not run on PRs; output pasted above)
 - [ ] New behaviour has tests; a fix has the test that would have caught it
 - [ ] Tool and model calls still go through the governed runner and the audit ledger
 - [ ] No secrets, tokens or personal data in the diff
