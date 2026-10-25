@@ -5,7 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
+
+# Who declared a heartbeat: a row of ``heartbeats.yaml``, or a plugin's own
+# ``register_heartbeat(schedule=...)``. A ``config`` row wins a name.
+Origin = Literal["config", "plugin"]
 
 
 class HeartbeatStatus(StrEnum):
