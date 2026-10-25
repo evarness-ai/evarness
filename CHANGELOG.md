@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-24
+
 ### Added
 
 - A plugin ships its skill packs as package data under `skills/` beside its manifest, and the skill registry loads them with no config once the plugin is mounted and runs in-process ([ADR-0136](docs/adr/0136-skill-packs-ship-with-the-plugin-that-owns-them.md)). The registry never scans what is installed: the runtime hands it the plugin host's mounted plugins, and `evarness skills list`, the REPL `/skills` and `evarness mcp serve` hand it the resolved profile filtered by the loader's own availability and trust checks. A pack of a plugin that is not mounted, or is `trust: mcp`, is listed with the reason and its code never runs. Locating an installed plugin no longer imports its parent packages: `installed_plugin_dirs`, which web nav, the ontology, the expiry reader and the skill registry share, resolved an entry point's dotted module with `find_spec`, which executes the parents' `__init__.py`, so a disabled or not-yet-mounted entry-point plugin's package code used to run at startup. A plugin with no `manifest.yaml` contributes no skill packs. A pack in `config/skills` wins a name collision with a plugin's, even if the owner's copy fails to load; the displaced pack is never loaded. A plugin pack's relative `requires.config_files` resolve against its plugin directory. The new `evarness skills list [--json]` prints every pack with its source, kind, missing prerequisites and tool count; the REPL `/skills` names a plugin's pack `plugin:<name>`.

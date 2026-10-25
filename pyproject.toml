@@ -1,6 +1,6 @@
 [project]
 name = "evarness"
-version = "0.2.3"
+version = "0.2.4"
 description = "The governed agent harness for small local models. It proves what it did."
 readme = "README.md"
 license = "Apache-2.0"
