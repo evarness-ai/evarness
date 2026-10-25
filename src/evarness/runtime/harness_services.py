@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from evarness.memory.state.continuations import Continuation
     from evarness.runtime.tool_service import ToolCatalogue, ToolService
     from evarness.services.channels.models import ChannelMessage, DeliveryReceipt
-    from evarness.services.heartbeat.models import HeartbeatDefinition, HeartbeatRun
+    from evarness.services.heartbeat.models import HeartbeatDefinition, HeartbeatRun, Origin
     from evarness.services.learning.lesson_capture import Lesson
     from evarness.tools.skills.models import SkillPackage
 
@@ -59,8 +59,11 @@ class HeartbeatService(Protocol):
         """Back heartbeat ``name`` with ``handler`` (``PluginAPI.register_heartbeat``)."""
         ...
 
-    def register(self, definition: HeartbeatDefinition) -> bool:
-        """Schedule ``definition``; False when it ends up disabled or unbound."""
+    def register(self, definition: HeartbeatDefinition, *, origin: Origin = "config") -> bool:
+        """Schedule ``definition``; False when it ends up disabled or unbound.
+
+        ``origin`` is ``"plugin"`` for a plugin's own schedule (``register_heartbeat``);
+        a ``"config"`` row of the same name wins either way round."""
         ...
 
     def trigger_by_name(self, name: str) -> HeartbeatRun | None:
