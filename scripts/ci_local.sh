@@ -20,10 +20,11 @@
 #   scripts/ci_local.sh --smoke      # ONLY the smoke tests: pytest -m smoke + playground run
 #   EVARNESS_PYTEST_WORKERS=4 scripts/ci_local.sh   # cap xdist workers (default auto = one per core)
 #
-# Hosted CI (.github/workflows/ci.yml) does NOT run the full suite on pull requests or pushes:
-# it runs scripts/changed_tests.sh with NO_FULL=1 on Python 3.12. The full suite on 3.12 and
-# 3.13 is on demand: `gh workflow run ci -f full=true`. This script's no-flag run stays the
-# full local gate.
+# Hosted CI (.github/workflows/ci.yml) no longer runs on pull requests or pushes. It runs only
+# when started by hand, at the final phase of a piece of work and before a release
+# (`gh workflow run ci -f full=true` for the whole suite on 3.12 and 3.13). So THIS script is the
+# gate for a change: run it with no flag, in full, and paste its summary into the pull request.
+# --fast is for iterating, never for the pull request.
 #
 # Smoke tests (`@pytest.mark.smoke`: end-to-end playground runs against a real
 # in-process runtime) are deselected by pyproject's addopts, so plain `pytest`
@@ -219,7 +220,7 @@ fi
 # screen did not crash, does not scroll sideways, and logs no console errors.
 #
 # Not in ci-linux.yml (no Node step, and disabled anyway). The public CI's `webui` job
-# (.github/public/workflows/ci.yml) runs the same `npx playwright test` on every PR.
+# (.github/public/workflows/ci.yml) runs the same `npx playwright test` when it is run by hand.
 # Here it runs by default ONLY when webui/ changed —
 # building the bundle and driving a browser costs ~40s, which is not worth paying
 # on a Python-only change.
