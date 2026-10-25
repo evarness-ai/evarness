@@ -444,6 +444,7 @@ core object:
 | `evarness.sdk.config` | + `evarness_home`, `workspace_dir` | Where this Evarness lives (`$EVARNESS_HOME`, else `~/.evarness`) and the owner's workspace in it, for what a plugin keeps beside the identity files. Never `Path.home() / ".evarness"`, which ignores a relocated home. |
 | `evarness.sdk.health` | + `register_account_counter`, `register_file_root_counter` | The counts `evarness system status` shows. |
 | `evarness.sdk.memory` | + `WIKI_INGEST_REQUESTED`, `WikiIngestEvent`, `WikiEngine`, `subscribe_wiki_ingest_consumer` | Feeding the knowledge wiki; a backfill command wiring its own engine. |
+| `evarness.sdk.types` | + `ChatResult` | What a chat intercept (`register_intercept`) returns: the record of one finished turn. Build this, not a copy. |
 | `evarness.sdk.types` | + `Principal` | Who is calling your API route (owner or paired device). |
 | `evarness.sdk.types` | + `HeartbeatRun`, `HeartbeatStatus`, `HeartbeatHandler` | A heartbeat handler's return value and Protocol, beside `HeartbeatDefinition` (step 2). |
 | `evarness.sdk.llm` | + `JsonReply`, `LLMUnreachable`, `LLMBadReply` | The governed structured call, `CodingLLMClient.invoke_json(system_prompt=, user_prompt=, schema=)` (a classifier, a judge; Ollama tiers): stop a batch on `LLMUnreachable`, skip the item on `LLMBadReply`. |
