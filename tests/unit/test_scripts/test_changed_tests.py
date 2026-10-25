@@ -331,3 +331,81 @@ def test_an_invalid_worker_count_fails_loudly(workers: str) -> None:
     result = _run_with_workers(workers)
     assert result.returncode == 2
     assert "EVARNESS_PYTEST_WORKERS" in result.stderr
+
+
+# --- the comparison point after a push (issue #385) --------------------------------------
+
+
+def _git(cwd: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", *args],
+        cwd=cwd,
+        env={**_GIT_ENV, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t"}
+        | {
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@t",
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+@pytest.fixture
+def pushed_branch(tmp_path: Path) -> Path:
+    """A work repo on branch ``feature`` that is one commit ahead of main and already pushed.
+
+    ``feature``'s upstream is its own remote copy, which is the state after
+    ``git push -u``: the merge-base with the upstream is HEAD itself.
+    """
+    remote, work = tmp_path / "remote.git", tmp_path / "work"
+    _git(tmp_path, "init", "-q", "--bare", str(remote))
+    _git(tmp_path, "clone", "-q", str(remote), str(work))
+    _git(work, "checkout", "-q", "-b", "main")
+    (work / "scripts").mkdir()
+    for name in ("changed_tests.sh", "changed_tests_full_triggers.txt"):
+        (work / "scripts" / name).write_bytes((ROOT / "scripts" / name).read_bytes())
+    (work / "tests" / "unit" / "evarness").mkdir(parents=True)
+    (work / "tests" / "unit" / "evarness" / "test_a.py").write_text("def test_a(): pass\n")
+    _git(work, "add", "-A")
+    _git(work, "commit", "-q", "-m", "base")
+    _git(work, "push", "-q", "-u", "origin", "main")
+    _git(work, "checkout", "-q", "-b", "feature")
+    (work / "tests" / "unit" / "evarness" / "test_a.py").write_text("def test_a(): assert 1\n")
+    _git(work, "commit", "-q", "-am", "change")
+    return work
+
+
+def _select(work: Path, **extra: str) -> str:
+    return subprocess.run(
+        ["bash", "scripts/changed_tests.sh", "--print"],
+        cwd=work,
+        env={"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin", **extra},
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+
+
+def test_an_unpushed_branch_selects_what_it_changed(pushed_branch: Path) -> None:
+    assert "tests/unit/evarness/test_a.py" in _select(pushed_branch)
+
+
+def test_a_pushed_branch_still_selects_what_it_changed(pushed_branch: Path) -> None:
+    """Once ``git push -u`` makes the upstream the branch's own copy, the old base was HEAD and
+    the gate printed "nothing to run" for a branch that does have changes."""
+    _git(pushed_branch, "push", "-q", "-u", "origin", "feature")
+    out = _select(pushed_branch)
+    assert "nothing to run" not in out
+    assert "tests/unit/evarness/test_a.py" in out
+
+
+def test_a_branch_with_no_change_beyond_main_still_runs_nothing(pushed_branch: Path) -> None:
+    _git(pushed_branch, "checkout", "-q", "main")
+    assert "nothing to run" in _select(pushed_branch)
+
+
+def test_an_explicit_base_is_never_overridden(pushed_branch: Path) -> None:
+    _git(pushed_branch, "push", "-q", "-u", "origin", "feature")
+    head = _git(pushed_branch, "rev-parse", "HEAD").strip()
+    assert "nothing to run" in _select(pushed_branch, BASE=head)

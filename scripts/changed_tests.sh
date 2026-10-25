@@ -57,9 +57,16 @@ fi
 # the branch this one is stacked on — which is the normal state here, since milestone
 # branches stack on an open PR. So ask git for the commits that exist on no remote branch
 # and start just before the oldest of them. BASE=<ref> overrides both.
+# A PUSHED branch is the exception that proves the rule: its upstream is its own remote copy,
+# so both of the above land on HEAD and the gate reported "nothing to run" for a branch that
+# does have changes (issue #385). When the base is HEAD but the branch carries commits that
+# origin/main does not, compare against the merge-base with origin/main instead -- that is
+# "what this branch would merge", which stays true after the push. An explicit BASE is never
+# overridden.
 # CHANGED_OVERRIDE names the paths itself, so then nothing here asks git: the script (and
 # its tests) also run in a tree that is not a git checkout, such as the public export.
 BASE="${BASE:-}"
+BASE_GIVEN="$BASE"
 if [[ -z "${CHANGED_OVERRIDE:-}" ]]; then
   if [[ -z "$BASE" ]]; then
     BASE=$(git merge-base HEAD '@{upstream}' 2>/dev/null || true)
@@ -75,6 +82,12 @@ if [[ -z "${CHANGED_OVERRIDE:-}" ]]; then
   fi
   if [[ -z "$BASE" ]]; then
     BASE=$(git merge-base HEAD origin/main 2>/dev/null || git rev-parse HEAD~1)
+  fi
+  if [[ -z "$BASE_GIVEN" && "$BASE" == "$(git rev-parse HEAD)" ]]; then
+    MAIN_BASE=$(git merge-base HEAD origin/main 2>/dev/null || true)
+    if [[ -n "$MAIN_BASE" && "$MAIN_BASE" != "$BASE" ]]; then
+      BASE="$MAIN_BASE"
+    fi
   fi
 fi
 if [[ -n "${CHANGED_OVERRIDE:-}" ]]; then

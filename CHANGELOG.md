@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `scripts/changed_tests.sh` no longer reports "nothing to run" for a branch that has been pushed. After `git push -u` the branch's upstream is its own remote copy, so the merge-base it compared against was `HEAD`; when that lands on `HEAD` but the branch carries commits `origin/main` does not, it now compares against the merge-base with `origin/main`. An explicit `BASE` is still honoured (#385).
 - `evarness plugin new` pinned the generated plugin to `evarness>=0.1,<0.2`, so it could not be installed beside 0.2.x: the stable tier's version, which the pin is derived from, was never bumped at 0.2.0. The tier is now 0.2.0, and a test holds the generated pin to the running package version.
 - `evarness auth gmail login`'s success line said the account was registered in `data/evarness.db`, a checkout path; it names the Evarness home's database and the next command.
 
