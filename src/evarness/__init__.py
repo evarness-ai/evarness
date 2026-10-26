@@ -10,6 +10,6 @@ from evarness.foundation.legacy import alias_legacy_environment
 
 __all__ = ["__version__"]
 
-__version__ = "0.2.4"
+__version__ = "0.2.5"
 
 alias_legacy_environment()
