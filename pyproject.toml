@@ -155,7 +155,7 @@ watchdog = "^4.0.0"
 apscheduler = "^3.10.0"
 
 # PDF & OCR
-pillow = "^12.1.0"
+pillow = ">=12.1.0,<14.0.0"
 pytesseract = "^0.3.13"
 
 # Observability. OpenTelemetry is core: spans export over OTLP to whatever backend the
