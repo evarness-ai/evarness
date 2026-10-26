@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-25
+
 ### Security
 
 - `pillow` may now resolve to 13.x (`>=12.1.0,<14.0.0`; the lock moves to 13.0.0). 12.x carries forty published advisories fixed only in 13.0.0, and an overlay that pins `evarness` could not take the fix while this package capped it below 13. Pillow is used only by the OCR path in `services/rag/ocr.py`; the RAG tests pass on 13.0.0.
