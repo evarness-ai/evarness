@@ -521,9 +521,11 @@ from evarness.cli.approvals import approvals_app  # noqa: E402
 
 app.add_typer(approvals_app, name="approvals")
 
+from evarness.cli.bot import bot_app  # noqa: E402
 from evarness.cli.device import device_app  # noqa: E402
 from evarness.cli.push import push_app  # noqa: E402
 
+app.add_typer(bot_app, name="bot")
 app.add_typer(device_app, name="device")
 app.add_typer(push_app, name="push")
 
