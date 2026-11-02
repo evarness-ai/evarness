@@ -223,12 +223,14 @@ def build_default_kernel(
         high_risk_only = True
     # BotStatusHook (priority 5) runs first at PreToolUse and PreLLMCall (ADR-0138, B1):
     # a bot that is not active runs nothing, mid-run included, and an active bot's id
-    # reaches every audit row of the call. One instance, two points: it reads the home's
-    # one identity row lazily and caches it for two seconds. A home with no row (the
-    # single-assistant install) is allowed through and stamps nothing.
+    # reaches every audit row of the call. One instance, two points: it reads its bot's
+    # identity row lazily and caches it for two seconds. Registered only in a process
+    # started as a bot (``EVARNESS_BOT`` set, read once here): the owner's own assistant
+    # gets no extra hook and no extra audit row, so it runs exactly as before bots existed.
     bot_status = BotStatusHook()
-    kernel.register(bot_status)
-    kernel.register(bot_status, at=HookPoint.PRE_LLM_CALL)
+    if bot_status.guards_a_bot:
+        kernel.register(bot_status)
+        kernel.register(bot_status, at=HookPoint.PRE_LLM_CALL)
     # PromptGuardInboundHook (priority 5) runs before DataClassifierHook (10):
     # Phase 6 G1, opt-in, shadow-first. Off unless explicitly built/passed.
     if prompt_guard_inbound is not None:

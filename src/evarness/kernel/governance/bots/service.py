@@ -9,9 +9,18 @@ definition or anything from the workspace.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Protocol
 
-from evarness.kernel.governance.bots.store import BotIdentity, BotIdentityStore
+from evarness.kernel.governance.bots.store import (
+    BotIdentity,
+    BotIdentityStore,
+    BotNotFoundError,
+    open_existing_store,
+    selected_bot_name,
+)
+
+logger = logging.getLogger(__name__)
 
 #: ``hook_point`` of the rows this service writes.
 BOT_IDENTITY_HOOK = "bot_identity"
@@ -53,7 +62,24 @@ class BotService:
     ) -> BotIdentity:
         """Register (or re-register) a bot; one ``bot.register`` row either way."""
         before = self._store.get(name)
-        row = self._store.register(name, workspace_path, definition_sha256)
+        try:
+            row = self._store.register(name, workspace_path, definition_sha256)
+        except (ValueError, BotNotFoundError) as exc:
+            logger.warning(
+                "bot.register refused name=%r actor=%s error=%s",
+                name,
+                actor,
+                exc.__class__.__name__,
+            )
+            raise
+        logger.info(
+            "bot.register bot_id=%s name=%s status=%s created=%s actor=%s",
+            row.bot_id,
+            row.name,
+            row.status,
+            before is None,
+            actor,
+        )
         self._record(
             "allow",
             row,
@@ -69,7 +95,24 @@ class BotService:
 
     def set_status(self, name: str, status: str, *, actor: str) -> BotIdentity:
         """Flip the switch or revoke; one ``bot.status`` row naming the new status."""
-        row = self._store.set_status(name, status)
+        try:
+            row = self._store.set_status(name, status)
+        except (ValueError, BotNotFoundError) as exc:
+            logger.warning(
+                "bot.status refused name=%r to=%r actor=%s error=%s",
+                name,
+                status,
+                actor,
+                exc.__class__.__name__,
+            )
+            raise
+        logger.info(
+            "bot.status bot_id=%s name=%s status=%s actor=%s",
+            row.bot_id,
+            row.name,
+            row.status,
+            actor,
+        )
         self._record(
             "allow",
             row,
@@ -84,7 +127,9 @@ class BotService:
         return self._store.get(name)
 
     def current(self) -> BotIdentity | None:
-        return self._store.current()
+        """The bot this process runs (``EVARNESS_BOT``), or ``None`` for the owner's own
+        assistant. ``BotNotFoundError`` when the variable names a bot with no row."""
+        return current_bot_identity(self._store)
 
     def list(self) -> list[BotIdentity]:
         return self._store.list()
@@ -121,10 +166,26 @@ class BotService:
         )
 
 
+def current_bot_identity(store: BotIdentityStore | None = None) -> BotIdentity | None:
+    """The row of the bot this process runs, read without creating ``bots.db``.
+
+    ``None`` when ``EVARNESS_BOT`` is unset. ``BotNotFoundError`` when it names a bot the
+    home has no row for; ``ValueError`` when it is not a valid name.
+    """
+    name = selected_bot_name()
+    if name is None:
+        return None
+    opened = store if store is not None else open_existing_store()
+    row = opened.get(name) if opened is not None else None
+    if row is None:
+        raise BotNotFoundError(name)
+    return row
+
+
 def _default_ledger() -> Ledger:
     from evarness.kernel.governance.audit import AuditLog
 
     return AuditLog()
 
 
-__all__ = ["BOT_IDENTITY_HOOK", "BotService", "Ledger"]
+__all__ = ["BOT_IDENTITY_HOOK", "BotService", "Ledger", "current_bot_identity"]

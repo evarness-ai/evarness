@@ -105,6 +105,9 @@ TOOL_ERROR = "tool_error"
 #: every row of the call carries ``bot_id``. Never read from a payload or an argument.
 BOT_ID = "bot_id"
 BOT_NAME = "bot_name"
+#: The name of the one hook whose decision may name the bot (``plugins/bot_status.py``).
+#: The kernel takes ``bot_id`` from that hook's decision and from nowhere else.
+BOT_STATUS_HOOK = "bot_status"
 #: The ``tool_error`` of a call whose tool returned a result it marked as failed instead of
 #: raising (an MCP ``tools/call`` result with ``isError: true``). Unlike an exception's
 #: message, the result's text is the tool's own, so it is still third-party text.

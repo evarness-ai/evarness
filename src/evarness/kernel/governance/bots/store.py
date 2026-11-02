@@ -5,8 +5,13 @@ owns is this row: the bot's id, its unique name, its status, its workspace, the 
 namespace and memory scope that keep it apart from every other bot (both ``bot:<name>``,
 both unique), the hash of the definition in force, and the timestamps. ``active`` and
 ``disabled`` are the owner's switch in both directions; ``revoked`` is terminal and stamps
-``revoked_at``. The status hook (``plugins/bot_status.py``) reads this table on every
-governed call and denies a bot that is not ``active`` (invariant B1).
+``revoked_at``. One home holds a row per bot (B4): adding a bot adds a row here.
+
+Which bot a process runs is not a row's business: the platform starts a bot's runtime
+with ``EVARNESS_BOT=<name>`` (:func:`selected_bot_name`). The status hook
+(``plugins/bot_status.py``) reads that bot's row on every governed call and denies it when
+it is not ``active`` (invariant B1). A process with no ``EVARNESS_BOT`` is the owner's own
+assistant and is not a bot, whatever rows the home holds.
 
 One file, ``governance_data_dir()/bots.db``, mode 0600, WAL, like the devices store.
 """
@@ -25,7 +30,7 @@ from pathlib import Path
 from typing import Literal, get_args
 
 from evarness.foundation.ids import new_ulid
-from evarness.foundation.paths import governance_data_dir
+from evarness.foundation.paths import evarness_home, governance_data_dir
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +43,14 @@ BOT_STATUSES: tuple[BotStatus, ...] = get_args(BotStatus)
 #: The prefix of a bot's vault namespace and memory scope: ``bot:<name>`` (spec 4.6).
 BOT_SCOPE_PREFIX = "bot:"
 
-#: A bot's name as the definition names it: one to 64 characters, letters, digits, dot,
-#: underscore and hyphen, starting with a letter or a digit. It is also the tail of two
-#: scope strings and a workspace folder name, so no separator, colon or whitespace.
-_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+#: The environment variable that names the bot a process runs (``EVARNESS_BOT=<name>``).
+#: Set by the platform when it starts a bot's runtime; unset on the owner's own assistant.
+BOT_ENV = "EVARNESS_BOT"
+
+#: A bot's name exactly as the definition's ``name`` (spec 4.1): a lower-case slug of 2 to
+#: 32 characters starting with a letter. It is also the tail of two scope strings and a
+#: workspace folder name, so no separator, colon, dot or whitespace.
+_NAME = re.compile(r"^[a-z][a-z0-9_-]{1,31}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -59,18 +68,64 @@ class BotRevokedError(ValueError):
     """The bot is revoked: ``revoked`` is terminal, so nothing changes it again."""
 
 
-class MultipleBotsError(RuntimeError):
-    """More than one identity row in a home that this release allows one in."""
-
-
 def validate_bot_name(name: str) -> str:
     """The name as the store accepts it, or ``ValueError`` saying why not."""
     if not isinstance(name, str) or not _NAME.fullmatch(name):
         raise ValueError(
-            "a bot name is 1 to 64 letters, digits, '.', '_' or '-', starting with a "
-            f"letter or a digit; got {name!r}"
+            "a bot name is 2 to 32 lower-case letters, digits, '_' or '-', starting with a "
+            f"letter; got {name!r}"
         )
     return name
+
+
+def selected_bot_name() -> str | None:
+    """The bot this process runs (``EVARNESS_BOT``), or ``None`` for the owner's assistant.
+
+    An empty value is unset. A value that is not a valid bot name raises ``ValueError``:
+    the status hook turns that into a deny of every call rather than guessing.
+    """
+    raw = os.environ.get(BOT_ENV, "").strip()
+    if not raw:
+        return None
+    return validate_bot_name(raw)
+
+
+def open_existing_store(db_path: Path | None = None) -> BotIdentityStore | None:
+    """The store when its file exists; ``None`` otherwise, and no file is created.
+
+    A read on a home that never registered a bot (the single-assistant install) must
+    leave that home exactly as it was, so every reader goes through here.
+    """
+    path = db_path or default_bots_db_path()
+    if not path.exists():
+        return None
+    return BotIdentityStore(db_path=path)
+
+
+def resolve_workspace(workspace_path: str | os.PathLike[str]) -> str:
+    """The workspace as stored: absolute, resolved, strictly inside the Evarness home.
+
+    Spec 4.6: one folder per bot, under the Evarness home. ``ValueError`` otherwise.
+    """
+    raw = os.fspath(workspace_path)
+    if not raw:
+        raise ValueError("workspace_path must not be empty")
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        raise ValueError(f"workspace_path must be absolute; got {raw!r}")
+    resolved = path.resolve()
+    home = evarness_home().expanduser().resolve()
+    if resolved == home or home not in resolved.parents:
+        raise ValueError(
+            f"workspace_path must be a folder inside the Evarness home ({home}); got {raw!r}"
+        )
+    return str(resolved)
+
+
+def _overlaps(a: str, b: str) -> bool:
+    """Whether two resolved workspaces are the same folder or one holds the other."""
+    pa, pb = Path(a), Path(b)
+    return pa == pb or pa in pb.parents or pb in pa.parents
 
 
 def validate_definition_sha256(digest: str) -> str:
@@ -84,7 +139,7 @@ def validate_definition_sha256(digest: str) -> str:
 def validate_bot_status(status: str) -> BotStatus:
     if status not in BOT_STATUSES:
         raise ValueError(f"status must be one of {', '.join(BOT_STATUSES)}; got {status!r}")
-    return status  # type: ignore[return-value]
+    return status
 
 
 @dataclass(frozen=True)
@@ -105,6 +160,22 @@ class BotIdentity:
     @property
     def active(self) -> bool:
         return self.status == "active"
+
+    def to_dict(self) -> dict[str, str | None]:
+        """The row as the API and the CLI show it. Field by field, not ``asdict``: a
+        field added to the row later must not reach a response by default."""
+        return {
+            "bot_id": self.bot_id,
+            "name": self.name,
+            "status": self.status,
+            "workspace_path": self.workspace_path,
+            "vault_namespace": self.vault_namespace,
+            "memory_scope": self.memory_scope,
+            "definition_sha256": self.definition_sha256,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "revoked_at": self.revoked_at,
+        }
 
     @property
     def revoked(self) -> bool:
@@ -179,12 +250,13 @@ class BotIdentityStore:
         refused: the workspace is part of what keeps two bots apart (B3) and never moves
         under a running bot. A revoked name is refused too: ``revoked`` is terminal, and
         whether the name may be reused is an open point of the specification.
+
+        The workspace is a folder inside the Evarness home (spec 4.6) that no other bot's
+        workspace is, holds or sits inside (B3); ``ValueError`` otherwise.
         """
         name = validate_bot_name(name)
         digest = validate_definition_sha256(definition_sha256)
-        workspace = str(workspace_path)
-        if not workspace:
-            raise ValueError("workspace_path must not be empty")
+        workspace = resolve_workspace(workspace_path)
         now = self._now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -210,6 +282,13 @@ class BotIdentityStore:
                     "SELECT * FROM bot_identity WHERE bot_id = ?", (row.bot_id,)
                 ).fetchone()
                 return self._row(fresh)
+            for other in conn.execute("SELECT name, workspace_path FROM bot_identity"):
+                if _overlaps(workspace, other["workspace_path"]):
+                    conn.rollback()
+                    raise ValueError(
+                        f"workspace {workspace!r} overlaps the workspace of bot "
+                        f"{other['name']!r}; two bots never share a folder (B3)"
+                    )
             scope = f"{BOT_SCOPE_PREFIX}{name}"
             bot_id = new_ulid()
             conn.execute(
@@ -228,24 +307,6 @@ class BotIdentityStore:
         with self._connect() as conn:
             row = conn.execute("SELECT * FROM bot_identity WHERE name = ?", (name,)).fetchone()
         return self._row(row) if row is not None else None
-
-    def current(self) -> BotIdentity | None:
-        """The one bot of this home, or ``None`` on a plain single-assistant install.
-
-        The platform runs one Evarness process per bot, with the bot's workspace as the
-        home, so a home holds at most one row in this release. More than one is a
-        misconfiguration the caller must not guess its way through: ``MultipleBotsError``
-        (the status hook turns it into a deny of every call).
-        """
-        rows = self.list()
-        if not rows:
-            return None
-        if len(rows) > 1:
-            names = ", ".join(sorted(r.name for r in rows))
-            raise MultipleBotsError(
-                f"{len(rows)} bot identities in one home ({names}); this release allows one"
-            )
-        return rows[0]
 
     def list(self) -> list[BotIdentity]:
         """Every row, revoked ones included (the list is also the history)."""
@@ -291,6 +352,7 @@ class BotIdentityStore:
 
 
 __all__ = [
+    "BOT_ENV",
     "BOT_SCOPE_PREFIX",
     "BOT_STATUSES",
     "BotIdentity",
@@ -298,8 +360,10 @@ __all__ = [
     "BotNotFoundError",
     "BotRevokedError",
     "BotStatus",
-    "MultipleBotsError",
     "default_bots_db_path",
+    "open_existing_store",
+    "resolve_workspace",
+    "selected_bot_name",
     "validate_bot_name",
     "validate_bot_status",
     "validate_definition_sha256",

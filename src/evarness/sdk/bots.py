@@ -9,9 +9,12 @@ then on the kernel denies every governed call of a bot that is not ``active``, a
 bot's id on every audit row of the call.
 
 ``set_bot_status(name, "active" | "disabled" | "revoked")`` is the owner's switch;
-``revoked`` is terminal (``BotRevokedError`` on any later change). ``current_bot()`` is the
-one bot of this home, ``None`` on a plain single-assistant install. Each change leaves an
-audit row, whichever surface made it (this module, ``evarness bot``, ``/api/v1/bot``).
+``revoked`` is terminal (``BotRevokedError`` on any later change). A home holds one row per
+bot. The platform starts a bot's runtime with ``EVARNESS_BOT=<name>``; ``current_bot()`` is
+that bot's row, ``None`` in a process with no ``EVARNESS_BOT`` (the owner's own assistant),
+and ``BotNotFoundError`` when the variable names a bot that was never registered. Each
+change leaves an audit row, whichever surface made it (this module, ``evarness bot``,
+``/api/v1/bots``).
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from evarness.kernel.governance.bots import (
     BotNotFoundError,
     BotRevokedError,
     BotService,
+    current_bot_identity,
 )
 
 
@@ -37,8 +41,11 @@ def register_bot(name: str, workspace_path: str, definition_sha256: str) -> BotI
 
 
 def current_bot() -> BotIdentity | None:
-    """The one bot of this home, or ``None`` on a single-assistant install."""
-    return BotService().current()
+    """The bot this process runs (``EVARNESS_BOT``), or ``None`` for the owner's assistant.
+
+    A read: it never creates ``bots.db`` and writes no audit row.
+    """
+    return current_bot_identity()
 
 
 def set_bot_status(name: str, status: str) -> BotIdentity:
