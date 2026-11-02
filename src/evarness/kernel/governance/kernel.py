@@ -24,12 +24,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from evarness.kernel.governance.audit import AuditLog
+from evarness.kernel.governance.audit.log import set_bot_id_source
 from evarness.kernel.governance.call_context import is_run_resumed, lineage_of
 from evarness.kernel.governance.hooks.tool_payload import (
     ATTEMPT,
+    BOT_ID,
     CALL_ID,
     HELD_CALL_ID,
     PARENT_CALL_ID,
@@ -48,6 +50,9 @@ from evarness.kernel.governance.hooks.types import (
     HookPoint,
 )
 from evarness.kernel.governance.plugin_egress import note_unrecorded_outcome
+
+if TYPE_CHECKING:
+    from evarness.kernel.governance.plugins.bot_status import BotStatusHook
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +162,9 @@ class GovernanceKernel:
         self._hooks: dict[HookPoint, list[Hook]] = defaultdict(list)
         self._init_locked: bool = False
         self._audit_log = audit_log
+        # The bot status hook this kernel was built with (ADR-0138), kept by identity: the
+        # source of the ``bot_id`` stamped on every row. None in the owner's process.
+        self._bot_hook: BotStatusHook | None = None
 
     def register(self, hook: Hook, *, at: HookPoint | None = None) -> None:
         """Register a hook. Permitted only before ``init_lock()``.
@@ -172,6 +180,15 @@ class GovernanceKernel:
                 "runtime hook registration is forbidden (design §5.3 "
                 "hook plugin trust boundary)."
             )
+        from evarness.kernel.governance.plugins.bot_status import BotStatusHook
+
+        if isinstance(hook, BotStatusHook):
+            if self._bot_hook is not None and self._bot_hook is not hook:
+                raise ValueError("a kernel guards one bot: a second BotStatusHook was registered")
+            self._bot_hook = hook
+            # Every audit row this process writes names the bot, whoever writes it (the
+            # curator, the judges, the approval queue...), not only this kernel's rows.
+            set_bot_id_source(hook.audit_bot_id)
         point = at if at is not None else hook.hook_point
         self._hooks[point].append(hook)
         self._hooks[point].sort(key=lambda h: h.priority)
@@ -225,6 +242,12 @@ class GovernanceKernel:
 
         decision = HookDecision(outcome="allow", reason="no hooks registered")
         current_ctx = ctx
+        if BOT_ID in ctx.metadata:
+            # Only the kernel names a bot, from the hook it was built with (ADR-0138): a
+            # ``bot_id`` in the caller's metadata is dropped before any hook sees it.
+            current_ctx = ctx.model_copy(
+                update={"metadata": {k: v for k, v in ctx.metadata.items() if k != BOT_ID}}
+            )
         audited = True
 
         for hook in self._hooks[hook_point]:
@@ -326,6 +349,15 @@ class GovernanceKernel:
             caller = ctx.metadata.get("caller")
             if isinstance(caller, str) and caller:
                 payload.setdefault("caller", caller)
+            # The bot the call belongs to (ADR-0138, spec X1 and section 3): the bot this
+            # process runs, from the status hook this kernel was built with, on every row
+            # at every hook point. Never from the metadata, a payload or another hook's
+            # ``audit_metadata``; and never on a row of the owner's process (no hook).
+            bot_id = self._bot_hook.audit_bot_id() if self._bot_hook is not None else None
+            if bot_id:
+                payload[BOT_ID] = bot_id
+            else:
+                payload.pop(BOT_ID, None)
             # Which call this row is about (#134). The runner mints the id once per call
             # attempt and stamps it into the metadata; it is written here, from the
             # metadata only, so a value in the payload or the arguments is never read, and

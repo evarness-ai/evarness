@@ -356,6 +356,18 @@ def _restore_os_environ():
         os.environ.update(saved)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_process_bot() -> Iterator[None]:
+    """The bot a process runs is ``EVARNESS_BOT`` read once per process (ADR-0138). A test
+    that sets the variable is a new process as far as that read goes: forget the pinned
+    read before and after each test."""
+    from evarness.kernel.governance.bots import reset_process_bot
+
+    reset_process_bot()
+    yield
+    reset_process_bot()
+
+
 @pytest.fixture
 def owner_identity_seam() -> Iterator[Any]:
     """The owner-identity seam, emptied for one test and put back after it (ADR-0125).

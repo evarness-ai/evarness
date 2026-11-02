@@ -160,6 +160,18 @@ settings:
       behaviors for user approval; this env value is the default the learning console reverts to
       on restart.
     tab: agents
+  EVARNESS_BOT:
+    kind: str
+    default: null
+    applies: restart
+    label: The bot this process runs
+    description: Names the registered bot this process runs (ADR-0138), read once when the governance
+      kernel is built. Set by the platform that starts a bot's runtime; unset, the process is the
+      owner's own assistant. A bot that is not active, not registered or not a valid name is denied
+      every model and tool call.
+    tab: none
+    editable: false
+    not_editable_reason: set per process by the platform that starts the bot
   EVARNESS_CHANNEL_GATEWAY_PORT:
     kind: url
     default: 8006

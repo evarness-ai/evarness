@@ -54,6 +54,10 @@ from evarness.server.harness_api.action_center_routes import (  # noqa: E402
 from evarness.server.harness_api.agent_routes import (  # noqa: E402
     install_agent_routes,
 )
+from evarness.server.harness_api.bot_routes import (  # noqa: E402
+    LazyBotService,
+    install_bot_routes,
+)
 from evarness.server.harness_api.chat_routes import (  # noqa: E402
     install_chat_routes,
 )
@@ -111,6 +115,7 @@ from evarness.server.harness_api.write_guard import _may_write  # noqa: E402
 from evarness.tools.mcp_bridge import MCPBridge, load_mcp_bridge_config  # noqa: E402
 
 if TYPE_CHECKING:
+    from evarness.kernel.governance.bots import BotService
     from evarness.kernel.governance.devices import DeviceService
 
 try:
@@ -352,6 +357,7 @@ def create_app(
     runtime: EvarnessRuntime | None = None,
     auto_start_runtime: bool = True,
     device_service: DeviceService | None = None,
+    bot_service: BotService | None = None,
 ) -> FastAPI:
     """Create the Evarness API service.
 
@@ -370,6 +376,10 @@ def create_app(
         Optional pre-built paired-devices service (ADR-0117); tests inject a store and
         a clock through it. Defaults to one built on first use from the governance
         data dir. Either way the auth middleware and the device routes share it.
+    bot_service
+        Optional pre-built bot identity service (ADR-0138); tests inject a store and a
+        ledger through it. Defaults to one built on the first write, so a read on a home
+        with no ``bots.db`` never creates the file.
     """
     bridge = mcp_bridge or _default_mcp_bridge()
     externally_managed_runtime = runtime is not None
@@ -633,6 +643,12 @@ def create_app(
     # `governance.devices.DeviceService`; these routes and `evarness device` (which calls
     # them) are surfaces.
     install_device_routes(app, devices.get)
+
+    # ── Bot identity: list, show, register, status (ADR-0138) ───────────────
+    # `/api/v1/bots/*`. The capability is `governance.bots.BotService` (the row and the
+    # audit row of each change); these routes, `evarness bot` and `evarness.sdk.bots` are
+    # surfaces. The writes stay behind the write guard: they are console writes.
+    install_bot_routes(app, LazyBotService(bot_service))
 
     # ── Web Push: the browser subscribes, the harness notifies (track 2b PR 9)
     # The capability is `services.channels.web_push`; these routes are a surface,

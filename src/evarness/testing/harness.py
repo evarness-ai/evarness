@@ -156,7 +156,10 @@ class TurnAuditRow:
     carried an identity. ``tool_error`` says, on a ``post_tool_use`` row, that the call
     failed: the class name of what the tool raised, or ``"ToolReportedError"`` when the
     tool returned a result it marked as failed (an MCP ``isError: true``); never the
-    message. It is ``None`` on a call that succeeded and on every other row.
+    message. It is ``None`` on a call that succeeded and on every other row. ``bot_id``
+    is the bot the call belongs to (the identity row's ULID, ADR-0138), stamped by the
+    kernel on every row of a call made under an active bot; ``None`` on a single-assistant
+    install and on rows written before bots existed.
     """
 
     id: int
@@ -184,6 +187,7 @@ class TurnAuditRow:
     replay_of: str | None = None
     resumed_from_run: str | None = None
     tool_error: str | None = None
+    bot_id: str | None = None
 
 
 def _payload(row: AuditRow) -> dict[str, Any]:
@@ -246,6 +250,8 @@ def _turn_audit_row(row: AuditRow) -> TurnAuditRow:
         tool_error=(
             _optional_str(payload.get("tool_error")) if row.hook_point == "post_tool_use" else None
         ),
+        # The column the ledger keeps, not the payload: only the kernel's stamp names a bot.
+        bot_id=_optional_str(row.bot_id),
     )
 
 
@@ -610,6 +616,11 @@ def harness(
         # shut down, so a later harness -- or anything else in the process -- never sees
         # this run's plugins, or a store in a home that is gone.
         stack.callback(restore_process_state, snapshot_process_state())
+        # The bot this process runs is read from EVARNESS_BOT once per process (ADR-0138);
+        # this run has an environment of its own, so it reads it again (put back on exit).
+        from evarness.kernel.governance.bots import reset_process_bot
+
+        reset_process_bot()
         runtime = build_runtime(
             config_dir=config_dir,
             data_dir=home / "data",

@@ -676,3 +676,42 @@ def test_a_governor_decision_names_the_run_call_and_session_it_was_made_for(
     assert "SECRET" not in json.dumps(
         _rows(db, "governor_guard_audit", list(GOVERNOR_COLUMNS))
     )  # only the three keys are ever read
+
+
+def test_a_database_from_before_bots_gains_bot_id_and_records_its_own_boundary(
+    tmp_path: Path,
+) -> None:
+    """ADR-0138: a ledger that already had the identity columns gets ``bot_id`` alone, and
+    the first row that could name a bot is recorded once, under its own key."""
+    db = tmp_path / "pre-bots.db"
+    log = AuditLog(db_path=db)
+    for _ in range(2):
+        log.record(
+            run_id="r",
+            step_id=None,
+            agent_type="a",
+            hook_point="h",
+            plugin="p",
+            decision="allow",
+            severity="info",
+            reason="x",
+        )
+    conn = sqlite3.connect(db)
+    (last_id,) = conn.execute("SELECT MAX(id) FROM audit_log").fetchone()
+    conn.execute("DROP INDEX idx_audit_bot_id")
+    conn.execute("ALTER TABLE audit_log DROP COLUMN bot_id")
+    conn.commit()
+    conn.close()
+    assert "bot_id" not in _columns(db, "audit_log")
+
+    AuditLog(db_path=db)
+    AuditLog(db_path=db)  # a second open adds nothing and writes nothing
+
+    assert "bot_id" in _columns(db, "audit_log")
+    conn = sqlite3.connect(db)
+    meta = dict(conn.execute("SELECT key, value FROM audit_meta").fetchall())
+    conn.close()
+    assert list(meta) == ["identity.bot_id"]  # no pre-identity era: that one is absent
+    assert json.loads(meta["identity.bot_id"])["first_bot_row_id"] == last_id + 1
+    old = AuditLog(db_path=db).query()[0]
+    assert old.bot_id is None  # never backfilled

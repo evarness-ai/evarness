@@ -100,6 +100,14 @@ REPLAY_OF = "replay_of"
 RESUMED_FROM_RUN = "resumed_from_run"
 TOOL_SENDS_TO = "tool_sends_to"
 TOOL_ERROR = "tool_error"
+#: The bot a call belongs to (ADR-0138): the identity row's ULID and its name. The kernel
+#: writes ``bot_id`` on every row from the status hook it was built with; a ``bot_id`` in
+#: a call's metadata, payload or arguments is never read.
+BOT_ID = "bot_id"
+BOT_NAME = "bot_name"
+#: The name of the bot status hook (``plugins/bot_status.py``). A name only: the kernel
+#: trusts the hook instance it was built with, never a hook for its name.
+BOT_STATUS_HOOK = "bot_status"
 #: The ``tool_error`` of a call whose tool returned a result it marked as failed instead of
 #: raising (an MCP ``tools/call`` result with ``isError: true``). Unlike an exception's
 #: message, the result's text is the tool's own, so it is still third-party text.

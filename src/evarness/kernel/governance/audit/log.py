@@ -21,7 +21,7 @@ import json
 import logging
 import os
 import sqlite3
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -30,6 +30,7 @@ from typing import Any, Literal
 
 from evarness.foundation.ids import new_ulid
 from evarness.foundation.persistence.sqlite import add_columns_if_missing
+from evarness.foundation.process_state import track_globals
 from evarness.kernel.governance.audit import sequence, spool
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,9 @@ IDENTITY_COLUMNS: dict[str, str] = {
     "attempt": "INTEGER",
     "replay_of": "TEXT",
     "resumed_from_run": "TEXT",
+    # The bot the call belongs to (ADR-0138, spec X1): the identity row's ULID. NULL on a
+    # single-assistant install and on every row written before the column existed.
+    "bot_id": "TEXT",
 }
 _IDENTITY_INDEXES: tuple[str, ...] = (
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_record_id ON audit_log(record_id) "
@@ -55,10 +59,16 @@ _IDENTITY_INDEXES: tuple[str, ...] = (
     "WHERE call_id IS NOT NULL",
     "CREATE INDEX IF NOT EXISTS idx_audit_session_ts ON audit_log(session_id, ts) "
     "WHERE session_id IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_audit_bot_id ON audit_log(bot_id) WHERE bot_id IS NOT NULL",
 )
 #: ``audit_meta`` key for the boundary of the pre-identity era (see ``_record_boundary``).
 IDENTITY_META_KEY = "identity"
 IDENTITY_SCHEMA_VERSION = 2
+#: ``audit_meta`` key for the boundary of the pre-bot era: the first row that could carry a
+#: ``bot_id`` (ADR-0138). Rows before it are not backfilled; NULL there means "unknown".
+BOT_META_KEY = "identity.bot_id"
+#: The payload key (and column) that names the bot a row belongs to.
+BOT_ID_KEY = "bot_id"
 
 #: The completeness columns (issue #134, stage 4): which writer wrote the row and its place in
 #: that writer's sequence, and ``kind`` for the rows the store writes about itself (``gap``,
@@ -132,6 +142,7 @@ class AuditRow:
     attempt: int | None = None
     replay_of: str | None = None
     resumed_from_run: str | None = None
+    bot_id: str | None = None
     # Completeness (issue #134, stage 4). None on a row written before the sequence existed.
     writer_id: str | None = None
     writer_seq: int | None = None
@@ -182,7 +193,12 @@ class AuditLog:
         When the database will not take the row it goes to the local spool instead (see
         ``audit.spool``) and the call returns ``0``; it raises only when the spool cannot
         keep the row either.
+
+        ``bot_id`` (ADR-0138) is never the caller's to set: it is the bot this process runs,
+        from the status hook the process's kernel was built with (``set_bot_id_source``),
+        on every row whoever writes it, and absent on every row of the owner's process.
         """
+        payload = _with_process_bot(payload)
         _, row_id = self._write(
             dict(  # noqa: C408
                 run_id=run_id,
@@ -563,6 +579,7 @@ class AuditLog:
                     attempt          INTEGER,
                     replay_of        TEXT,
                     resumed_from_run TEXT,
+                    bot_id           TEXT,
                     writer_id        TEXT,
                     writer_seq       INTEGER,
                     kind             TEXT
@@ -594,6 +611,38 @@ class AuditLog:
         )
 
 
+#: Where ``bot_id`` comes from (ADR-0138, spec X1 and section 3): the ``audit_bot_id`` of
+#: the ``BotStatusHook`` a kernel of this process was built with, set by the kernel when it
+#: registers that hook. ``None`` in the owner's process. Process state (the harness puts it
+#: back), so a test's kernel never leaks its bot into another's rows.
+_bot_id_source: Callable[[], str | None] | None = None
+
+
+def set_bot_id_source(source: Callable[[], str | None] | None) -> None:
+    """Make ``source`` name the bot on every row this process writes (``None``: no bot)."""
+    global _bot_id_source  # one per process, like the bot it names
+    _bot_id_source = source
+
+
+def _with_process_bot(payload: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """``payload`` with ``bot_id`` set from the process's source, or removed without one."""
+    source = _bot_id_source
+    bot_id: str | None = None
+    if source is not None:
+        try:
+            bot_id = source()
+        except Exception:  # noqa: BLE001 - the row is written regardless; the hook denies
+            bot_id = None
+    if payload is None:
+        return {BOT_ID_KEY: bot_id} if bot_id else None
+    out = dict(payload)
+    if bot_id:
+        out[BOT_ID_KEY] = bot_id
+    else:
+        out.pop(BOT_ID_KEY, None)
+    return out
+
+
 def _record_boundary(conn: sqlite3.Connection, added: list[str]) -> None:
     """Write the pre-identity boundary, in the transaction that added the columns.
 
@@ -602,17 +651,35 @@ def _record_boundary(conn: sqlite3.Connection, added: list[str]) -> None:
     an older process may still be writing). Old rows are not touched (never backfilled).
     A fresh database has no such era and records nothing.
     """
+    (last_id,) = conn.execute("SELECT COALESCE(MAX(id), 0) FROM audit_log").fetchone()
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS audit_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    if "bot_id" in added and "record_id" not in added:
+        # The pre-bot era (ADR-0138): a database that already had the identity columns gets
+        # ``bot_id`` alone, and its old rows say nothing about a bot. A database from before
+        # identity gains every column at once, so its identity boundary is the bot boundary
+        # too and nothing more is written. Recorded once, like the other.
+        conn.execute(
+            "INSERT OR IGNORE INTO audit_meta(key, value) VALUES (?, ?)",
+            (
+                BOT_META_KEY,
+                json.dumps(
+                    {
+                        "first_bot_row_id": int(last_id) + 1,
+                        "migrated_at": datetime.now(UTC).isoformat(),
+                    },
+                    sort_keys=True,
+                ),
+            ),
+        )
     if "record_id" not in added:
         return
-    (last_id,) = conn.execute("SELECT COALESCE(MAX(id), 0) FROM audit_log").fetchone()
     boundary = {
         "schema": IDENTITY_SCHEMA_VERSION,
         "first_identity_row_id": int(last_id) + 1,
         "migrated_at": datetime.now(UTC).isoformat(),
     }
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS audit_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-    )
     conn.execute(
         "INSERT OR IGNORE INTO audit_meta(key, value) VALUES (?, ?)",
         (IDENTITY_META_KEY, json.dumps(boundary, sort_keys=True)),
@@ -670,10 +737,10 @@ def _insert(
             decision, classification, tier, cost_usd, severity,
             reason, payload_json,
             record_id, session_id, turn_id, call_id, parent_call_id,
-            attempt, replay_of, resumed_from_run,
+            attempt, replay_of, resumed_from_run, bot_id,
             writer_id, writer_seq, kind
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,  # noqa: S608 - the only interpolation is the fixed OR IGNORE keyword
         (
             stamp,
@@ -697,6 +764,7 @@ def _insert(
             ids["attempt"],
             ids["replay_of"],
             ids["resumed_from_run"],
+            ids["bot_id"],
             writer_id,
             writer_seq,
             kind,
@@ -904,3 +972,6 @@ def _safe_json(payload: dict[str, Any]) -> str:
     except Exception as exc:  # noqa: BLE001 - audit must never crash the kernel
         logger.warning("audit_log: failed to JSON-encode payload (%s); writing {}", exc)
         return "{}"
+
+
+track_globals(__name__, "_bot_id_source")
