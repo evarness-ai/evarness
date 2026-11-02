@@ -16,8 +16,9 @@ from evarness.kernel.governance.bots.store import (
     BotIdentity,
     BotIdentityStore,
     BotNotFoundError,
+    is_bot_process,
     open_existing_store,
-    selected_bot_name,
+    process_bot_name,
 )
 
 logger = logging.getLogger(__name__)
@@ -44,26 +45,59 @@ class Ledger(Protocol):
     ) -> int: ...
 
 
+class BotWriteRefusedError(PermissionError):
+    """A bot's own process may not register a bot or change a status (its own included)."""
+
+
 class BotService:
-    """``BotIdentityStore`` plus the audit row each change leaves."""
+    """``BotIdentityStore`` plus the audit row each change leaves.
+
+    Both are opened on first need: a read or a refused change on a home that never
+    registered a bot creates no ``bots.db`` and opens no audit log. Only a register
+    creates the file. Writes are refused in a bot's own process (``EVARNESS_BOT`` set):
+    the owner's switch belongs to the owner, never to the bot it switches.
+    """
 
     def __init__(
         self, store: BotIdentityStore | None = None, *, ledger: Ledger | None = None
     ) -> None:
-        self._store = store if store is not None else BotIdentityStore()
-        self._ledger = ledger if ledger is not None else _default_ledger()
+        self._store = store
+        self._ledger = ledger
 
-    @property
-    def store(self) -> BotIdentityStore:
+    def _existing(self) -> BotIdentityStore | None:
+        if self._store is None:
+            self._store = open_existing_store()
         return self._store
+
+    def _created(self) -> BotIdentityStore:
+        if self._store is None:
+            self._store = BotIdentityStore()
+        return self._store
+
+    def _audit(self) -> Ledger:
+        if self._ledger is None:
+            self._ledger = _default_ledger()
+        return self._ledger
+
+    @staticmethod
+    def _refuse_in_a_bot(event: str, name: str, actor: str) -> None:
+        if is_bot_process():
+            logger.warning(
+                "%s refused name=%r actor=%s error=BotWriteRefusedError", event, name, actor
+            )
+            raise BotWriteRefusedError(
+                f"{event}: a bot's own process (EVARNESS_BOT set) may not change a bot identity"
+            )
 
     def register(
         self, name: str, workspace_path: str, definition_sha256: str, *, actor: str
     ) -> BotIdentity:
         """Register (or re-register) a bot; one ``bot.register`` row either way."""
-        before = self._store.get(name)
+        self._refuse_in_a_bot("bot.register", name, actor)
+        existing = self._existing()
+        before = existing.get(name) if existing is not None else None
         try:
-            row = self._store.register(name, workspace_path, definition_sha256)
+            row = self._created().register(name, workspace_path, definition_sha256)
         except (ValueError, BotNotFoundError) as exc:
             logger.warning(
                 "bot.register refused name=%r actor=%s error=%s",
@@ -95,8 +129,12 @@ class BotService:
 
     def set_status(self, name: str, status: str, *, actor: str) -> BotIdentity:
         """Flip the switch or revoke; one ``bot.status`` row naming the new status."""
+        self._refuse_in_a_bot("bot.status", name, actor)
         try:
-            row = self._store.set_status(name, status)
+            store = self._existing()
+            if store is None:
+                raise BotNotFoundError(name)
+            row = store.set_status(name, status)
         except (ValueError, BotNotFoundError) as exc:
             logger.warning(
                 "bot.status refused name=%r to=%r actor=%s error=%s",
@@ -124,15 +162,17 @@ class BotService:
         return row
 
     def get(self, name: str) -> BotIdentity | None:
-        return self._store.get(name)
+        store = self._existing()
+        return store.get(name) if store is not None else None
 
     def current(self) -> BotIdentity | None:
         """The bot this process runs (``EVARNESS_BOT``), or ``None`` for the owner's own
         assistant. ``BotNotFoundError`` when the variable names a bot with no row."""
-        return current_bot_identity(self._store)
+        return current_bot_identity(self._existing())
 
     def list(self) -> list[BotIdentity]:
-        return self._store.list()
+        store = self._existing()
+        return store.list() if store is not None else []
 
     def _record(
         self,
@@ -146,7 +186,7 @@ class BotService:
     ) -> None:
         # The audit log (an append-only row per event, no caller key), not the side-effect
         # ledger: there is no key to collide. Ids and the status only.
-        self._ledger.record(
+        self._audit().record(
             run_id=f"bot:{row.name}",
             step_id=None,
             agent_type="bots",
@@ -157,7 +197,9 @@ class BotService:
             reason=reason,
             payload={
                 "event": event,
-                "bot_id": row.bot_id,
+                # The bot the event is about. Not ``bot_id``: that names the bot whose
+                # process wrote the row, and the owner's process is no bot.
+                "subject_bot_id": row.bot_id,
                 "bot_name": row.name,
                 "status": row.status,
                 "definition_sha256": row.definition_sha256,
@@ -169,10 +211,11 @@ class BotService:
 def current_bot_identity(store: BotIdentityStore | None = None) -> BotIdentity | None:
     """The row of the bot this process runs, read without creating ``bots.db``.
 
-    ``None`` when ``EVARNESS_BOT`` is unset. ``BotNotFoundError`` when it names a bot the
+    The name is the process's pinned read of ``EVARNESS_BOT`` (``process_bot``), the
+    same one the status hook uses. ``None`` when it is unset. ``BotNotFoundError`` when it names a bot the
     home has no row for; ``ValueError`` when it is not a valid name.
     """
-    name = selected_bot_name()
+    name = process_bot_name()
     if name is None:
         return None
     opened = store if store is not None else open_existing_store()
@@ -188,4 +231,10 @@ def _default_ledger() -> Ledger:
     return AuditLog()
 
 
-__all__ = ["BOT_IDENTITY_HOOK", "BotService", "Ledger", "current_bot_identity"]
+__all__ = [
+    "BOT_IDENTITY_HOOK",
+    "BotService",
+    "BotWriteRefusedError",
+    "Ledger",
+    "current_bot_identity",
+]

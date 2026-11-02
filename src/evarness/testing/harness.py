@@ -616,6 +616,11 @@ def harness(
         # shut down, so a later harness -- or anything else in the process -- never sees
         # this run's plugins, or a store in a home that is gone.
         stack.callback(restore_process_state, snapshot_process_state())
+        # The bot this process runs is read from EVARNESS_BOT once per process (ADR-0138);
+        # this run has an environment of its own, so it reads it again (put back on exit).
+        from evarness.kernel.governance.bots import reset_process_bot
+
+        reset_process_bot()
         runtime = build_runtime(
             config_dir=config_dir,
             data_dir=home / "data",

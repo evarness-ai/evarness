@@ -8,6 +8,7 @@ its place first at ``pre_tool_use`` and ``pre_llm_call`` in the default kernel, 
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -203,10 +204,11 @@ def test_the_owners_assistant_gets_no_bot_hook(home: Path) -> None:
 
 
 # ------------------------------------------------------------- the audit rows of a call
-class _After:
-    """A later hook at the same point, which tries to name a bot of its own."""
+class _Forger:
+    """A hook at every point that tries to name a bot of its own. Its name is the status
+    hook's own: the kernel trusts the instance it was built with, never a name."""
 
-    name = "after"
+    name = "bot_status"
     hook_point = HookPoint.PRE_TOOL_USE
     priority = 50
 
@@ -214,37 +216,46 @@ class _After:
         return HookDecision(outcome="allow", reason="ok", audit_metadata={BOT_ID: "forged"})
 
 
-class _Post:
-    name = "post"
-    hook_point = HookPoint.POST_TOOL_USE
-    priority = 50
-
-    async def __call__(self, ctx: HookContext) -> HookDecision:
-        return HookDecision(outcome="allow", reason="ok")
+#: Every point, each fired with a FRESH context, as the runtime does: nothing travels in
+#: the metadata from one point to the next, so nothing there can be what names the bot.
+_POINTS = tuple(HookPoint)
 
 
-def _kernel(home: Path, hook: BotStatusHook) -> tuple[GovernanceKernel, AuditLog]:
+def _kernel(home: Path, hook: BotStatusHook | None) -> tuple[GovernanceKernel, AuditLog]:
     audit = AuditLog(db_path=home / "audit.db")
     kernel = GovernanceKernel(audit_log=audit)
-    kernel.register(hook)
-    kernel.register(hook, at=HookPoint.PRE_LLM_CALL)
-    kernel.register(_After())
-    kernel.register(_Post())
+    if hook is not None:
+        kernel.register(hook)
+        kernel.register(hook, at=HookPoint.PRE_LLM_CALL)
+    forger = _Forger()
+    for point in _POINTS:
+        kernel.register(forger, at=point)
     kernel.init_lock()
     return kernel, audit
 
 
-async def test_every_row_of_a_call_under_a_bot_carries_its_bot_id(home: Path) -> None:
+async def _fire_everywhere(kernel: GovernanceKernel, **metadata: Any) -> None:
+    for point in _POINTS:
+        await kernel.fire(point, _ctx(point, **metadata))
+
+
+async def test_every_row_at_every_point_carries_the_bot_id(home: Path) -> None:
     row = _register(home)
     kernel, audit = _kernel(home, BotStatusHook(bot_name="helper"))
-    decision, ctx = await kernel.fire(HookPoint.PRE_TOOL_USE, _ctx())
-    assert decision.outcome == "allow" and ctx.metadata[BOT_ID] == row.bot_id
-    # The caller threads the context into the next point, as the runner does.
-    post_ctx = ctx.model_copy(update={"hook_point": HookPoint.POST_TOOL_USE})
-    await kernel.fire(HookPoint.POST_TOOL_USE, post_ctx)
+    await _fire_everywhere(kernel, **{BOT_ID: "claimed"})
     rows = audit.query()
-    assert [r.plugin for r in rows] == ["bot_status", "after", "post"]
-    assert {r.bot_id for r in rows} == {row.bot_id}  # "forged" never lands
+    assert {r.hook_point for r in rows} == {p.value for p in _POINTS}
+    assert {r.bot_id for r in rows} == {row.bot_id}  # neither "forged" nor "claimed"
+
+
+async def test_a_point_fired_before_any_status_check_still_carries_the_bot_id(
+    home: Path,
+) -> None:
+    """``pre_turn`` runs before the first ``pre_llm_call``: the kernel reads the id itself."""
+    row = _register(home)
+    kernel, audit = _kernel(home, BotStatusHook(bot_name="helper"))
+    await kernel.fire(HookPoint.PRE_TURN, _ctx(HookPoint.PRE_TURN))
+    assert [r.bot_id for r in audit.query()] == [row.bot_id]
 
 
 async def test_a_denied_call_of_a_disabled_bot_carries_its_bot_id(home: Path) -> None:
@@ -256,13 +267,53 @@ async def test_a_denied_call_of_a_disabled_bot_carries_its_bot_id(home: Path) ->
     assert only.decision == "deny" and only.bot_id == row.bot_id
 
 
-async def test_without_a_bot_no_row_carries_a_bot_id_not_even_a_forged_one(
-    home: Path,
-) -> None:
-    kernel, audit = _kernel(home, BotStatusHook())
-    # A caller that puts a bot_id in the metadata does not name a bot: the status hook's
-    # decision replaces it before any later hook runs.
+async def test_an_unregistered_bot_writes_no_bot_id(home: Path) -> None:
+    kernel, audit = _kernel(home, BotStatusHook(bot_name="helper"))
+    await _fire_everywhere(kernel, **{BOT_ID: "claimed"})
+    assert {r.bot_id for r in audit.query()} == {None}
+
+
+async def test_the_owners_process_never_writes_a_bot_id_even_a_forged_one(home: Path) -> None:
+    """No status hook (the owner's process): a ``bot_id`` in the metadata or in a hook's
+    audit metadata never lands, at any point, whatever bots the home holds."""
+    _register(home)
+    kernel, audit = _kernel(home, None)
+    await _fire_everywhere(kernel, **{BOT_ID: "claimed"})
     decision, ctx = await kernel.fire(HookPoint.PRE_TOOL_USE, _ctx(**{BOT_ID: "claimed"}))
-    assert decision.outcome == "allow" and BOT_ID not in ctx.metadata
-    assert [r.bot_id for r in audit.query()] == [None, None]
-    assert not default_bots_db_path().exists()
+    assert BOT_ID not in ctx.metadata
+    rows = audit.query()
+    assert len(rows) == len(_POINTS) + 1 and {r.bot_id for r in rows} == {None}
+    assert not any(BOT_ID in json.loads(r.payload_json) for r in rows)
+
+
+async def test_the_default_owner_kernel_never_writes_a_bot_id(home: Path) -> None:
+    _register(home)
+    kernel = build_default_kernel(audit_log=AuditLog(db_path=home / "audit.db"))
+    await kernel.fire(HookPoint.PRE_TURN, _ctx(HookPoint.PRE_TURN, **{BOT_ID: "claimed"}))
+    await kernel.fire(HookPoint.PRE_LLM_CALL, _ctx(HookPoint.PRE_LLM_CALL, **{BOT_ID: "x"}))
+    rows = AuditLog(db_path=home / "audit.db").query()
+    assert rows and {r.bot_id for r in rows} == {None}
+
+
+def test_a_kernel_guards_one_bot(home: Path) -> None:
+    kernel = GovernanceKernel(audit_log=None)
+    kernel.register(BotStatusHook(bot_name="helper"))
+    with pytest.raises(ValueError, match="one bot"):
+        kernel.register(BotStatusHook(bot_name="scout"))
+
+
+async def test_the_status_read_does_not_run_on_the_event_loop_thread(home: Path) -> None:
+    import threading
+
+    _register(home)
+    seen: list[bool] = []
+    real = BotIdentityStore()
+
+    class _Spy:
+        def get(self, name: str) -> Any:
+            seen.append(threading.current_thread() is threading.main_thread())
+            return real.get(name)
+
+    hook = BotStatusHook(lambda: _Spy(), bot_name="helper")  # type: ignore[arg-type,return-value]
+    assert (await hook(_ctx())).outcome == "allow"
+    assert seen == [False]

@@ -100,13 +100,13 @@ REPLAY_OF = "replay_of"
 RESUMED_FROM_RUN = "resumed_from_run"
 TOOL_SENDS_TO = "tool_sends_to"
 TOOL_ERROR = "tool_error"
-#: The bot a call belongs to (ADR-0138): the identity row's ULID and its name, stamped by
-#: the status hook into its decision and copied by the kernel onto the call's context, so
-#: every row of the call carries ``bot_id``. Never read from a payload or an argument.
+#: The bot a call belongs to (ADR-0138): the identity row's ULID and its name. The kernel
+#: writes ``bot_id`` on every row from the status hook it was built with; a ``bot_id`` in
+#: a call's metadata, payload or arguments is never read.
 BOT_ID = "bot_id"
 BOT_NAME = "bot_name"
-#: The name of the one hook whose decision may name the bot (``plugins/bot_status.py``).
-#: The kernel takes ``bot_id`` from that hook's decision and from nowhere else.
+#: The name of the bot status hook (``plugins/bot_status.py``). A name only: the kernel
+#: trusts the hook instance it was built with, never a hook for its name.
 BOT_STATUS_HOOK = "bot_status"
 #: The ``tool_error`` of a call whose tool returned a result it marked as failed instead of
 #: raising (an MCP ``tools/call`` result with ``isError: true``). Unlike an exception's

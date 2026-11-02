@@ -3,30 +3,36 @@
 Invariant B1 (ADR-0138, spec section 4.6): a call whose bot identity is not ``active`` is
 denied at both points, mid-run included. Which bot a call belongs to is the bot this
 process runs, named by ``EVARNESS_BOT`` when the platform starts the bot's runtime and
-read once, when the hook is built. Never from a call's payload, its arguments or its
-caller string:
+read once per process (``bots.store.process_bot``). Never from a call's payload, its
+arguments, its metadata or its caller string:
 
 - no bot (``EVARNESS_BOT`` unset): the owner's own assistant. ``build_default_kernel``
   does not register the hook at all, so the process behaves exactly as it did before
   bots existed, whatever rows the home holds; called anyway, the hook allows, stamps
   nothing and never opens ``bots.db``;
-- the bot's row has status ``active``: allow, and stamp ``bot_id`` / ``bot_name`` into the
-  decision's ``audit_metadata``; the kernel copies ``bot_id`` onto the call's context so
-  every later hook's row of the same call carries it too;
+- the bot's row has status ``active``: allow, naming the bot in the decision's
+  ``audit_metadata``;
 - any other status (``disabled``, ``revoked``): deny, naming the bot and the status;
 - the bot has no row, ``EVARNESS_BOT`` is not a valid name, or the store cannot be read:
   deny every call, with a reason that says which. A process that says it is a bot and
   cannot prove which one runs nothing.
 
+The kernel that registers this hook keeps the instance and stamps
+:meth:`BotStatusHook.audit_bot_id` on every audit row it writes, at every hook point
+(spec X1 and section 3), so the id never travels in a call's metadata.
+
 Priority 5: first at ``PreToolUse`` (before the caller policy at 12, so a revoked bot is
 refused for being revoked, not for what it asked) and at ``PreLLMCall`` (before redaction
 at 20). The row is read through a lazy opener and cached for ``ttl`` seconds (2 s), so a
 revoke is seen at the bot's next call without a query per call, and a home with no
-``bots.db`` never gets one. Fail closed: nothing stale is served after a failed read.
+``bots.db`` never gets one. A read the cache cannot answer runs in a worker thread, so
+the SQLite call never blocks the event loop. Fail closed: nothing stale is served after
+a failed read.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import threading
 import time
@@ -36,7 +42,7 @@ from typing import TYPE_CHECKING
 from evarness.kernel.governance.bots.store import (
     BotIdentityStore,
     open_existing_store,
-    selected_bot_name,
+    process_bot,
 )
 from evarness.kernel.governance.hooks.tool_payload import BOT_ID, BOT_NAME, BOT_STATUS_HOOK
 from evarness.kernel.governance.hooks.types import HookContext, HookDecision, HookPoint
@@ -74,23 +80,22 @@ class BotStatusHook:
         ttl: float = BOT_STATUS_CACHE_TTL,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        """``bot_name`` defaults to ``EVARNESS_BOT``, read here, once: a value set later
-        in the process (by a plugin, say) does not change which bot this kernel guards."""
+        """``bot_name`` defaults to the process's pinned read of ``EVARNESS_BOT``: a value
+        set later in the process (by a plugin, say) does not change which bot it guards."""
         self._open = store if store is not None else open_default_store
         self._ttl = ttl
         self._clock = clock
         self._name_error: str | None = None
         self._bot_name: str | None = None
         if bot_name is _UNSET:
-            try:
-                self._bot_name = selected_bot_name()
-            except ValueError as exc:
-                self._name_error = str(exc)
+            self._bot_name, self._name_error = process_bot()
         else:
             self._bot_name = bot_name if isinstance(bot_name, str) and bot_name else None
         self._store: BotIdentityStore | None = None
         self._cached: BotIdentity | None = None
         self._cached_at: float | None = None
+        # A bot's id never changes (a revoked row stays), so once read it is kept.
+        self._bot_id: str | None = None
         self._lock = threading.Lock()
 
     @property
@@ -104,6 +109,13 @@ class BotStatusHook:
         set but not a valid name (which denies every call)."""
         return self._bot_name is not None or self._name_error is not None
 
+    def _fresh(self) -> tuple[bool, BotIdentity | None]:
+        """The cached row while it is fresh: ``(True, row)``; ``(False, None)`` otherwise."""
+        with self._lock:
+            if self._cached_at is not None and self._clock() - self._cached_at < self._ttl:
+                return True, self._cached
+            return False, None
+
     def _read(self, name: str) -> BotIdentity | None:
         """The bot's row, from the cache while it is fresh, else from the store."""
         with self._lock:
@@ -114,7 +126,25 @@ class BotStatusHook:
                 self._store = self._open()
             row = self._store.get(name) if self._store is not None else None
             self._cached, self._cached_at = row, now
+            if row is not None:
+                self._bot_id = row.bot_id
             return row
+
+    def audit_bot_id(self) -> str | None:
+        """The id the kernel writes on every audit row of this process; never raises.
+
+        ``None`` on the owner's assistant and while the bot has no row (every call is
+        denied then). Read once and kept: an id never changes.
+        """
+        name = self._bot_name
+        if name is None:
+            return None
+        if self._bot_id is None:
+            try:
+                self._read(name)
+            except Exception:  # noqa: BLE001 - an unreadable store denies at the hook
+                return None
+        return self._bot_id
 
     def invalidate(self) -> None:
         """Drop the cached row, so the next call reads the store (for a caller that just
@@ -149,7 +179,9 @@ class BotStatusHook:
         if name is None:
             return HookDecision(outcome="allow", reason="bot_status: not a bot process")
         try:
-            row = self._read(name)
+            fresh, row = self._fresh()
+            if not fresh:
+                row = await asyncio.to_thread(self._read, name)
         except Exception as exc:  # noqa: BLE001 - fail closed, whatever the store raised
             return self._deny(
                 ctx,

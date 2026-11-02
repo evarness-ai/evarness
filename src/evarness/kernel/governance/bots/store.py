@@ -8,7 +8,7 @@ both unique), the hash of the definition in force, and the timestamps. ``active`
 ``revoked_at``. One home holds a row per bot (B4): adding a bot adds a row here.
 
 Which bot a process runs is not a row's business: the platform starts a bot's runtime
-with ``EVARNESS_BOT=<name>`` (:func:`selected_bot_name`). The status hook
+with ``EVARNESS_BOT=<name>`` (:func:`process_bot`, read once per process). The status hook
 (``plugins/bot_status.py``) reads that bot's row on every governed call and denies it when
 it is not ``active`` (invariant B1). A process with no ``EVARNESS_BOT`` is the owner's own
 assistant and is not a bot, whatever rows the home holds.
@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import sqlite3
+import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -31,6 +32,7 @@ from typing import Literal, get_args
 
 from evarness.foundation.ids import new_ulid
 from evarness.foundation.paths import evarness_home, governance_data_dir
+from evarness.foundation.process_state import track_globals
 
 logger = logging.getLogger(__name__)
 
@@ -78,16 +80,62 @@ def validate_bot_name(name: str) -> str:
     return name
 
 
-def selected_bot_name() -> str | None:
-    """The bot this process runs (``EVARNESS_BOT``), or ``None`` for the owner's assistant.
-
-    An empty value is unset. A value that is not a valid bot name raises ``ValueError``:
-    the status hook turns that into a deny of every call rather than guessing.
-    """
+def _read_bot_env() -> tuple[str | None, str | None]:
     raw = os.environ.get(BOT_ENV, "").strip()
     if not raw:
-        return None
-    return validate_bot_name(raw)
+        return None, None
+    try:
+        return validate_bot_name(raw), None
+    except ValueError as exc:
+        return None, str(exc)
+
+
+#: The bot this process runs, as ``(name, error)``: read from ``EVARNESS_BOT`` once and
+#: kept, so a value set later in the process (by a plugin, say) changes nothing. ``None``
+#: until the first read. Process state: the testing harness puts it back on exit.
+_process_bot: tuple[str | None, str | None] | None = None
+_process_bot_lock = threading.Lock()
+
+
+def process_bot() -> tuple[str | None, str | None]:
+    """``(name, error)`` of the bot this process runs, pinned at the first call.
+
+    ``(None, None)``: no ``EVARNESS_BOT``, the owner's own assistant. ``(None, error)``: the
+    variable is set but is not a valid bot name, which the status hook turns into a deny
+    of every call. The status hook and ``current_bot()`` share this one read.
+    """
+    global _process_bot  # the one pinned read per process
+    with _process_bot_lock:
+        if _process_bot is None:
+            _process_bot = _read_bot_env()
+        return _process_bot
+
+
+def process_bot_name() -> str | None:
+    """The pinned bot name, ``None`` for the owner's assistant; ``ValueError`` when
+    ``EVARNESS_BOT`` is set but not a valid name."""
+    name, error = process_bot()
+    if error is not None:
+        raise ValueError(error)
+    return name
+
+
+def is_bot_process() -> bool:
+    """Whether this process was started as a bot (a valid ``EVARNESS_BOT`` or not)."""
+    name, error = process_bot()
+    return name is not None or error is not None
+
+
+def reset_process_bot() -> None:
+    """Forget the pinned read, so the next one reads ``EVARNESS_BOT`` again, and the audit
+    log's bot source with it. For a test, or the testing harness building a new runtime
+    in the same process; never production."""
+    global _process_bot  # the one pinned read per process
+    from evarness.kernel.governance.audit.log import set_bot_id_source
+
+    with _process_bot_lock:
+        _process_bot = None
+    set_bot_id_source(None)  # the kernel built next sets it again if it guards a bot
 
 
 def open_existing_store(db_path: Path | None = None) -> BotIdentityStore | None:
@@ -102,11 +150,29 @@ def open_existing_store(db_path: Path | None = None) -> BotIdentityStore | None:
     return BotIdentityStore(db_path=path)
 
 
-def resolve_workspace(workspace_path: str | os.PathLike[str]) -> str:
-    """The workspace as stored: absolute, resolved, strictly inside the Evarness home.
+#: The folder under the Evarness home that holds every bot's workspace (spec 4.6).
+BOTS_DIR_NAME = "bots"
 
-    Spec 4.6: one folder per bot, under the Evarness home. ``ValueError`` otherwise.
+
+def bot_workspace(name: str) -> Path:
+    """The one workspace a bot may have: ``<home>/bots/<name>`` (spec 4.6, B3).
+
+    Derived from the name, so two bots never share a folder (names are unique, lower-case
+    slugs) and no bot's workspace is ever the kernel's or the owner's folder.
     """
+    return evarness_home().expanduser().resolve() / BOTS_DIR_NAME / validate_bot_name(name)
+
+
+def resolve_workspace(name: str, workspace_path: str | os.PathLike[str]) -> str:
+    """``workspace_path`` checked to be exactly :func:`bot_workspace`, returned in that
+    canonical spelling; ``ValueError`` otherwise.
+
+    The comparison follows symlinks and ignores case (a case-insensitive file system
+    treats ``Bots/Helper`` as ``bots/helper``), and when both paths exist it also asks the
+    file system whether they are the same folder. A ``bots`` folder or a workspace that is
+    a symlink to anywhere else does not resolve to the expected path and is refused.
+    """
+    expected = bot_workspace(name)
     raw = os.fspath(workspace_path)
     if not raw:
         raise ValueError("workspace_path must not be empty")
@@ -114,18 +180,12 @@ def resolve_workspace(workspace_path: str | os.PathLike[str]) -> str:
     if not path.is_absolute():
         raise ValueError(f"workspace_path must be absolute; got {raw!r}")
     resolved = path.resolve()
-    home = evarness_home().expanduser().resolve()
-    if resolved == home or home not in resolved.parents:
-        raise ValueError(
-            f"workspace_path must be a folder inside the Evarness home ({home}); got {raw!r}"
-        )
-    return str(resolved)
-
-
-def _overlaps(a: str, b: str) -> bool:
-    """Whether two resolved workspaces are the same folder or one holds the other."""
-    pa, pb = Path(a), Path(b)
-    return pa == pb or pa in pb.parents or pb in pa.parents
+    same = os.path.normcase(str(resolved)).casefold() == os.path.normcase(str(expected)).casefold()
+    if same and resolved.exists() and expected.exists():
+        same = os.path.samefile(resolved, expected)
+    if not same:
+        raise ValueError(f"workspace_path must be {expected} (<home>/bots/<name>); got {raw!r}")
+    return str(expected)
 
 
 def validate_definition_sha256(digest: str) -> str:
@@ -251,12 +311,12 @@ class BotIdentityStore:
         under a running bot. A revoked name is refused too: ``revoked`` is terminal, and
         whether the name may be reused is an open point of the specification.
 
-        The workspace is a folder inside the Evarness home (spec 4.6) that no other bot's
-        workspace is, holds or sits inside (B3); ``ValueError`` otherwise.
+        The workspace is ``<home>/bots/<name>`` and nothing else (spec 4.6, B3; see
+        :func:`resolve_workspace`), stored in that canonical spelling.
         """
         name = validate_bot_name(name)
         digest = validate_definition_sha256(definition_sha256)
-        workspace = resolve_workspace(workspace_path)
+        workspace = resolve_workspace(name, workspace_path)
         now = self._now()
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -283,10 +343,14 @@ class BotIdentityStore:
                 ).fetchone()
                 return self._row(fresh)
             for other in conn.execute("SELECT name, workspace_path FROM bot_identity"):
-                if _overlaps(workspace, other["workspace_path"]):
+                # Unreachable while workspaces are derived from unique names; kept so a
+                # row written any other way can never be shared (B3).
+                if os.path.normcase(other["workspace_path"]).casefold() == (
+                    os.path.normcase(workspace).casefold()
+                ):
                     conn.rollback()
                     raise ValueError(
-                        f"workspace {workspace!r} overlaps the workspace of bot "
+                        f"workspace {workspace!r} is the workspace of bot "
                         f"{other['name']!r}; two bots never share a folder (B3)"
                     )
             scope = f"{BOT_SCOPE_PREFIX}{name}"
@@ -351,7 +415,10 @@ class BotIdentityStore:
         return self._row(fresh)
 
 
+track_globals(__name__, "_process_bot")
+
 __all__ = [
+    "BOTS_DIR_NAME",
     "BOT_ENV",
     "BOT_SCOPE_PREFIX",
     "BOT_STATUSES",
@@ -360,10 +427,14 @@ __all__ = [
     "BotNotFoundError",
     "BotRevokedError",
     "BotStatus",
+    "bot_workspace",
     "default_bots_db_path",
+    "is_bot_process",
     "open_existing_store",
+    "process_bot",
+    "process_bot_name",
+    "reset_process_bot",
     "resolve_workspace",
-    "selected_bot_name",
     "validate_bot_name",
     "validate_bot_status",
     "validate_definition_sha256",

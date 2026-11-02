@@ -24,14 +24,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections import defaultdict
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from evarness.kernel.governance.audit import AuditLog
+from evarness.kernel.governance.audit.log import set_bot_id_source
 from evarness.kernel.governance.call_context import is_run_resumed, lineage_of
 from evarness.kernel.governance.hooks.tool_payload import (
     ATTEMPT,
     BOT_ID,
-    BOT_STATUS_HOOK,
     CALL_ID,
     HELD_CALL_ID,
     PARENT_CALL_ID,
@@ -50,6 +50,9 @@ from evarness.kernel.governance.hooks.types import (
     HookPoint,
 )
 from evarness.kernel.governance.plugin_egress import note_unrecorded_outcome
+
+if TYPE_CHECKING:
+    from evarness.kernel.governance.plugins.bot_status import BotStatusHook
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +162,9 @@ class GovernanceKernel:
         self._hooks: dict[HookPoint, list[Hook]] = defaultdict(list)
         self._init_locked: bool = False
         self._audit_log = audit_log
+        # The bot status hook this kernel was built with (ADR-0138), kept by identity: the
+        # source of the ``bot_id`` stamped on every row. None in the owner's process.
+        self._bot_hook: BotStatusHook | None = None
 
     def register(self, hook: Hook, *, at: HookPoint | None = None) -> None:
         """Register a hook. Permitted only before ``init_lock()``.
@@ -174,6 +180,15 @@ class GovernanceKernel:
                 "runtime hook registration is forbidden (design §5.3 "
                 "hook plugin trust boundary)."
             )
+        from evarness.kernel.governance.plugins.bot_status import BotStatusHook
+
+        if isinstance(hook, BotStatusHook):
+            if self._bot_hook is not None and self._bot_hook is not hook:
+                raise ValueError("a kernel guards one bot: a second BotStatusHook was registered")
+            self._bot_hook = hook
+            # Every audit row this process writes names the bot, whoever writes it (the
+            # curator, the judges, the approval queue...), not only this kernel's rows.
+            set_bot_id_source(hook.audit_bot_id)
         point = at if at is not None else hook.hook_point
         self._hooks[point].append(hook)
         self._hooks[point].sort(key=lambda h: h.priority)
@@ -227,6 +242,12 @@ class GovernanceKernel:
 
         decision = HookDecision(outcome="allow", reason="no hooks registered")
         current_ctx = ctx
+        if BOT_ID in ctx.metadata:
+            # Only the kernel names a bot, from the hook it was built with (ADR-0138): a
+            # ``bot_id`` in the caller's metadata is dropped before any hook sees it.
+            current_ctx = ctx.model_copy(
+                update={"metadata": {k: v for k, v in ctx.metadata.items() if k != BOT_ID}}
+            )
         audited = True
 
         for hook in self._hooks[hook_point]:
@@ -259,21 +280,6 @@ class GovernanceKernel:
                 # runs after the pre-execution ledger hook would hide the row it wrote.
                 # The runner reads it from the final context instead.
                 updates["metadata"] = {**current_ctx.metadata, SIDE_EFFECT_ID: recorded}
-            if hook.name == BOT_STATUS_HOOK:
-                # Sticky the same way (ADR-0138): the status hook runs first and names the
-                # bot; every later hook's row of this call carries it from the context. Its
-                # decision replaces whatever the context held, so a ``bot_id`` a caller put
-                # in the metadata before the hook ran never survives it, and only this
-                # hook's decision can name a bot.
-                stamped = decision.audit_metadata.get(BOT_ID)
-                base = {
-                    k: v
-                    for k, v in updates.get("metadata", current_ctx.metadata).items()
-                    if k != BOT_ID
-                }
-                if isinstance(stamped, str) and stamped:
-                    base[BOT_ID] = stamped
-                updates["metadata"] = base
             if decision.outcome == "transform" and decision.transformed_payload is not None:
                 updates["payload"] = decision.transformed_payload
                 # Who rewrote the payload, in order: a caller that finds the payload
@@ -343,16 +349,12 @@ class GovernanceKernel:
             caller = ctx.metadata.get("caller")
             if isinstance(caller, str) and caller:
                 payload.setdefault("caller", caller)
-            # The bot the call belongs to (ADR-0138): the status hook's own row takes it
-            # from that hook's decision; every other row from the context the kernel
-            # stamped after that hook ran. Never from another hook's ``audit_metadata``
-            # and never from the call's payload.
-            bot_id = (
-                decision.audit_metadata.get(BOT_ID)
-                if plugin == BOT_STATUS_HOOK
-                else ctx.metadata.get(BOT_ID)
-            )
-            if isinstance(bot_id, str) and bot_id:
+            # The bot the call belongs to (ADR-0138, spec X1 and section 3): the bot this
+            # process runs, from the status hook this kernel was built with, on every row
+            # at every hook point. Never from the metadata, a payload or another hook's
+            # ``audit_metadata``; and never on a row of the owner's process (no hook).
+            bot_id = self._bot_hook.audit_bot_id() if self._bot_hook is not None else None
+            if bot_id:
                 payload[BOT_ID] = bot_id
             else:
                 payload.pop(BOT_ID, None)
