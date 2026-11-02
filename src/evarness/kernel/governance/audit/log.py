@@ -547,8 +547,7 @@ class AuditLog:
 
     def _init_schema(self) -> None:
         with self._connect() as conn:
-            conn.executescript(
-                """
+            conn.executescript("""
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
                     ts              TEXT NOT NULL,
@@ -583,8 +582,7 @@ class AuditLog:
                     key   TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
-                """
-            )
+                """)
             conn.commit()
         # A database a released version created has the table without the identity columns:
         # add them on a connection of their own (never inside ``_connect``'s transaction, see
@@ -617,9 +615,11 @@ def _record_boundary(conn: sqlite3.Connection, added: list[str]) -> None:
     conn.execute(
         "CREATE TABLE IF NOT EXISTS audit_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
     )
-    if "bot_id" in added:
-        # The pre-bot era (ADR-0138): a database from before bots existed gets this column
-        # alone, and its old rows say nothing about a bot. Recorded once, like the other.
+    if "bot_id" in added and "record_id" not in added:
+        # The pre-bot era (ADR-0138): a database that already had the identity columns gets
+        # ``bot_id`` alone, and its old rows say nothing about a bot. A database from before
+        # identity gains every column at once, so its identity boundary is the bot boundary
+        # too and nothing more is written. Recorded once, like the other.
         conn.execute(
             "INSERT OR IGNORE INTO audit_meta(key, value) VALUES (?, ?)",
             (

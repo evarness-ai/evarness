@@ -62,7 +62,8 @@ def test_default_kernel_registers_pre_tool_use_policy(tmp_path) -> None:
     # 12.gov-4.6: MCPAllowlistHook. ADR-0118: DestructiveApprovalHook.
     # Plugin-capabilities §4: CallerPolicyHook (the permission contract). Issue #73:
     # PreToolUseLedgerHook. Update this count when adding new PreToolUse plugins in
-    # build_default_kernel.
+    # build_default_kernel. (ADR-0138's BotStatusHook joins only in a process started
+    # with EVARNESS_BOT; see test_bot_status_hook.py.)
     assert kernel.hook_count(HookPoint.PRE_TOOL_USE) == 10
     assert "caller_policy" in kernel.hook_names(HookPoint.PRE_TOOL_USE)
 
