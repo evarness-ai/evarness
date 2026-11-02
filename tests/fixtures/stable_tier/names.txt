@@ -14,6 +14,13 @@ evarness.sdk.approvals:ApprovalStore
 evarness.sdk.approvals:respond_to_approval
 evarness.sdk.audit:AuditLog
 evarness.sdk.audit:audit_db_path
+evarness.sdk.bots:BotIdentity
+evarness.sdk.bots:BotIdentityStore
+evarness.sdk.bots:BotNotFoundError
+evarness.sdk.bots:BotRevokedError
+evarness.sdk.bots:current_bot
+evarness.sdk.bots:register_bot
+evarness.sdk.bots:set_bot_status
 evarness.sdk.capabilities:CAPABILITIES
 evarness.sdk.capabilities:CapabilityDenied
 evarness.sdk.capabilities:CapabilitySpec

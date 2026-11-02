@@ -30,6 +30,7 @@ from evarness.kernel.governance.audit import AuditLog
 from evarness.kernel.governance.call_context import is_run_resumed, lineage_of
 from evarness.kernel.governance.hooks.tool_payload import (
     ATTEMPT,
+    BOT_ID,
     CALL_ID,
     HELD_CALL_ID,
     PARENT_CALL_ID,
@@ -257,6 +258,14 @@ class GovernanceKernel:
                 # runs after the pre-execution ledger hook would hide the row it wrote.
                 # The runner reads it from the final context instead.
                 updates["metadata"] = {**current_ctx.metadata, SIDE_EFFECT_ID: recorded}
+            bot_id = decision.audit_metadata.get(BOT_ID)
+            if isinstance(bot_id, str) and bot_id:
+                # Sticky the same way (ADR-0138): the status hook runs first and stamps the
+                # bot; every later hook's row of this call carries it from the context.
+                updates["metadata"] = {
+                    **updates.get("metadata", current_ctx.metadata),
+                    BOT_ID: bot_id,
+                }
             if decision.outcome == "transform" and decision.transformed_payload is not None:
                 updates["payload"] = decision.transformed_payload
                 # Who rewrote the payload, in order: a caller that finds the payload
@@ -326,6 +335,12 @@ class GovernanceKernel:
             caller = ctx.metadata.get("caller")
             if isinstance(caller, str) and caller:
                 payload.setdefault("caller", caller)
+            # The bot the call belongs to (ADR-0138): from the context the kernel stamped
+            # when the status hook allowed it, or from that hook's own decision. Never from
+            # the call's payload, which is not copied here beyond the whitelist above.
+            bot_id = ctx.metadata.get(BOT_ID)
+            if isinstance(bot_id, str) and bot_id:
+                payload[BOT_ID] = bot_id
             # Which call this row is about (#134). The runner mints the id once per call
             # attempt and stamps it into the metadata; it is written here, from the
             # metadata only, so a value in the payload or the arguments is never read, and

@@ -48,6 +48,7 @@ from evarness.kernel.governance.external_content import (
 from evarness.kernel.governance.hooks.types import DataClassification, Hook, HookPoint
 from evarness.kernel.governance.kernel import GovernanceKernel
 from evarness.kernel.governance.plugins import (
+    BotStatusHook,
     CommandSandbox,
     CostLimiter,
     CredentialBroker,
@@ -220,6 +221,14 @@ def build_default_kernel(
     if side_effect_ledger is None and side_effect_ledger_enabled:
         side_effect_ledger = shared_side_effect_ledger(side_effect_ledger_db_path)
         high_risk_only = True
+    # BotStatusHook (priority 5) runs first at PreToolUse and PreLLMCall (ADR-0138, B1):
+    # a bot that is not active runs nothing, mid-run included, and an active bot's id
+    # reaches every audit row of the call. One instance, two points: it reads the home's
+    # one identity row lazily and caches it for two seconds. A home with no row (the
+    # single-assistant install) is allowed through and stamps nothing.
+    bot_status = BotStatusHook()
+    kernel.register(bot_status)
+    kernel.register(bot_status, at=HookPoint.PRE_LLM_CALL)
     # PromptGuardInboundHook (priority 5) runs before DataClassifierHook (10):
     # Phase 6 G1, opt-in, shadow-first. Off unless explicitly built/passed.
     if prompt_guard_inbound is not None:

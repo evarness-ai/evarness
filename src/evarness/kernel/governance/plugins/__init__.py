@@ -7,6 +7,7 @@ forbids runtime registration and skill-side hook registration (design
 §5.3 trust boundary).
 """
 
+from evarness.kernel.governance.plugins.bot_status import BotStatusHook
 from evarness.kernel.governance.plugins.classifier import (
     ClassificationResult,
     DataClassifier,
@@ -36,6 +37,7 @@ from evarness.kernel.governance.plugins.redaction import RedactionFilterHook
 from evarness.kernel.governance.plugins.tool_policy import ToolPolicyHook
 
 __all__ = [
+    "BotStatusHook",
     "ClassificationResult",
     "CommandSandbox",
     "CostLimiter",

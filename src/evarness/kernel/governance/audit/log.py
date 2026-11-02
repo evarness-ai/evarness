@@ -47,6 +47,9 @@ IDENTITY_COLUMNS: dict[str, str] = {
     "attempt": "INTEGER",
     "replay_of": "TEXT",
     "resumed_from_run": "TEXT",
+    # The bot the call belongs to (ADR-0138, spec X1): the identity row's ULID. NULL on a
+    # single-assistant install and on every row written before the column existed.
+    "bot_id": "TEXT",
 }
 _IDENTITY_INDEXES: tuple[str, ...] = (
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_audit_record_id ON audit_log(record_id) "
@@ -55,10 +58,14 @@ _IDENTITY_INDEXES: tuple[str, ...] = (
     "WHERE call_id IS NOT NULL",
     "CREATE INDEX IF NOT EXISTS idx_audit_session_ts ON audit_log(session_id, ts) "
     "WHERE session_id IS NOT NULL",
+    "CREATE INDEX IF NOT EXISTS idx_audit_bot_id ON audit_log(bot_id) WHERE bot_id IS NOT NULL",
 )
 #: ``audit_meta`` key for the boundary of the pre-identity era (see ``_record_boundary``).
 IDENTITY_META_KEY = "identity"
 IDENTITY_SCHEMA_VERSION = 2
+#: ``audit_meta`` key for the boundary of the pre-bot era: the first row that could carry a
+#: ``bot_id`` (ADR-0138). Rows before it are not backfilled; NULL there means "unknown".
+BOT_META_KEY = "identity.bot_id"
 
 #: The completeness columns (issue #134, stage 4): which writer wrote the row and its place in
 #: that writer's sequence, and ``kind`` for the rows the store writes about itself (``gap``,
@@ -132,6 +139,7 @@ class AuditRow:
     attempt: int | None = None
     replay_of: str | None = None
     resumed_from_run: str | None = None
+    bot_id: str | None = None
     # Completeness (issue #134, stage 4). None on a row written before the sequence existed.
     writer_id: str | None = None
     writer_seq: int | None = None
@@ -539,7 +547,8 @@ class AuditLog:
 
     def _init_schema(self) -> None:
         with self._connect() as conn:
-            conn.executescript("""
+            conn.executescript(
+                """
                 CREATE TABLE IF NOT EXISTS audit_log (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
                     ts              TEXT NOT NULL,
@@ -563,6 +572,7 @@ class AuditLog:
                     attempt          INTEGER,
                     replay_of        TEXT,
                     resumed_from_run TEXT,
+                    bot_id           TEXT,
                     writer_id        TEXT,
                     writer_seq       INTEGER,
                     kind             TEXT
@@ -573,7 +583,8 @@ class AuditLog:
                     key   TEXT PRIMARY KEY,
                     value TEXT NOT NULL
                 );
-                """)
+                """
+            )
             conn.commit()
         # A database a released version created has the table without the identity columns:
         # add them on a connection of their own (never inside ``_connect``'s transaction, see
@@ -602,17 +613,33 @@ def _record_boundary(conn: sqlite3.Connection, added: list[str]) -> None:
     an older process may still be writing). Old rows are not touched (never backfilled).
     A fresh database has no such era and records nothing.
     """
+    (last_id,) = conn.execute("SELECT COALESCE(MAX(id), 0) FROM audit_log").fetchone()
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS audit_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
+    )
+    if "bot_id" in added:
+        # The pre-bot era (ADR-0138): a database from before bots existed gets this column
+        # alone, and its old rows say nothing about a bot. Recorded once, like the other.
+        conn.execute(
+            "INSERT OR IGNORE INTO audit_meta(key, value) VALUES (?, ?)",
+            (
+                BOT_META_KEY,
+                json.dumps(
+                    {
+                        "first_bot_row_id": int(last_id) + 1,
+                        "migrated_at": datetime.now(UTC).isoformat(),
+                    },
+                    sort_keys=True,
+                ),
+            ),
+        )
     if "record_id" not in added:
         return
-    (last_id,) = conn.execute("SELECT COALESCE(MAX(id), 0) FROM audit_log").fetchone()
     boundary = {
         "schema": IDENTITY_SCHEMA_VERSION,
         "first_identity_row_id": int(last_id) + 1,
         "migrated_at": datetime.now(UTC).isoformat(),
     }
-    conn.execute(
-        "CREATE TABLE IF NOT EXISTS audit_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-    )
     conn.execute(
         "INSERT OR IGNORE INTO audit_meta(key, value) VALUES (?, ?)",
         (IDENTITY_META_KEY, json.dumps(boundary, sort_keys=True)),
@@ -670,10 +697,10 @@ def _insert(
             decision, classification, tier, cost_usd, severity,
             reason, payload_json,
             record_id, session_id, turn_id, call_id, parent_call_id,
-            attempt, replay_of, resumed_from_run,
+            attempt, replay_of, resumed_from_run, bot_id,
             writer_id, writer_seq, kind
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,  # noqa: S608 - the only interpolation is the fixed OR IGNORE keyword
         (
             stamp,
@@ -697,6 +724,7 @@ def _insert(
             ids["attempt"],
             ids["replay_of"],
             ids["resumed_from_run"],
+            ids["bot_id"],
             writer_id,
             writer_seq,
             kind,

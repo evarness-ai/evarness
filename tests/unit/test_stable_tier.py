@@ -147,6 +147,7 @@ def test_the_turn_audit_row_fields_are_the_declared_ones() -> None:
         "replay_of",
         "resumed_from_run",
         "tool_error",
+        "bot_id",
     )
 
 
