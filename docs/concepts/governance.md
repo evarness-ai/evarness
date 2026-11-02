@@ -13,8 +13,8 @@ kernel with a priority:
 |---|---|---|
 | `pre_turn` | A user message arrives, before anything acts on it | Classification, the input safety screen |
 | `pre_classify` | Text is about to enter a model | Data classification |
-| `pre_llm_call` | Before each model call | The egress gate, the cost limiter |
-| `pre_tool_use` | Before each tool call | Tool policy, approvals, the filesystem jail, network and command allowlists, vault handles |
+| `pre_llm_call` | Before each model call | A bot's status, the egress gate, the cost limiter |
+| `pre_tool_use` | Before each tool call | A bot's status, tool policy, approvals, the filesystem jail, network and command allowlists, vault handles |
 | `post_tool_use` | After each tool call | The side-effect ledger, scanning external content |
 | `pre_egress` / `post_egress` | A plugin's request through the governed HTTP client (`api.http`), before it is sent and after it ends | The plugin's declared hosts, the owner-PII egress read; one row per request ([plugin egress](../architecture/plugin-egress.md)) |
 | `post_step` | After each step of the loop | The evaluator: loops, goal drift, the step cap |
@@ -80,6 +80,44 @@ the card. The limit of the design: taint is set only by a tool step declared `co
 external` in this run. External text that reaches the prompt without a tool step (recalled
 memory, auto-injected retrieval context, stored text from earlier turns, which the re-entry
 scan redacts but does not taint) does not taint the run.
+
+## Bot identity
+
+A platform that runs bots on Evarness (eOS, per the
+[Evarness Next specification](https://github.com/evarness-ai/evarness/blob/main/docs/architecture/evarness-next-spec.md)) registers each bot
+once. The kernel keeps one row per bot in `bots.db` in the governance data directory:
+its id (a ULID), its name, its status, its workspace folder, its vault namespace and
+memory scope (both `bot:<name>`), the hash of the definition in force, and timestamps. The
+bot's definition itself is the platform's file; the kernel never reads it.
+
+- **Status.** `active` and `disabled` are the owner's switch, in both directions.
+  `revoked` is terminal: it stamps `revoked_at`, and no later change, a re-register
+  included, touches the row again. Whether a revoked name may be reused is an open
+  point of the specification; today it may not.
+- **Which bot a call belongs to.** The platform starts a bot's runtime with
+  `EVARNESS_BOT=<name>`, read once when the kernel is built. Never from a tool's
+  arguments, a payload or a caller string.
+- **The check.** In a bot's process the `bot_status` check runs first at `pre_tool_use`
+  and `pre_llm_call` (priority 5). An `active` bot is allowed and its `bot_id` is written
+  on every audit row of the call. A `disabled` or `revoked` bot is denied, mid-run
+  included: the row is re-read at most two seconds after it changes. A bot with no row,
+  an `EVARNESS_BOT` that is not a valid name, or a `bots.db` that cannot be read denies
+  every call.
+- **No bot, no change.** A process started without `EVARNESS_BOT` is the owner's own
+  assistant. It gets no `bot_status` check, its rows carry no `bot_id`, and it never
+  creates `bots.db`, whatever bots the home holds.
+- **Rules on a register.** The name is the definition's slug (`^[a-z][a-z0-9_-]{1,31}$`).
+  The workspace is an absolute folder inside the Evarness home that no other bot's
+  workspace is, holds or sits inside, and it never moves: a re-register with another
+  workspace is refused. A re-register with the same workspace records the new
+  definition hash.
+- **Every surface.** `evarness.sdk.bots` (`register_bot`, `set_bot_status`,
+  `current_bot`), `evarness bot` (`list`, `show`, `register`, `status`; on the store
+  directly, so it works with no API running) and `/api/v1/bots` (any authenticated
+  caller reads; registering and changing a status are console writes, refused for a
+  read-only device). Each register and status change leaves one audit row
+  (`hook_point = bot_identity`, plugin `BotService`) naming the bot, its status and
+  the actor.
 
 ## Run limits
 
@@ -343,7 +381,8 @@ text as its input: that is the compactor's own call, not a re-entry.
 ## The audit ledger
 
 Every check writes a row: the hook point, the check, the decision and why, the run,
-step and session, the data class and the tier. Recent rows stay in SQLite; older ones
+step and session, the data class and the tier, and, in a bot's process, the bot's
+`bot_id`. Recent rows stay in SQLite; older ones
 move to a compressed Parquet archive you can query. `evarness audit` and the web console's
 Governance and Call trace screens read it, and the
 [proof bundle](../reference/proof-bundle.md) turns it into evidence a CI job verifies

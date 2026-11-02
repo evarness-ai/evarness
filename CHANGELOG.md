@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Bot identity, the kernel half of a bot (ADR-0138; [Evarness Next specification](docs/architecture/evarness-next-spec.md) sections 4.6 and 10). A home keeps one row per bot in `bots.db` (governance data dir, mode 0600): id, unique name, status (`active`, `disabled`, `revoked`), workspace folder inside the Evarness home that no other bot's shares or nests in, vault namespace and memory scope `bot:<name>`, the definition's SHA-256 and timestamps. `revoked` is terminal. A process started with `EVARNESS_BOT=<name>` is that bot: the new `bot_status` check runs first at `pre_tool_use` and `pre_llm_call` and denies every call of a bot that is not `active`, mid-run included (the row is re-read within two seconds), or that has no row, and an active bot's id is written to a new `bot_id` column on every audit row of the call (taken only from that check's decision). A process without `EVARNESS_BOT` registers no such check and runs exactly as before. Surfaces: `evarness.sdk.bots` (`register_bot`, `set_bot_status`, `current_bot`, `BotIdentity`, `BotIdentityStore`, `BotNotFoundError`, `BotRevokedError`), `evarness bot list|show|register|status` on the store directly, and `GET/POST /api/v1/bots`, `GET /api/v1/bots/{name}`, `POST /api/v1/bots/{name}/status` (writes behind the write guard). Every register and status change leaves an audit row (`hook_point = bot_identity`). `TurnAuditRow` gains `bot_id`. An existing audit ledger gains the column on first open; a ledger that already had the identity columns records the first row that could carry a bot under `audit_meta` key `identity.bot_id`, and older rows are never backfilled. The Parquet archive keeps `bot_id` in each row's payload and gains no column of its own.
+
 ## [0.2.5] - 2026-10-25
 
 ### Security
