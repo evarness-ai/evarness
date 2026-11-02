@@ -470,6 +470,72 @@ def _clean_agent_name(value: str) -> str:
     return cleaned[:80].strip()
 
 
+def agent_name_from_soul(soul: str | None) -> str | None:
+    """Extract a persona name from the frontmatter-free SOUL body."""
+    if not soul:
+        return None
+    heading_match = re.search(r"^#\s+(.+?)(?:\s+[—-]\s+Soul)?\s*$", soul, re.MULTILINE)
+    if heading_match:
+        name = _clean_agent_name(heading_match.group(1))
+        if name:
+            return name
+    identity_match = re.search(
+        r"^\s*(?:You are|I am|I'm)\s+([^,.!?\n]+)", soul, re.IGNORECASE | re.MULTILINE
+    )
+    return _clean_agent_name(identity_match.group(1)) if identity_match else None
+
+
+def agent_purpose_from_soul(soul: str | None) -> str | None:
+    """Extract the short purpose phrase used in identity examples."""
+    if not soul:
+        return None
+    mission_match = re.search(
+        r"^##\s+(?:Mission|Purpose|Who you are)\s*$\n?(.*?)(?=^##\s+|\Z)",
+        soul,
+        re.IGNORECASE | re.MULTILINE | re.DOTALL,
+    )
+    source = mission_match.group(1) if mission_match else soul
+    identity_match = re.search(
+        r"(?:You are|I am|I'm)\s+[^,.!?\n]+,\s*(.+?)(?:[.!?]|$)",
+        source,
+        re.IGNORECASE | re.DOTALL,
+    )
+    if identity_match:
+        purpose = re.sub(r"\s+", " ", identity_match.group(1)).strip(" .!?\t\r\n")
+        return purpose or None
+    if mission_match:
+        first_line = next(
+            (line.strip(" -*\t") for line in source.splitlines() if line.strip(" -*\t")),
+            "",
+        )
+        purpose = re.sub(r"\s+", " ", first_line).strip(" .!?\t\r\n")
+        return purpose or None
+    return None
+
+
+def load_agent_purpose(default: str | None = None) -> str | None:
+    """Return an explicitly configured persona purpose from SOUL frontmatter."""
+    candidates = [soul_path(), _SOUL_DEFAULT]
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            logger.warning("could not read %s: %s", path, exc)
+            continue
+        meta, body = _split_frontmatter(text)
+        raw_purpose = meta.get("purpose")
+        if raw_purpose is not None:
+            purpose = re.sub(r"\s+", " ", str(raw_purpose)).strip(" .!?\t\r\n")
+            if purpose:
+                return purpose
+        parsed_purpose = agent_purpose_from_soul(body)
+        if parsed_purpose:
+            return parsed_purpose
+    return default
+
+
 # ---------------------------------------------------------------------------
 # Long-term user profile (Layer 2)
 # ---------------------------------------------------------------------------

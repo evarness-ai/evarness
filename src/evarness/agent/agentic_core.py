@@ -43,7 +43,7 @@ from evarness.kernel.governance import (
 )
 from evarness.kernel.governance.call_context import mark_run_resumed
 from evarness.kernel.governance.disclosure import (
-    DISCLOSURE_STYLE_GUARDRAIL,
+    build_disclosure_style_guardrail,
     is_architecture_disclosure,
 )
 from evarness.kernel.governance.external_content import unwrap
@@ -53,6 +53,12 @@ from evarness.kernel.governance.plugins.output_classifier import more_restrictiv
 from evarness.kernel.governance.reentry import reenter_text
 from evarness.kernel.governance.turn_label import apply_turn_floor
 from evarness.llm.budget import estimate_tokens
+from evarness.memory.identity import (
+    agent_name_from_soul,
+    agent_purpose_from_soul,
+    load_agent_name,
+    load_agent_purpose,
+)
 from evarness.memory.retriever import MemoryContext
 from evarness.memory.state import (
     ChatCheckpointPayload,
@@ -787,10 +793,16 @@ def _build_react_prompt(
     # AgenticCore ReAct path replaced SOUL.md with a one-liner, defeating
     # the entire identity layer for any system-intent turn.
     soul_text = (memory_context.soul or "").strip() if memory_context else ""
+    agent_name = agent_name_from_soul(soul_text) or load_agent_name()
+    purpose = agent_purpose_from_soul(soul_text) or load_agent_purpose()
+    if agent_name == "Evarness" and purpose == "a helpful personal AI assistant":
+        purpose = None
+    elif purpose is None and agent_name != "Evarness":
+        purpose = "a personal assistant"
     if soul_text:
         identity_preamble = soul_text + "\n\n"
     else:
-        identity_preamble = "You are Evarness, a personal AI assistant.\n\n"
+        identity_preamble = f"You are {agent_name}, a personal AI assistant.\n\n"
     # L1 self-knowledge: what this install has, generated per turn so it cannot drift
     # the way the hand-written primer did. The detail is one evarness_doc call away.
     if capabilities_line:
@@ -1000,7 +1012,7 @@ def _build_react_prompt(
         f"{cross_domain_block}"
         f"{freshness_block}"
         f"{mem_block}"
-        f"{DISCLOSURE_STYLE_GUARDRAIL}\n"
+        f"{build_disclosure_style_guardrail(agent_name=agent_name, purpose=purpose)}\n"
         f"User: {query}\n"
         "Assistant:"
         f"{scratchpad}"

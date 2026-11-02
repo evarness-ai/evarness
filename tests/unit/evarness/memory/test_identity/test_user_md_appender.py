@@ -167,3 +167,18 @@ def test_load_soul_strips_frontmatter_and_loads_agent_name(
     assert soul is not None
     assert soul.startswith("# Atlas - Soul")
     assert "name: Atlas" not in soul
+
+
+def test_load_agent_purpose_reads_soul_frontmatter(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    soul_path = tmp_path / "soul.md"
+    soul_path.write_text(
+        "---\nname: Atlas\npurpose: a research assistant\n---\n\n# Atlas - Soul\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(loader, "SOUL_PATH", soul_path)
+    monkeypatch.setattr(loader, "_SOUL_DEFAULT", tmp_path / "missing.default.md")
+
+    assert loader.load_agent_purpose() == "a research assistant"

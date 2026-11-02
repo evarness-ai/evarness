@@ -59,3 +59,16 @@ def test_both_prompts_carry_it_only_when_the_message_has_a_date() -> None:
     assert "Dates in the user's message" not in _general_system_prompt(
         "I am Evarness.", message="hi"
     )
+
+
+def test_conversational_prompt_uses_soul_persona_in_disclosure_example() -> None:
+    from evarness.runtime.handlers.general_invoke import _general_system_prompt
+
+    prompt = _general_system_prompt(
+        "# Scribe - Soul\n\n"
+        "## Mission\n"
+        "You are Scribe, a writing assistant for technical documents."
+    )
+
+    assert '"I\'m Scribe, a writing assistant for technical documents."' in prompt
+    assert "\"I'm Evarness" not in prompt

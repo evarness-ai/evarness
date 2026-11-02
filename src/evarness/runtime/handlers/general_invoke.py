@@ -31,10 +31,16 @@ from typing import Any
 from evarness.agent.agent_executor import AgentTask
 from evarness.agent.dateparse import resolved_dates_line
 from evarness.foundation.clock import local_now
-from evarness.kernel.governance.disclosure import DISCLOSURE_STYLE_GUARDRAIL
+from evarness.kernel.governance.disclosure import build_disclosure_style_guardrail
 from evarness.llm.budget import budget_for, estimate_tokens, trim_text
 from evarness.llm.tier_router import TierRouter
-from evarness.memory.identity import load_agent_name, load_soul_core
+from evarness.memory.identity import (
+    agent_name_from_soul,
+    agent_purpose_from_soul,
+    load_agent_name,
+    load_agent_purpose,
+    load_soul_core,
+)
 from evarness.runtime.client_config import (
     config_from_profile,
     effective_provider_profile,
@@ -84,14 +90,6 @@ _GENERAL_SYSTEM_PROMPT_TEMPLATE = (
 )
 
 
-# Shared with the AgenticCore ReAct prompt builder
-# (evarness.kernel.governance.disclosure.DISCLOSURE_STYLE_GUARDRAIL) so the legacy general handler
-# and the ReAct path — which handles conversational "who are you?" turns — apply
-# exactly the same concise/no-disclosure rules. The streaming-path safety screen
-# is the deterministic backstop when a model ignores them.
-_DISCLOSURE_STYLE_GUARDRAIL = DISCLOSURE_STYLE_GUARDRAIL
-
-
 def _general_system_prompt(soul: str | None = None, message: str = "") -> str:
     """Return the general-handler system prompt with current time/date injected.
 
@@ -107,7 +105,13 @@ def _general_system_prompt(soul: str | None = None, message: str = "") -> str:
 
     if soul is None:
         soul = load_soul_core()
-    agent_name = load_agent_name()
+    agent_name = agent_name_from_soul(soul) or load_agent_name()
+    purpose = agent_purpose_from_soul(soul) or load_agent_purpose()
+    if agent_name == "Evarness" and purpose == "a helpful personal AI assistant":
+        purpose = None
+    elif purpose is None and agent_name != "Evarness":
+        purpose = "a personal assistant"
+    guardrail = build_disclosure_style_guardrail(agent_name=agent_name, purpose=purpose)
     if soul:
         return (
             # Pin the current date/time at the HEAD of the prompt: local-tier
@@ -117,7 +121,7 @@ def _general_system_prompt(soul: str | None = None, message: str = "") -> str:
             # prior (exp-006 GAP-10: calendar "tomorrow" resolved to Apr 2025).
             f"Agent name: {agent_name}\n"
             f"Current time: {time_str}\nCurrent date: {date_str}\n{dates_line}\n"
-            f"{soul}" + _DISCLOSURE_STYLE_GUARDRAIL
+            f"{soul}" + guardrail
         )
     return (
         _GENERAL_SYSTEM_PROMPT_TEMPLATE.format(
@@ -126,7 +130,7 @@ def _general_system_prompt(soul: str | None = None, message: str = "") -> str:
             date=date_str,
         )
         + (f"\n{dates_line}" if dates_line else "")
-        + _DISCLOSURE_STYLE_GUARDRAIL
+        + guardrail
     )
 
 
