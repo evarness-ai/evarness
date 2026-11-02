@@ -95,29 +95,38 @@ bot's definition itself is the platform's file; the kernel never reads it.
   included, touches the row again. Whether a revoked name may be reused is an open
   point of the specification; today it may not.
 - **Which bot a call belongs to.** The platform starts a bot's runtime with
-  `EVARNESS_BOT=<name>`, read once when the kernel is built. Never from a tool's
-  arguments, a payload or a caller string.
+  `EVARNESS_BOT=<name>`, read once per process. Never from a tool's arguments, a
+  payload, a call's metadata or a caller string.
 - **The check.** In a bot's process the `bot_status` check runs first at `pre_tool_use`
-  and `pre_llm_call` (priority 5). An `active` bot is allowed and its `bot_id` is written
-  on every audit row of the call. A `disabled` or `revoked` bot is denied, mid-run
+  and `pre_llm_call` (priority 5). An `active` bot is allowed. A `disabled` or `revoked` bot is denied, mid-run
   included: the row is re-read at most two seconds after it changes. A bot with no row,
   an `EVARNESS_BOT` that is not a valid name, or a `bots.db` that cannot be read denies
   every call.
+- **`bot_id` on every row.** The kernel that runs the check also names the bot on every
+  audit row the bot's process writes, at every hook point (`pre_turn` through
+  `pre_response`, the egress rows, the curator's, the judges' and the approval queue's),
+  from the check it was built with. A `bot_id` a caller puts in a call's metadata or a
+  payload is dropped.
 - **No bot, no change.** A process started without `EVARNESS_BOT` is the owner's own
-  assistant. It gets no `bot_status` check, its rows carry no `bot_id`, and it never
-  creates `bots.db`, whatever bots the home holds.
+  assistant. It gets no `bot_status` check, no row it writes carries a `bot_id` (not even
+  one a caller supplies), and it never creates `bots.db`, whatever bots the home holds.
 - **Rules on a register.** The name is the definition's slug (`^[a-z][a-z0-9_-]{1,31}$`).
-  The workspace is an absolute folder inside the Evarness home that no other bot's
-  workspace is, holds or sits inside, and it never moves: a re-register with another
-  workspace is refused. A re-register with the same workspace records the new
-  definition hash.
+  The workspace is `<home>/bots/<name>` and nothing else: compared after following
+  symlinks and ignoring case, and checked with the file system when both paths exist,
+  so two bots never share a folder and no bot's workspace is the kernel's
+  (`governance/`) or the owner's (`workspace/`, `data/`). It never moves: a re-register
+  under a relocated home is refused. A re-register records the new definition hash.
+- **The owner's switch.** In a bot's own process every register and status change is
+  refused (`PermissionError`), on every surface: a bot cannot switch itself back on.
 - **Every surface.** `evarness.sdk.bots` (`register_bot`, `set_bot_status`,
   `current_bot`), `evarness bot` (`list`, `show`, `register`, `status`; on the store
   directly, so it works with no API running) and `/api/v1/bots` (any authenticated
   caller reads; registering and changing a status are console writes, refused for a
-  read-only device). Each register and status change leaves one audit row
-  (`hook_point = bot_identity`, plugin `BotService`) naming the bot, its status and
-  the actor.
+  read-only device, and for the shared secret unless `EVARNESS_WEBUI_ALLOW_WRITES` is
+  on). A read, or a change refused for an unknown bot, creates no `bots.db` and opens no
+  audit log. Each register and status change leaves one audit row
+  (`hook_point = bot_identity`, plugin `BotService`) naming the bot it is about
+  (`subject_bot_id`), its status and the actor.
 
 ## Run limits
 

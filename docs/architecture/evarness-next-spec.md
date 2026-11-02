@@ -144,7 +144,7 @@ new bot creates.
 | `bot_id` | TEXT PK | ULID |
 | `name` | TEXT | Unique, equals the definition's `name` |
 | `status` | TEXT | `active`, `disabled`, `revoked` |
-| `workspace_path` | TEXT | Under the Evarness home, one folder per bot |
+| `workspace_path` | TEXT | Under the Evarness home, one folder per bot: exactly `<home>/bots/<name>` |
 | `vault_namespace` | TEXT | Equals `bot:<name>`; unique |
 | `memory_scope` | TEXT | Equals `bot:<name>`; unique |
 | `definition_sha256` | TEXT | Hash of the validated definition in force |
