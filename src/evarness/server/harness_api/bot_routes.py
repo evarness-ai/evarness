@@ -39,14 +39,17 @@ logger = logging.getLogger(__name__)
 BOTS_PATH = "/api/v1/bots"
 
 _READ_ONLY_DETAIL = "this device is paired read-only"
+_WRITES_OFF_DETAIL = (
+    "control writes are disabled: pair a control device, or set EVARNESS_WEBUI_ALLOW_WRITES=1"
+)
 
 
 class LazyBotService:
-    """The app's ``BotService``, built on the first write.
+    """The app's one ``BotService``, built on first use.
 
-    Lazy, because opening the bots DB creates it, and a home that never registered a bot
-    must not gain the file from a read. ``reads()`` hands back the injected service, the
-    one already built, or ``None`` when no ``bots.db`` exists yet.
+    ``BotService`` opens its store and its audit log only when it needs them: a read on a
+    home that never registered a bot, or a refused change, creates no ``bots.db`` and
+    opens no audit log. Only a register creates the file.
     """
 
     def __init__(self, service: BotService | None = None) -> None:
@@ -61,15 +64,6 @@ class LazyBotService:
 
                     self._service = BotService()
         return self._service
-
-    def reads(self) -> BotService | None:
-        if self._service is not None:
-            return self._service
-        from evarness.kernel.governance.bots import open_existing_store
-
-        if open_existing_store() is None:
-            return None
-        return self.get()
 
 
 class BotRegisterRequest(BaseModel):
@@ -105,9 +99,17 @@ def _actor(principal: Principal) -> str:
 
 
 def _writer(request: Request) -> str:
+    """The actor of a write, after the same rule the write guard applies (``_may_write``):
+    a paired device by its own scope; the shared secret only with
+    ``EVARNESS_WEBUI_ALLOW_WRITES``. Checked here again so the rule holds even if the
+    guard's wiring ever changes."""
+    from evarness.server.harness_api.write_guard import _may_write
+
     principal = _principal(request)
-    if not principal.can_control:
+    if principal.kind == "device" and not principal.can_control:
         raise HTTPException(status_code=403, detail=_READ_ONLY_DETAIL)
+    if not _may_write(principal):
+        raise HTTPException(status_code=403, detail=_WRITES_OFF_DETAIL)
     return _actor(principal)
 
 
@@ -122,14 +124,17 @@ def _valid_name(name: str) -> str:
 
 def install_bot_routes(app: FastAPI, bots: LazyBotService) -> None:
     """Register the four bot routes on ``app``."""
-    from evarness.kernel.governance.bots import BotNotFoundError, BotRevokedError
+    from evarness.kernel.governance.bots import (
+        BotNotFoundError,
+        BotRevokedError,
+        BotWriteRefusedError,
+    )
 
     @app.get(BOTS_PATH)
     def bots_list(http_request: Request) -> dict[str, Any]:
         """Every bot, oldest first, revoked ones included (the list is the history)."""
         _principal(http_request)
-        service = bots.reads()
-        rows = service.list() if service is not None else []
+        rows = bots.get().list()
         return {"bots": [bot_payload(r) for r in rows]}
 
     @app.get(f"{BOTS_PATH}/{{name}}")
@@ -137,8 +142,7 @@ def install_bot_routes(app: FastAPI, bots: LazyBotService) -> None:
         """One bot by name."""
         _principal(http_request)
         name = _valid_name(name)
-        service = bots.reads()
-        row = service.get(name) if service is not None else None
+        row = bots.get().get(name)
         if row is None:
             raise HTTPException(status_code=404, detail="no such bot")
         return {"bot": bot_payload(row)}
@@ -152,6 +156,8 @@ def install_bot_routes(app: FastAPI, bots: LazyBotService) -> None:
             row = bots.get().register(
                 name, body.workspace_path, body.definition_sha256, actor=actor
             )
+        except BotWriteRefusedError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except BotRevokedError as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except ValueError as exc:
@@ -166,6 +172,8 @@ def install_bot_routes(app: FastAPI, bots: LazyBotService) -> None:
         name = _valid_name(name)
         try:
             row = bots.get().set_status(name, body.status, actor=actor)
+        except BotWriteRefusedError as exc:
+            raise HTTPException(status_code=403, detail=str(exc)) from exc
         except BotNotFoundError as exc:
             raise HTTPException(status_code=404, detail="no such bot") from exc
         except BotRevokedError as exc:

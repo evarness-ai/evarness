@@ -3,7 +3,8 @@
 On the store directly, the way ``evarness approvals`` is, not through the API the way
 ``evarness device`` is: the owner must be able to disable or revoke a bot from the host's
 shell with no API running. Every change goes through ``BotService``, so it leaves the same
-audit row the API and the SDK leave. A read never creates ``bots.db``.
+audit row the API and the SDK leave. A read, or a change refused (an unknown bot), never
+creates ``bots.db``. In a bot's own process (``EVARNESS_BOT`` set) every change is refused.
 """
 
 from __future__ import annotations
@@ -44,17 +45,11 @@ def _service() -> BotService:
 
 
 def _rows() -> list[BotIdentity]:
-    from evarness.kernel.governance.bots import open_existing_store
-
-    store = open_existing_store()
-    return store.list() if store is not None else []
+    return _service().list()
 
 
 def _get(name: str) -> BotIdentity | None:
-    from evarness.kernel.governance.bots import open_existing_store
-
-    store = open_existing_store()
-    return store.get(name) if store is not None else None
+    return _service().get(name)
 
 
 def _as_dict(row: BotIdentity) -> dict[str, str | None]:
@@ -112,23 +107,26 @@ def cmd_show(
 @bot_app.command("register")
 def cmd_register(
     name: Annotated[str, typer.Argument(help="The bot's name, as its definition names it")],
-    workspace: Annotated[
-        str,
-        typer.Option("--workspace", help="The bot's folder, inside the Evarness home"),
-    ],
     definition_sha256: Annotated[
         str,
         typer.Option("--definition-sha256", help="SHA-256 of the validated definition"),
     ],
+    workspace: Annotated[
+        str | None,
+        typer.Option(
+            "--workspace", help="The bot's folder; must be <home>/bots/<name> (the default)"
+        ),
+    ] = None,
     as_json: JsonOption = False,
 ) -> None:
     """Register a bot (status active), or record a new definition hash for it."""
-    from evarness.kernel.governance.bots import BotRevokedError
+    from evarness.kernel.governance.bots import BotRevokedError, bot_workspace
 
     actor = _actor()
     try:
-        row = _service().register(name, workspace, definition_sha256, actor=actor)
-    except BotRevokedError as exc:
+        path = workspace if workspace is not None else str(bot_workspace(name))
+        row = _service().register(name, path, definition_sha256, actor=actor)
+    except (BotRevokedError, PermissionError) as exc:
         raise _fail(str(exc)) from exc
     except ValueError as exc:
         raise _fail(str(exc)) from exc
@@ -158,7 +156,7 @@ def cmd_status(
         row = _service().set_status(name, status, actor=actor)
     except BotNotFoundError as exc:
         raise _fail(f"no bot named {name!r}") from exc
-    except BotRevokedError as exc:
+    except (BotRevokedError, PermissionError) as exc:
         raise _fail(str(exc)) from exc
     except ValueError as exc:
         raise _fail(str(exc)) from exc

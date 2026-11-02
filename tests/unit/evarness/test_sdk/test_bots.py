@@ -13,11 +13,12 @@ from typing import Any
 
 import pytest
 
-from evarness.kernel.governance.bots import BOT_ENV, default_bots_db_path
+from evarness.kernel.governance.bots import BOT_ENV, default_bots_db_path, reset_process_bot
 from evarness.sdk import PluginAPI
 from evarness.sdk.bots import (
     BotNotFoundError,
     BotRevokedError,
+    bot_workspace,
     current_bot,
     register_bot,
     set_bot_status,
@@ -66,11 +67,16 @@ def test_the_sdk_registers_switches_and_reads_the_current_bot(
     monkeypatch.delenv(BOT_ENV, raising=False)
     assert current_bot() is None
     assert not default_bots_db_path().exists()  # a read made no file
-    row = register_bot("helper", str(tmp_path / "bots" / "helper"), SHA)
+    row = register_bot("helper", str(bot_workspace("helper")), SHA)
     assert row.status == "active"
-    assert current_bot() is None  # still the owner's process
     monkeypatch.setenv(BOT_ENV, "helper")
+    assert current_bot() is None  # pinned: still the owner's process
+    reset_process_bot()  # a new process, started as the bot
     assert current_bot() == row
+    with pytest.raises(PermissionError):
+        set_bot_status("helper", "disabled")  # the bot cannot flip its own switch
+    monkeypatch.delenv(BOT_ENV)
+    reset_process_bot()  # the owner's process again
     assert set_bot_status("helper", "disabled").status == "disabled"
     assert set_bot_status("helper", "revoked").revoked_at is not None
     with pytest.raises(BotRevokedError):
@@ -80,31 +86,77 @@ def test_the_sdk_registers_switches_and_reads_the_current_bot(
 
 
 # ------------------------------------------------------------------ a real governed turn
-def test_a_bot_process_stamps_every_row_of_its_turn() -> None:
-    with harness(plugins=[_plugin()], fake_model=_SCRIPT, env={BOT_ENV: "helper"}) as h:
-        row = register_bot("helper", str(h.home / "bots" / "helper"), SHA)
-        assert h.chat("What is the weather").text
-        rows = [r for r in h.audit_rows() if r.hook_point in ("pre_llm_call", "pre_tool_use")]
-    assert {r.hook_point for r in rows} == {"pre_llm_call", "pre_tool_use"}
-    assert {r.bot_id for r in rows} == {row.bot_id}
+def _seeded_bots_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, home: Path, status: str = "active"
+) -> tuple[bytes, str]:
+    """A ``bots.db`` holding ``helper`` for the harness home ``home``, as the owner's process
+    writes it before the platform starts the bot (a bot's own process may not)."""
+    import sqlite3
+
+    from evarness.kernel.governance.bots import BotIdentityStore
+
+    monkeypatch.setenv("EVARNESS_HOME", str(home))
+    db = tmp_path / "seed" / "bots.db"
+    store = BotIdentityStore(db_path=db)
+    row = store.register("helper", str(home / "bots" / "helper"), SHA)
+    if status != "active":
+        store.set_status("helper", status)
+    conn = sqlite3.connect(db)
+    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+    conn.execute("PRAGMA journal_mode=DELETE")
+    conn.close()
+    return db.read_bytes(), row.bot_id
 
 
-def test_a_disabled_bot_runs_no_model_call_and_no_tool() -> None:
-    with harness(plugins=[_plugin()], fake_model=_SCRIPT, env={BOT_ENV: "helper"}) as h:
-        row = register_bot("helper", str(h.home / "bots" / "helper"), SHA)
-        set_bot_status("helper", "disabled")
+def test_a_bot_process_stamps_every_row_of_its_turn(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = (tmp_path / "home").resolve()
+    seeded, bot_id = _seeded_bots_db(tmp_path, monkeypatch, home)
+    with harness(
+        plugins=[_plugin()],
+        fake_model=_SCRIPT,
+        env={BOT_ENV: "helper"},
+        home=home,
+        seed={"governance/bots.db": seeded},
+    ) as h:
+        assert "sunny" in h.chat("What is the weather").text
+        bot = current_bot()
+        assert bot is not None and bot.bot_id == bot_id
+        with pytest.raises(PermissionError):
+            set_bot_status("helper", "active")  # the bot cannot flip its own switch
+        rows = h.audit_rows()
+    points = {r.hook_point for r in rows}
+    # The turn ran a tool and two model calls: rows from before, during and after both.
+    assert {"pre_turn", "pre_llm_call", "pre_tool_use", "post_tool_use"} <= points, points
+    missing = sorted({(r.hook_point, r.plugin) for r in rows if r.bot_id != bot_id})
+    assert missing == [], missing
+
+
+def test_a_disabled_bot_runs_no_model_call_and_no_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    home = (tmp_path / "home").resolve()
+    seeded, bot_id = _seeded_bots_db(tmp_path, monkeypatch, home, status="disabled")
+    with harness(
+        plugins=[_plugin()],
+        fake_model=_SCRIPT,
+        env={BOT_ENV: "helper"},
+        home=home,
+        seed={"governance/bots.db": seeded},
+    ) as h:
         h.chat("What is the weather")
         calls = h.model_calls()
-        denied = [r for r in h.audit_rows() if r.plugin == "bot_status" and r.decision == "deny"]
-        tools = h.audit_rows(hook_point="post_tool_use")
+        rows = h.audit_rows()
+    denied = [r for r in rows if r.plugin == "bot_status" and r.decision == "deny"]
     assert calls == ()
-    assert denied and {r.bot_id for r in denied} == {row.bot_id}
-    assert tools == []
+    assert denied and not [r for r in rows if r.hook_point == "post_tool_use"]
+    assert {r.bot_id for r in rows} == {bot_id}
 
 
 def test_the_single_assistant_is_unchanged() -> None:
-    """No ``EVARNESS_BOT`` and no ``bots.db``: the turn runs as it did before bots, its
-    rows carry no ``bot_id``, and the home gains no ``bots.db``."""
+    """No ``EVARNESS_BOT`` and no ``bots.db``: the turn runs as it did before bots, no row
+    at any hook point carries a ``bot_id``, and the home gains no ``bots.db``."""
     with harness(plugins=[_plugin()], fake_model=_SCRIPT) as h:
         answer = h.chat("What is the weather").text
         calls = [c.rule for c in h.model_calls()]

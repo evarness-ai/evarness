@@ -82,7 +82,8 @@ def test_status_changes_and_their_audit_rows(home: Path) -> None:
     assert again.exit_code == 1 and "terminal" in again.output
     rows = [r for r in AuditLog(db_path=home / "audit.db").query() if r.plugin == "BotService"]
     assert [r.hook_point for r in rows] == [BOT_IDENTITY_HOOK] * 4
-    assert {r.bot_id for r in rows} == {bot_id}
+    assert {r.bot_id for r in rows} == {None}  # written by the owner's process, not a bot
+    assert {json.loads(r.payload_json)["subject_bot_id"] for r in rows} == {bot_id}
     assert [r.reason.rsplit(" ", 1)[-1] for r in rows[1:]] == ["disabled", "active", "revoked"]
 
 
@@ -110,3 +111,34 @@ def test_the_errors(home: Path) -> None:
     _register(home)
     paused = runner.invoke(app, ["bot", "status", "helper", "paused"])
     assert paused.exit_code == 1 and "status must be one of" in paused.output
+
+
+def test_unknown_bot_status_change_creates_no_file(home: Path) -> None:
+    result = runner.invoke(app, ["bot", "status", "ghost", "disabled"])
+    assert result.exit_code == 1 and "no bot named" in result.output
+    assert not default_bots_db_path().exists()
+    assert not (home / "audit.db").exists()
+
+
+def test_register_defaults_to_the_derived_workspace(home: Path) -> None:
+    result = runner.invoke(app, ["bot", "register", "helper", "--definition-sha256", SHA, "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["bot"]["workspace_path"] == str(
+        home.resolve() / "bots" / "helper"
+    )
+
+
+def test_every_change_is_refused_in_a_bots_own_process(
+    home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from evarness.kernel.governance.bots import reset_process_bot
+
+    _register(home)
+    monkeypatch.setenv(BOT_ENV, "helper")
+    reset_process_bot()
+    result = runner.invoke(app, ["bot", "status", "helper", "disabled"])
+    assert result.exit_code == 1 and "EVARNESS_BOT" in result.output
+    assert (
+        json.loads(runner.invoke(app, ["bot", "show", "helper", "--json"]).output)["bot"]["status"]
+        == "active"
+    )

@@ -198,3 +198,61 @@ def test_the_lazy_service_writes_to_the_home(
     assert [b["name"] for b in lazy_client.get(BASE, headers=auth_headers()).json()["bots"]] == [
         "helper"
     ]
+
+
+def test_the_route_applies_the_write_guards_rule_itself(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """``_writer`` refuses the shared secret without the switch, as ``_may_write`` does,
+    even though the service principal always holds ``control``."""
+    from fastapi import HTTPException
+
+    from evarness.foundation.auth import SERVICE_PRINCIPAL, Principal
+    from evarness.server.harness_api.bot_routes import _writer
+
+    def request(principal: Principal) -> Any:
+        return SimpleNamespace(state=SimpleNamespace(principal=principal))
+
+    monkeypatch.delenv("EVARNESS_WEBUI_ALLOW_WRITES", raising=False)
+    with pytest.raises(HTTPException) as refused:
+        _writer(request(SERVICE_PRINCIPAL))
+    assert refused.value.status_code == 403
+    reader = Principal(kind="device", scope="read", device_id="d1")
+    with pytest.raises(HTTPException):
+        _writer(request(reader))
+    control = Principal(kind="device", scope="control", device_id="d2")
+    assert _writer(request(control)) == "device:d2"
+    monkeypatch.setenv("EVARNESS_WEBUI_ALLOW_WRITES", "1")
+    assert _writer(request(SERVICE_PRINCIPAL)) == "service"
+
+
+def test_a_bots_own_api_refuses_every_change(
+    client: TestClient, home: Path, ledger: _Ledger, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from evarness.kernel.governance.bots import reset_process_bot
+
+    monkeypatch.setenv("EVARNESS_WEBUI_ALLOW_WRITES", "1")
+    assert _register(client, home).status_code == 200
+    monkeypatch.setenv(BOT_ENV, "helper")
+    reset_process_bot()
+    resp = client.post(f"{BASE}/helper/status", json={"status": "disabled"}, headers=auth_headers())
+    assert resp.status_code == 403 and "EVARNESS_BOT" in resp.json()["detail"]
+    assert _register(client, home, "scout").status_code == 403
+    assert len(ledger.rows) == 1
+
+
+def test_reads_and_an_unknown_bot_open_no_audit_log(
+    lazy_client: TestClient, home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from evarness.kernel.governance.bots import service as service_module
+
+    def _no_ledger() -> Any:
+        raise AssertionError("the audit log was opened")
+
+    monkeypatch.setattr(service_module, "_default_ledger", _no_ledger)
+    monkeypatch.setenv("EVARNESS_WEBUI_ALLOW_WRITES", "1")
+    headers = auth_headers()
+    assert lazy_client.get(BASE, headers=headers).status_code == 200
+    resp = lazy_client.post(f"{BASE}/ghost/status", json={"status": "disabled"}, headers=headers)
+    assert resp.status_code == 404
+    assert not default_bots_db_path().exists()
