@@ -1,6 +1,7 @@
 # Evarness Next: specification and formal schemas
 
-Status: draft for review (2026-11-01). Precedes the ADR set. Records decisions D1 to D21
+Status: draft for review (2026-11-01). The core work packages are ADR-0137 to ADR-0142
+(`docs/adr/`); the platform's decisions are recorded in the eOS repository. Records decisions D1 to D21
 from the design discussion and gives each entity a formal schema.
 
 ## 1. Purpose
