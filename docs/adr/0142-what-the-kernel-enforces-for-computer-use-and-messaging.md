@@ -1,12 +1,13 @@
 # ADR-0142: What the kernel enforces for computer use and messaging
 
-Status: Accepted (2026-11-01), not implemented. Work package 6 of the Evarness Next
+Status: Proposed (2026-11-02), not implemented. Work package 6 of the Evarness Next
 specification (`docs/architecture/evarness-next-spec.md`, sections 8, 9 and 10, and
 decision D5).
 Relates to: `llm/locality.py` (`local`, `cloud`), `kernel/governance/mcp_signing/config.py`
 (`SigningMode`, default `shadow`), `kernel/governance/hooks/types.py` (`PRE_LLM_CALL`,
 `PRE_TOOL_USE`), the external-content envelope (`docs/concepts/governance.md`, "The
-external-content floor"), `PluginManifest` (`content: external`).
+external-content floor"), a tool declaration's `content: external`
+(`runtime/plugin_host/manifest.py`).
 
 ## Context
 
@@ -24,8 +25,8 @@ The kernel owns these checks; the plugin host owns the rest (C1, C2, C4, C5 in s
 section 8), with a conformance test in `evarness.testing`.
 
 - Locality gains `trusted` beside `local` and `cloud`, and the provider is generic
-  (decision D5). A bot's definition lists which localities it may use; the gate reads
-  the list.
+  (decision D5). The platform passes the bot's allowed localities on the call context;
+  the gate reads that, never the definition.
 - C3. Before a screenshot reaches a `cloud` or `trusted` tier, local OCR runs and the
   owner-PII matchers (ADR-0125) read the text. `personal` blocks the image. `local`
   tiers skip the check. A kernel hook at `pre_llm_call`.
@@ -61,7 +62,7 @@ The effect of a computer action is derived, not declared by the model (spec 8.3)
 ## Consequences
 
 - The OCR engine and its measured miss rate on the owner's screens are open (spec
-  section 12); the gate ships with a measured number or it does not ship.
+  section 12).
 - Which A2A binding to serve first is open; JSON-RPC is the common deployment.
 - The queue TTL after which a queued message expires, and the queue depth per pair, are
   open.

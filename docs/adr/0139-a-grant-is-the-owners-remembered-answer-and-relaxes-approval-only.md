@@ -1,10 +1,11 @@
 # ADR-0139: A grant is the owner's remembered answer to a card, and relaxes approval only
 
-Status: Accepted (2026-11-01), not implemented. Work package 3 of the Evarness Next
+Status: Proposed (2026-11-02), not implemented. Work package 3 of the Evarness Next
 specification (`docs/architecture/evarness-next-spec.md`, section 5).
 Relates to: `kernel/governance/approvals/schema.sql` (`approval_queue`, the card),
 `kernel/governance/plugins/destructive_approval.py` (ADR-0118), the kernel table
-`grants` (new), `foundation/capabilities.py` (`ToolEffect`, `EgressDataClass`).
+`grants` (new), `runtime/plugin_host/manifest.py` (`ToolEffect`, `EgressDataClass`),
+`kernel/governance/hooks/tool_payload.py` (`ToolContent`).
 
 ## Context
 
@@ -19,7 +20,7 @@ be argued around.
 
 A card has five answers (decision D9): `once`, `task`, `always`, `deny_remember`,
 `not_now`. `task` and `always` write a grant; `deny_remember` writes a `deny` grant with
-the same scope choice; `once` and `not_now` write nothing (spec 5.1).
+the card's `task` or `always` choice; `once` and `not_now` write nothing (spec 5.1).
 
 A grant is a kernel row (spec 5.2): one `bot_id`, never a wildcard; a `subject_kind` of
 `tool`, `capability` or `message` and its `subject`; an `effect` of `read` or `write`;
@@ -62,8 +63,13 @@ A grant relaxes approval only (decision D10). The kernel enforces:
 
 - Every grant traces to a card: `approval_id` is required, so the ledger can show the
   owner's answer behind any write that ran without a fresh card (spec section 11).
-- A `task` grant expires when its run reaches a terminal state, so the workflow store
-  (ADR-0141) closes grants as part of finishing a run.
+- A `task` grant expires when its run reaches a terminal state; closing a run's `task`
+  grants is part of finishing the run (ADR-0141).
+- The `grants` table and its hook use `ToolEffect` and `EgressDataClass`, which live in
+  `runtime/plugin_host/manifest.py`; the kernel cannot import them, since `runtime` is
+  above `kernel` in `[tool.importlinter]`. The two Literals move below the kernel, beside
+  `ToolContent` in `kernel/governance/hooks/tool_payload.py` (which `manifest.py` already
+  imports from), and `manifest.py` re-exports them.
 - A `message` grant with a `personal` ceiling is what lets a bot send a personal part to
   another bot without a card each time; whether messaging needs a ceiling of its own is
   open (spec section 12).

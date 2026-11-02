@@ -1,6 +1,6 @@
 # ADR-0138: A bot is one identity row, a workspace, a vault namespace and a memory scope
 
-Status: Accepted (2026-11-01), not implemented. Work package 2 of the Evarness Next
+Status: Proposed (2026-11-02), not implemented. Work package 2 of the Evarness Next
 specification (`docs/architecture/evarness-next-spec.md`, sections 2, 4.6 and 10).
 Relates to: the kernel table `bot_identity` (new), `kernel/governance/hooks/types.py`
 (`PRE_TOOL_USE`, `PRE_LLM_CALL`), `kernel/governance/vault/handle.py`, `memory/`.
@@ -56,7 +56,9 @@ sessions; until it has, B1 denies every call a session makes. Audit rows stay.
   and three unique columns say no today.
 - Whether a `disabled` bot's leases expire on their own clock or are revoked with the
   switch is open (spec section 12).
-- The memory layer gains a scope it does not have today: memory is scoped by subject
-  (`memory/fact_keys.py`, `subject_scope`), not by who may read. B3 adds the second axis.
-- The definition hash on the row is what the platform compares to decide B2; the kernel
-  stores it and never parses the definition.
+- The memory layer gains a scope it does not have today. The only scope memory has is
+  `subject_scope.max_hops` (`memory/fact_keys.py`, `subject_max_hops`), a capture rule on
+  how far from the owner a fact's subject may be; nothing records which bot may read a
+  fact. B3 adds that axis.
+- B2 is decided by the platform, which can read the definition. The kernel stores the
+  definition hash so the definition in force is attributable, and never parses it.

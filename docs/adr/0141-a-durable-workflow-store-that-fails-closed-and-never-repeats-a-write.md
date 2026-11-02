@@ -1,6 +1,6 @@
 # ADR-0141: A durable workflow store that fails closed and never repeats a write
 
-Status: Accepted (2026-11-01), not implemented. Work package 5 of the Evarness Next
+Status: Proposed (2026-11-02), not implemented. Work package 5 of the Evarness Next
 specification (`docs/architecture/evarness-next-spec.md`, section 7 and X4).
 Relates to: `memory/state/store.py` (the checkpoint store, keyed by `(run_id, step_id)`),
 `runtime/continuations.py` (one open question per session), `kernel/governance/side_effects/`
@@ -29,9 +29,9 @@ Run states (spec 7.3): `pending`, `claimed`, `running`, `waiting_approval`,
 `waiting_input`, `suspended`, `uncertain`, and the terminal `completed`, `failed`,
 `cancelled`. Claiming is one SQL statement: `pending` to `claimed` where the worker
 claim is null or expired and the bot's active runs are below its `max_parallel_runs`.
-Two workers cannot both win. A claim lasts five minutes and is renewed each step; the
-supervisor marks an expired claim `suspended`, then `pending`. ("Lease" is kept for
-credentials.)
+Two workers cannot both win. A claim lasts five minutes by default and is renewed each
+step; the supervisor marks an expired claim `suspended`, then `pending`. ("Lease" is
+kept for credentials.)
 
 A step is written `pending` before the tool runs and carries the step's declared
 `effect`, the ledger row for every `write` and `destructive`, and whichever of
@@ -72,5 +72,6 @@ Resume rules the kernel and the runner enforce:
   `policy_on_timeout`, default `fail_closed`.
 - Whether `max_parallel_runs` above four is ever allowed on one laptop is open (spec
   section 12); measure with five bots first.
-- Finishing a run closes its `task` grants (ADR-0139) and revokes its leases (ADR-0140),
-  and a revoked bot cancels its runs (ADR-0138).
+- Closing a run's `task` grants (ADR-0139) and revoking its leases (ADR-0140) is part of
+  finishing the run; the specification names no component for it. A revoked bot cancels
+  its runs (ADR-0138).
