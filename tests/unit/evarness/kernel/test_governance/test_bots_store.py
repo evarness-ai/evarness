@@ -75,7 +75,8 @@ def test_register_creates_one_active_row_with_its_scopes(
     assert len(row.bot_id) == 26 and row.created_at == row.updated_at
     assert store.list() == [row] and store.get("helper") == row
     assert store.db_path == default_bots_db_path() == home / "governance" / "bots.db"
-    assert stat.S_IMODE(os.stat(store.db_path).st_mode) == 0o600
+    if os.name == "posix":  # Windows has no POSIX file modes (folder ACLs protect it)
+        assert stat.S_IMODE(os.stat(store.db_path).st_mode) == 0o600
 
 
 def test_register_again_updates_the_hash_and_keeps_the_one_row(
