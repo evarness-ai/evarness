@@ -150,6 +150,11 @@ Ruff, Black and the DCO sign-off check on every commit, from `.pre-commit-config
 - One CODEOWNER review is required; `src/evarness/kernel/governance/` always needs one.
 - No AI attribution in commits, PRs or credits: no `Co-Authored-By` trailers for tools, no
   "generated with" footers. You are the author of what you submit.
+- **Automated and bulk contributions.** A PR opened by a tool or a pipeline is welcome on the
+  same terms as any other: the full gate pasted in, and a person behind the account who
+  answers review. If a review goes unanswered for a week, the maintainer may push the fixes
+  onto the branch (keep "Allow edits by maintainers" on) and merge, or close it and land the
+  change separately with credit to the opener.
 
 ## Reporting a bug
 
