@@ -58,6 +58,13 @@ export EVARNESS_AUTH_SECRET=ci-only-secret
 export EVARNESS_DISABLE_WARMUP=1
 export PYTHONDONTWRITEBYTECODE=1
 
+# The pull-request recipe runs this script under `env -i PATH HOME`, which drops TMPDIR.
+# Python's tempfile then falls back to /tmp, which on macOS is a symlink to /private/tmp,
+# and Homebrew tesseract (leptonica) cannot open a file through that symlink path: the
+# live OCR test fails with "image file not found" although the file is there. Resolve the
+# temp dir to its real path once, so every subprocess sees the file Python wrote.
+export TMPDIR="$(cd "${TMPDIR:-/tmp}" && pwd -P)"
+
 # pytest-xdist worker count: EVARNESS_PYTEST_WORKERS=<n>|auto|logical, default auto (one per
 # core). Set it lower when several gates share the machine; 0 runs without xdist.
 WORKERS="${EVARNESS_PYTEST_WORKERS:-auto}"
