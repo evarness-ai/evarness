@@ -470,70 +470,157 @@ def _clean_agent_name(value: str) -> str:
     return cleaned[:80].strip()
 
 
+# ---------------------------------------------------------------------------
+# Persona: the name and purpose the disclosure example is built from
+# ---------------------------------------------------------------------------
+
+DEFAULT_AGENT_NAME = "Evarness"
+# A custom name with no stated purpose still needs an example sentence that reads well.
+_GENERIC_PURPOSE = "a personal assistant"
+_PURPOSE_MAX_CHARS = 160
+
+_NAME_HEADING_RE = re.compile(r"^#\s+(.+?)(?:\s+[—-]\s+Soul)?\s*$", re.MULTILINE)
+# Top-level headings that label the file rather than name the agent.
+_NON_NAME_HEADINGS = frozenset({"soul", "identity", "persona", "about me", "who you are"})
+_IDENTITY_LINE_RE = re.compile(
+    r"^\s*(?:You are|I am|I'm)\s+([^,.!?\n]+)", re.IGNORECASE | re.MULTILINE
+)
+# A name taken from a "You are X" sentence must look like a name, not a clause: one to
+# three capitalised words. "You are not allowed to ..." and "You are warm, direct" never match.
+_NAME_SHAPE_RE = re.compile(r"^[A-Z][\w'-]*(?:\s+[A-Z][\w'-]*){0,2}$")
+_PERSONA_SECTION_RE = re.compile(
+    r"^##\s+(?:Mission|Purpose|Who you are)\s*$\n?(.*?)(?=^##\s+|\Z)",
+    re.IGNORECASE | re.MULTILINE | re.DOTALL,
+)
+_PURPOSE_START_RE = re.compile(
+    r"^\s*(?:You are|I am|I'm)\s+([^,.!?\n]+),\s*", re.IGNORECASE | re.MULTILINE
+)
+# The purpose runs to the end of its sentence: . ! ? followed by whitespace or the end of
+# the text, but not after a title or an initial ("Dr. Lee", "J. Smith"); a blank line also
+# ends it. Soul files wrap long sentences, so a plain newline does not.
+_PURPOSE_END_RE = re.compile(
+    r"(?<!\bDr)(?<!\bMr)(?<!\bMrs)(?<!\bMs)(?<!\bSt)(?<!\bvs)(?<!\be\.g)(?<!\bi\.e)(?<!\b[A-Z])"
+    r"[.!?](?=\s|$)|\n[ \t]*\n"
+)
+
+
+@dataclass(frozen=True)
+class Persona:
+    """What the prompt says the agent is called and does.
+
+    ``purpose`` is None when the persona is the shipped Evarness one, so the disclosure
+    guardrail keeps its stock example.
+    """
+
+    name: str
+    purpose: str | None
+
+
+def _clean_purpose(value: object) -> str | None:
+    """Return a single-line, bounded purpose phrase, or None when there is none."""
+    text = re.sub(r"\s+", " ", str(value or "")).strip(" .!?\t\r\n")
+    return text[:_PURPOSE_MAX_CHARS].rstrip() or None
+
+
 def agent_name_from_soul(soul: str | None) -> str | None:
-    """Extract a persona name from the frontmatter-free SOUL body."""
+    """Extract a persona name from a frontmatter-free SOUL body.
+
+    A top-level heading (``# Scribe - Soul``) wins; otherwise the first ``You are X`` /
+    ``I'm X`` sentence whose X is shaped like a name.
+    """
     if not soul:
         return None
-    heading_match = re.search(r"^#\s+(.+?)(?:\s+[—-]\s+Soul)?\s*$", soul, re.MULTILINE)
+    heading_match = _NAME_HEADING_RE.search(soul)
     if heading_match:
         name = _clean_agent_name(heading_match.group(1))
-        if name:
+        if name and name.lower() not in _NON_NAME_HEADINGS:
             return name
-    identity_match = re.search(
-        r"^\s*(?:You are|I am|I'm)\s+([^,.!?\n]+)", soul, re.IGNORECASE | re.MULTILINE
-    )
-    return _clean_agent_name(identity_match.group(1)) if identity_match else None
+    for identity_match in _IDENTITY_LINE_RE.finditer(soul):
+        candidate = _clean_agent_name(identity_match.group(1))
+        if _NAME_SHAPE_RE.match(candidate):
+            return candidate
+    return None
 
 
 def agent_purpose_from_soul(soul: str | None) -> str | None:
-    """Extract the short purpose phrase used in identity examples."""
+    """Extract the short purpose phrase used in the "who are you" example.
+
+    Reads the Mission / Purpose / Who-you-are section when there is one, else the whole
+    body: the rest of the sentence after ``You are <Name>, `` wins, else the section's
+    first line.
+    """
     if not soul:
         return None
-    mission_match = re.search(
-        r"^##\s+(?:Mission|Purpose|Who you are)\s*$\n?(.*?)(?=^##\s+|\Z)",
-        soul,
-        re.IGNORECASE | re.MULTILINE | re.DOTALL,
-    )
-    source = mission_match.group(1) if mission_match else soul
-    identity_match = re.search(
-        r"(?:You are|I am|I'm)\s+[^,.!?\n]+,\s*(.+?)(?:[.!?]|$)",
-        source,
-        re.IGNORECASE | re.DOTALL,
-    )
-    if identity_match:
-        purpose = re.sub(r"\s+", " ", identity_match.group(1)).strip(" .!?\t\r\n")
-        return purpose or None
-    if mission_match:
+    section_match = _PERSONA_SECTION_RE.search(soul)
+    source = section_match.group(1) if section_match else soul
+    for start in _PURPOSE_START_RE.finditer(source):
+        if not _NAME_SHAPE_RE.match(_clean_agent_name(start.group(1))):
+            continue
+        rest = source[start.end() :]
+        end = _PURPOSE_END_RE.search(rest)
+        purpose = _clean_purpose(rest[: end.start()] if end else rest)
+        if purpose:
+            return purpose
+    if section_match:
         first_line = next(
             (line.strip(" -*\t") for line in source.splitlines() if line.strip(" -*\t")),
             "",
         )
-        purpose = re.sub(r"\s+", " ", first_line).strip(" .!?\t\r\n")
-        return purpose or None
+        return _clean_purpose(first_line)
     return None
 
 
+def _soul_frontmatter(path: Path) -> dict[str, object]:
+    if not path.exists():
+        return {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning("could not read %s: %s", path, exc)
+        return {}
+    meta, _ = _split_frontmatter(text)
+    return meta
+
+
 def load_agent_purpose(default: str | None = None) -> str | None:
-    """Return an explicitly configured persona purpose from SOUL frontmatter."""
-    candidates = [soul_path(), _SOUL_DEFAULT]
-    for path in candidates:
-        if not path.exists():
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except OSError as exc:
-            logger.warning("could not read %s: %s", path, exc)
-            continue
-        meta, body = _split_frontmatter(text)
-        raw_purpose = meta.get("purpose")
-        if raw_purpose is not None:
-            purpose = re.sub(r"\s+", " ", str(raw_purpose)).strip(" .!?\t\r\n")
-            if purpose:
-                return purpose
-        parsed_purpose = agent_purpose_from_soul(body)
-        if parsed_purpose:
-            return parsed_purpose
+    """Return the ``purpose:`` key from SOUL.md frontmatter (user file, then the default)."""
+    for path in (soul_path(), _SOUL_DEFAULT):
+        purpose = _clean_purpose(_soul_frontmatter(path).get("purpose"))
+        if purpose:
+            return purpose
     return default
+
+
+def _default_soul_purpose() -> str | None:
+    """The purpose the shipped default soul states, so a seeded copy of it is recognised."""
+    if not _SOUL_DEFAULT.exists():
+        return None
+    try:
+        _, body = _split_frontmatter(_SOUL_DEFAULT.read_text(encoding="utf-8"))
+    except OSError:
+        return None
+    return agent_purpose_from_soul(body)
+
+
+def resolve_persona(soul: str | None) -> Persona:
+    """Name and purpose for the prompt, explicit configuration first.
+
+    Precedence: the user's SOUL.md frontmatter (``name:``, ``purpose:``), then ``soul`` as
+    given (heading, ``You are X, Y`` sentence, Mission/Purpose section), then the shipped
+    default. The shipped Evarness persona, including a seeded unedited copy of the default
+    soul, resolves with ``purpose=None`` so the stock example stays; a custom name with no
+    stated purpose gets a generic one.
+    """
+    meta = _soul_frontmatter(soul_path())
+    name = (
+        _clean_agent_name(str(meta.get("name") or ""))
+        or agent_name_from_soul(soul)
+        or load_agent_name()
+    )
+    purpose = _clean_purpose(meta.get("purpose")) or agent_purpose_from_soul(soul)
+    if name == DEFAULT_AGENT_NAME and purpose in (None, _default_soul_purpose()):
+        return Persona(name, None)
+    return Persona(name, purpose or _GENERIC_PURPOSE)
 
 
 # ---------------------------------------------------------------------------

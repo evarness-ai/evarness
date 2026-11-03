@@ -34,13 +34,7 @@ from evarness.foundation.clock import local_now
 from evarness.kernel.governance.disclosure import build_disclosure_style_guardrail
 from evarness.llm.budget import budget_for, estimate_tokens, trim_text
 from evarness.llm.tier_router import TierRouter
-from evarness.memory.identity import (
-    agent_name_from_soul,
-    agent_purpose_from_soul,
-    load_agent_name,
-    load_agent_purpose,
-    load_soul_core,
-)
+from evarness.memory.identity import load_soul_core, resolve_persona
 from evarness.runtime.client_config import (
     config_from_profile,
     effective_provider_profile,
@@ -105,13 +99,9 @@ def _general_system_prompt(soul: str | None = None, message: str = "") -> str:
 
     if soul is None:
         soul = load_soul_core()
-    agent_name = agent_name_from_soul(soul) or load_agent_name()
-    purpose = agent_purpose_from_soul(soul) or load_agent_purpose()
-    if agent_name == "Evarness" and purpose == "a helpful personal AI assistant":
-        purpose = None
-    elif purpose is None and agent_name != "Evarness":
-        purpose = "a personal assistant"
-    guardrail = build_disclosure_style_guardrail(agent_name=agent_name, purpose=purpose)
+    persona = resolve_persona(soul)
+    agent_name = persona.name
+    guardrail = build_disclosure_style_guardrail(agent_name=agent_name, purpose=persona.purpose)
     if soul:
         return (
             # Pin the current date/time at the HEAD of the prompt: local-tier
