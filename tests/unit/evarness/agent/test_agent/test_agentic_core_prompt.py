@@ -10,8 +10,23 @@ EVARNESS_AGENTIC_CORE_ENABLED=on). These tests pin the corrected behavior.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
+
 from evarness.agent.agentic_core import ToolSpec, _build_react_prompt
+from evarness.memory.identity import loader
 from evarness.memory.retriever import MemoryContext
+
+
+@pytest.fixture(autouse=True)
+def _no_soul_on_disk(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Only the soul on ``MemoryContext`` counts.
+
+    SOUL.md frontmatter on disk outranks the text by design, and another test on the same
+    worker may have seeded the default SOUL.md (``name: Evarness``) into the shared test home.
+    """
+    monkeypatch.setattr(loader, "SOUL_PATH", tmp_path / "missing" / "SOUL.md")
 
 
 def test_build_react_prompt_uses_soul_when_available() -> None:
