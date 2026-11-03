@@ -30,6 +30,30 @@ def test_build_react_prompt_falls_back_to_default_when_soul_missing() -> None:
     assert "You are Evarness, a personal AI assistant." in prompt
 
 
+def test_build_react_prompt_uses_soul_persona_in_disclosure_example() -> None:
+    ctx = MemoryContext(
+        soul=(
+            "# Scribe - Soul\n\n"
+            "## Mission\n"
+            "You are Scribe, a writing assistant for technical documents."
+        )
+    )
+
+    prompt = _build_react_prompt("who are you?", tools=[], history=[], memory_context=ctx)
+
+    assert '"I\'m Scribe, a writing assistant for technical documents."' in prompt
+    assert "\"I'm Evarness" not in prompt
+
+
+def test_build_react_prompt_uses_mission_text_when_no_identity_sentence() -> None:
+    ctx = MemoryContext(soul="# Scribe - Soul\n\n## Mission\na writing assistant.")
+
+    prompt = _build_react_prompt("who are you?", tools=[], history=[], memory_context=ctx)
+
+    assert '"I\'m Scribe, a writing assistant."' in prompt
+    assert "\"I'm Evarness" not in prompt
+
+
 def test_build_react_prompt_injects_user_profile() -> None:
     ctx = MemoryContext(
         soul="soul body",
